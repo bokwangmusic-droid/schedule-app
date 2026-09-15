@@ -89,11 +89,7 @@ export default function NewScheduleScreen() {
             <Text style={styles.headerAction}>취소</Text>
           </Pressable>
           <Text style={styles.headerTitle}>새 일정</Text>
-          <Pressable onPress={save} disabled={saving} hitSlop={12}>
-            <Text style={[styles.headerSave, saving && styles.disabledText]}>
-              {saving ? '저장 중' : '저장'}
-            </Text>
-          </Pressable>
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
@@ -202,6 +198,16 @@ export default function NewScheduleScreen() {
             />
           </View>
         </ScrollView>
+
+        <View style={styles.bottomBar}>
+          <Pressable
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={save}
+            disabled={saving}
+          >
+            <Text style={styles.saveButtonText}>{saving ? '저장 중...' : '일정 저장'}</Text>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -235,19 +241,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#171A21',
   },
-  headerSave: {
-    minWidth: 52,
-    textAlign: 'right',
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#4B68FF',
-  },
-  disabledText: {
-    opacity: 0.45,
+  headerSpacer: {
+    width: 52,
   },
   content: {
     padding: 24,
-    paddingBottom: 48,
+    paddingBottom: 40,
   },
   label: {
     marginBottom: 10,
@@ -331,5 +330,28 @@ const styles = StyleSheet.create({
     minHeight: 120,
     paddingTop: 16,
     paddingBottom: 16,
+  },
+  bottomBar: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E7EB',
+    backgroundColor: '#F7F8FA',
+  },
+  saveButton: {
+    minHeight: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4B68FF',
+  },
+  saveButtonDisabled: {
+    opacity: 0.55,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });
