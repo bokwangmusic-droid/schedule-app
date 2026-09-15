@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useMemo, useState } from 'react';
 import {
@@ -22,17 +22,30 @@ import {
   toLocalDateString,
 } from '../../src/lib/date';
 
+function addOneHour(time: string) {
+  if (!isValidTimeInput(time)) return '10:00';
+  const [hour, minute] = time.split(':').map(Number);
+  return `${String(Math.min(hour + 1, 23)).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
 export default function NewScheduleScreen() {
   const db = useSQLiteContext();
+  const params = useLocalSearchParams<{ date?: string; startTime?: string }>();
   const today = useMemo(() => new Date(), []);
   const todayString = useMemo(() => toLocalDateString(today), [today]);
   const tomorrowString = useMemo(() => toLocalDateString(addDays(today, 1)), [today]);
+  const initialDate = typeof params.date === 'string' && isValidDateInput(params.date)
+    ? params.date
+    : todayString;
+  const initialStartTime = typeof params.startTime === 'string' && isValidTimeInput(params.startTime)
+    ? params.startTime
+    : '09:00';
 
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState(todayString);
+  const [date, setDate] = useState(initialDate);
   const [isAllDay, setIsAllDay] = useState(false);
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('10:00');
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [endTime, setEndTime] = useState(addOneHour(initialStartTime));
   const [memo, setMemo] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -115,28 +128,15 @@ export default function NewScheduleScreen() {
                 style={[styles.quickButton, date === todayString && styles.quickButtonActive]}
                 onPress={() => setDate(todayString)}
               >
-                <Text
-                  style={[
-                    styles.quickButtonText,
-                    date === todayString && styles.quickButtonTextActive,
-                  ]}
-                >
+                <Text style={[styles.quickButtonText, date === todayString && styles.quickButtonTextActive]}>
                   오늘
                 </Text>
               </Pressable>
               <Pressable
-                style={[
-                  styles.quickButton,
-                  date === tomorrowString && styles.quickButtonActive,
-                ]}
+                style={[styles.quickButton, date === tomorrowString && styles.quickButtonActive]}
                 onPress={() => setDate(tomorrowString)}
               >
-                <Text
-                  style={[
-                    styles.quickButtonText,
-                    date === tomorrowString && styles.quickButtonTextActive,
-                  ]}
-                >
+                <Text style={[styles.quickButtonText, date === tomorrowString && styles.quickButtonTextActive]}>
                   내일
                 </Text>
               </Pressable>
@@ -199,9 +199,13 @@ export default function NewScheduleScreen() {
           </View>
         </ScrollView>
 
-        <View style={styles.bottomBar}>
+        <View style={styles.footer}>
           <Pressable
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            style={({ pressed }) => [
+              styles.saveButton,
+              pressed && !saving && styles.saveButtonPressed,
+              saving && styles.saveButtonDisabled,
+            ]}
             onPress={save}
             disabled={saving}
           >
@@ -236,17 +240,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#606775',
   },
+  headerSpacer: {
+    width: 52,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#171A21',
   },
-  headerSpacer: {
-    width: 52,
-  },
   content: {
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   label: {
     marginBottom: 10,
@@ -331,20 +335,21 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 16,
   },
-  bottomBar: {
+  footer: {
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 20,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E7EB',
+    paddingTop: 10,
+    paddingBottom: 18,
     backgroundColor: '#F7F8FA',
   },
   saveButton: {
-    minHeight: 56,
+    height: 56,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4B68FF',
+  },
+  saveButtonPressed: {
+    opacity: 0.88,
   },
   saveButtonDisabled: {
     opacity: 0.55,
