@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "스케줄",
+    "slug": "schedule-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "scheme": "scheduleapp",
+    "android": {
+      "package": "com.ijcompany.scheduleapp"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
