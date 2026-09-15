@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,7 @@ const HOUR_HEIGHT = 64;
 const TIME_GUTTER = 38;
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const EVENT_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
+const NOW_COLOR = '#FF4D5A';
 
 function timeToMinutes(value: string | null) {
   if (!value) return null;
@@ -57,6 +58,12 @@ export default function HomeScreen() {
   const [weekStart, setWeekStart] = useState(todayWeekStart);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const weekDates = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
@@ -107,6 +114,17 @@ export default function HomeScreen() {
     Alert.alert(schedule.title, `${scheduleTimeLabel(schedule)}${memo}`);
   };
 
+  const todayDayIndex = weekDates.findIndex(
+    (date) => toLocalDateString(date) === todayString,
+  );
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentLineVisible =
+    todayDayIndex >= 0 &&
+    currentMinutes >= START_HOUR * 60 &&
+    currentMinutes < END_HOUR * 60;
+  const currentLineTop =
+    ((currentMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.topBar}>
@@ -120,7 +138,7 @@ export default function HomeScreen() {
           </Pressable>
 
           <View style={styles.weekTitleWrap}>
-            <Text style={styles.weekTitle}>{formatWeekRange(weekStart)}</Text>
+            <Text numberOfLines={1} style={styles.weekTitle}>{formatWeekRange(weekStart)}</Text>
             <Text style={styles.weekSubtitle}>주간 시간표</Text>
           </View>
 
@@ -196,12 +214,14 @@ export default function HomeScreen() {
 
             {weekDates.map((date, dayIndex) => {
               const dateString = toLocalDateString(date);
+              const isToday = dateString === todayString;
               return (
                 <View
                   key={`column-${dateString}`}
                   pointerEvents="none"
                   style={[
                     styles.dayColumn,
+                    isToday && styles.todayColumn,
                     {
                       left: TIME_GUTTER + dayIndex * dayWidth,
                       width: dayWidth,
@@ -236,6 +256,23 @@ export default function HomeScreen() {
               });
             })}
 
+            {currentLineVisible && (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.currentTimeWrap,
+                  {
+                    left: TIME_GUTTER + todayDayIndex * dayWidth,
+                    top: currentLineTop,
+                    width: dayWidth,
+                  },
+                ]}
+              >
+                <View style={styles.currentTimeDot} />
+                <View style={styles.currentTimeLine} />
+              </View>
+            )}
+
             {timedSchedules.map((schedule) => {
               const dayIndex = weekDates.findIndex(
                 (date) => toLocalDateString(date) === schedule.date,
@@ -269,11 +306,18 @@ export default function HomeScreen() {
                   ]}
                   onPress={() => showSchedule(schedule)}
                 >
-                  <Text numberOfLines={height < 42 ? 1 : 3} style={styles.eventTitle}>
+                  <Text
+                    numberOfLines={height >= 96 ? 2 : 1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.78}
+                    style={styles.eventTitle}
+                  >
                     {schedule.title}
                   </Text>
-                  {height >= 58 && schedule.startTime && (
-                    <Text numberOfLines={1} style={styles.eventTime}>{schedule.startTime}</Text>
+                  {height >= 52 && schedule.startTime && schedule.endTime && (
+                    <Text numberOfLines={1} style={styles.eventTime}>
+                      {schedule.startTime}–{schedule.endTime}
+                    </Text>
                   )}
                 </Pressable>
               );
@@ -291,58 +335,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   topBar: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 10,
+    minHeight: 68,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
   },
   weekNavigation: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   roundButton: {
-    width: 42,
+    width: 34,
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 21,
+    borderRadius: 17,
   },
   roundButtonText: {
     marginTop: -3,
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '300',
     color: '#30343B',
   },
   weekTitleWrap: {
-    minWidth: 170,
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
   },
   weekTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#171A21',
   },
   weekSubtitle: {
     marginTop: 2,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#9298A3',
   },
   actions: {
-    position: 'absolute',
-    right: 12,
-    top: 11,
+    marginLeft: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   todayButton: {
-    height: 36,
+    height: 38,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F2F6',
@@ -353,16 +400,16 @@ const styles = StyleSheet.create({
     color: '#59606D',
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4B68FF',
   },
   addButtonText: {
     marginTop: -2,
-    fontSize: 26,
+    fontSize: 27,
     fontWeight: '400',
     color: '#FFFFFF',
   },
@@ -461,7 +508,7 @@ const styles = StyleSheet.create({
   },
   hourLabel: {
     width: TIME_GUTTER - 5,
-    marginTop: -18,
+    marginTop: 18,
     paddingRight: 4,
     textAlign: 'right',
     fontSize: 10,
@@ -480,16 +527,38 @@ const styles = StyleSheet.create({
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: '#E1E4E9',
   },
+  todayColumn: {
+    backgroundColor: '#F7F9FF',
+  },
   slotButton: {
     position: 'absolute',
     backgroundColor: 'transparent',
   },
+  currentTimeWrap: {
+    position: 'absolute',
+    zIndex: 3,
+    height: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currentTimeDot: {
+    width: 6,
+    height: 6,
+    marginLeft: -3,
+    borderRadius: 3,
+    backgroundColor: NOW_COLOR,
+  },
+  currentTimeLine: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: NOW_COLOR,
+  },
   eventBlock: {
     position: 'absolute',
-    zIndex: 2,
-    paddingHorizontal: 4,
+    zIndex: 4,
+    paddingHorizontal: 3,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -502,9 +571,9 @@ const styles = StyleSheet.create({
   },
   eventTime: {
     marginTop: 2,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.92)',
     textAlign: 'center',
   },
 });
