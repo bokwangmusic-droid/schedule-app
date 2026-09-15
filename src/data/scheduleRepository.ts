@@ -48,6 +48,25 @@ export async function listSchedulesForDate(db: SQLiteDatabase, date: string) {
   return rows.map(mapScheduleRow);
 }
 
+export async function listSchedulesForRange(
+  db: SQLiteDatabase,
+  startDate: string,
+  endDate: string,
+) {
+  const rows = await db.getAllAsync<ScheduleRow>(
+    `SELECT *
+     FROM schedules
+     WHERE date >= ? AND date <= ?
+     ORDER BY date ASC,
+              CASE WHEN is_all_day = 1 THEN 0 ELSE 1 END ASC,
+              start_time ASC,
+              created_at ASC`,
+    [startDate, endDate],
+  );
+
+  return rows.map(mapScheduleRow);
+}
+
 export async function createSchedule(
   db: SQLiteDatabase,
   input: CreateScheduleInput,
