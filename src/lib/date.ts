@@ -11,6 +11,25 @@ export function addDays(date: Date, amount: number) {
   return next;
 }
 
+export function startOfWeekMonday(date: Date) {
+  const next = new Date(date);
+  const day = next.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  next.setDate(next.getDate() + diff);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+export function formatWeekRange(start: Date) {
+  const end = addDays(start, 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  const startLabel = `${start.getMonth() + 1}월 ${start.getDate()}일`;
+  const endLabel = sameMonth
+    ? `${end.getDate()}일`
+    : `${end.getMonth() + 1}월 ${end.getDate()}일`;
+  return `${startLabel} - ${endLabel}`;
+}
+
 export function formatKoreanDate(date: Date) {
   return new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
