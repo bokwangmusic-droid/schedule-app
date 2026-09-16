@@ -20,3 +20,5 @@ export type CreateMemberInput = {
   ptRemainingSessions?: number | null;
   memo?: string | null;
 };
+
+export type UpdateMemberInput = CreateMemberInput;
