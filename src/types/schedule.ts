@@ -8,6 +8,8 @@ export type ScheduleItem = {
   color: string | null;
   memberId: string | null;
   memberName: string | null;
+  memberPtTotalSessions: number | null;
+  memberPtRemainingSessions: number | null;
   isAllDay: boolean;
   isCompleted: boolean;
   createdAt: string;
