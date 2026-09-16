@@ -20,7 +20,8 @@ import type { ScheduleItem } from '../src/types/schedule';
 const START_HOUR = 6;
 const END_HOUR = 24;
 const HOUR_HEIGHT = 30;
-const TIME_GUTTER = 30;
+const TIME_GUTTER = 32;
+const SCREEN_MARGIN = 10;
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const EVENT_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 const NOW_COLOR = '#FF4D5A';
@@ -91,8 +92,8 @@ export default function HomeScreen() {
   const weekStartString = toLocalDateString(weekDates[0]);
   const weekEndString = toLocalDateString(weekDates[6]);
   const todayString = toLocalDateString(today);
-  const dayWidth = Math.max((width - TIME_GUTTER) / 7, 38);
-  const timetableWidth = TIME_GUTTER + dayWidth * 7;
+  const timetableWidth = Math.max(width - SCREEN_MARGIN * 2, 320);
+  const dayWidth = (timetableWidth - TIME_GUTTER) / 7;
   const gridHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
   const weekLabel = getWeekOfMonthLabel(addDays(weekStart, 3));
 
@@ -202,183 +203,185 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <View style={[styles.dayHeader, { width: timetableWidth }]}>
-        <View style={{ width: TIME_GUTTER }} />
-        {weekDates.map((date, index) => {
-          const dateString = toLocalDateString(date);
-          const isToday = dateString === todayString;
-          return (
-            <View key={dateString} style={[styles.dayHeaderCell, { width: dayWidth }]}>
-              <Text style={[styles.dayName, isToday && styles.todayText]}>{DAYS[index]}</Text>
-              <View style={[styles.dayNumberWrap, isToday && styles.todayNumberWrap]}>
-                <Text style={[styles.dayNumber, isToday && styles.todayNumber]}>{date.getDate()}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-
-      {allDaySchedules.length > 0 && (
-        <View style={styles.allDayStrip}>
-          <Text style={styles.allDayLabel}>종일</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.allDayContent}
-          >
-            {allDaySchedules.map((schedule) => (
-              <Pressable
-                key={schedule.id}
-                style={[styles.allDayChip, { backgroundColor: scheduleColor(schedule) }]}
-                onPress={() => openSchedule(schedule.id)}
-              >
-                <Text numberOfLines={1} style={styles.allDayChipText}>{scheduleLabel(schedule)}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color="#4B68FF" />
-        </View>
-      ) : (
-        <ScrollView style={styles.gridScroll} showsVerticalScrollIndicator={false}>
-          <View style={[styles.grid, { width: timetableWidth, height: gridHeight }]}>
-            {weekDates.map((date, dayIndex) => {
-              const dateString = toLocalDateString(date);
-              const isToday = dateString === todayString;
-              return (
-                <View
-                  key={`column-${dateString}`}
-                  pointerEvents="none"
-                  style={[
-                    styles.dayColumn,
-                    isToday && styles.todayColumn,
-                    {
-                      left: TIME_GUTTER + dayIndex * dayWidth,
-                      width: dayWidth,
-                      height: gridHeight,
-                    },
-                  ]}
-                />
-              );
-            })}
-
-            {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => {
-              const hour = START_HOUR + index;
-              const top = index * HOUR_HEIGHT;
-              return (
-                <View key={`hour-${hour}`} pointerEvents="none">
-                  <View style={[styles.hourLine, { top }]} />
-                  {hour < END_HOUR && (
-                    <Text
-                      style={[
-                        styles.hourLabel,
-                        { top: index === 0 ? 2 : top - 7 },
-                      ]}
-                    >
-                      {hour}
-                    </Text>
-                  )}
+      <View style={[styles.timetableShell, { width: timetableWidth }]}>
+        <View style={[styles.dayHeader, { width: timetableWidth }]}>
+          <View style={styles.dayHeaderGutter} />
+          {weekDates.map((date, index) => {
+            const dateString = toLocalDateString(date);
+            const isToday = dateString === todayString;
+            return (
+              <View key={dateString} style={[styles.dayHeaderCell, { width: dayWidth }]}>
+                <Text style={[styles.dayName, isToday && styles.todayText]}>{DAYS[index]}</Text>
+                <View style={[styles.dayNumberWrap, isToday && styles.todayNumberWrap]}>
+                  <Text style={[styles.dayNumber, isToday && styles.todayNumber]}>{date.getDate()}</Text>
                 </View>
-              );
-            })}
-
-            {weekDates.flatMap((date, dayIndex) => {
-              const dateString = toLocalDateString(date);
-              return Array.from({ length: END_HOUR - START_HOUR }, (_, hourIndex) => {
-                const hour = START_HOUR + hourIndex;
-                const startTime = `${String(hour).padStart(2, '0')}:00`;
-                return (
-                  <Pressable
-                    key={`${dateString}-${hour}`}
-                    accessibilityLabel={`${dateString} ${startTime} 일정 추가`}
-                    style={[
-                      styles.slotButton,
-                      {
-                        left: TIME_GUTTER + dayIndex * dayWidth,
-                        top: hourIndex * HOUR_HEIGHT,
-                        width: dayWidth,
-                        height: HOUR_HEIGHT,
-                      },
-                    ]}
-                    onPress={() => openNewSchedule(dateString, startTime)}
-                  />
-                );
-              });
-            })}
-
-            {currentLineVisible && (
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.currentTimeWrap,
-                  {
-                    left: TIME_GUTTER + todayDayIndex * dayWidth,
-                    top: currentLineTop,
-                    width: dayWidth,
-                  },
-                ]}
-              >
-                <View style={styles.currentTimeDot} />
-                <View style={styles.currentTimeLine} />
               </View>
-            )}
+            );
+          })}
+        </View>
 
-            {timedSchedules.map((schedule) => {
-              const dayIndex = weekDates.findIndex(
-                (date) => toLocalDateString(date) === schedule.date,
-              );
-              const startMinutes = timeToMinutes(schedule.startTime);
-              const endMinutes = timeToMinutes(schedule.endTime);
-              if (dayIndex < 0 || startMinutes === null || endMinutes === null) return null;
-
-              const gridStartMinutes = START_HOUR * 60;
-              const gridEndMinutes = END_HOUR * 60;
-              if (endMinutes <= gridStartMinutes || startMinutes >= gridEndMinutes) return null;
-
-              const visibleStart = Math.max(startMinutes, gridStartMinutes);
-              const visibleEnd = Math.min(Math.max(endMinutes, visibleStart + 15), gridEndMinutes);
-              const top = ((visibleStart - gridStartMinutes) / 60) * HOUR_HEIGHT;
-              const height = Math.max(((visibleEnd - visibleStart) / 60) * HOUR_HEIGHT, 17);
-              const ptLabel = schedulePtLabel(schedule);
-              const showPtLabel = Boolean(ptLabel && height >= 26);
-
-              return (
+        {allDaySchedules.length > 0 && (
+          <View style={styles.allDayStrip}>
+            <Text style={styles.allDayLabel}>종일</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.allDayContent}
+            >
+              {allDaySchedules.map((schedule) => (
                 <Pressable
                   key={schedule.id}
-                  style={[
-                    styles.eventBlock,
-                    {
-                      left: TIME_GUTTER + dayIndex * dayWidth + 1,
-                      top: top + 1,
-                      width: Math.max(dayWidth - 2, 32),
-                      height: Math.max(height - 2, 15),
-                      backgroundColor: scheduleColor(schedule),
-                      opacity: schedule.isCompleted ? 0.55 : 1,
-                    },
-                  ]}
+                  style={[styles.allDayChip, { backgroundColor: scheduleColor(schedule) }]}
                   onPress={() => openSchedule(schedule.id)}
                 >
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.65}
-                    style={styles.eventTitle}
-                  >
-                    {scheduleLabel(schedule)}
-                  </Text>
-                  {showPtLabel ? (
-                    <Text numberOfLines={1} style={styles.eventMeta}>{ptLabel}</Text>
-                  ) : null}
+                  <Text numberOfLines={1} style={styles.allDayChipText}>{scheduleLabel(schedule)}</Text>
                 </Pressable>
-              );
-            })}
+              ))}
+            </ScrollView>
           </View>
-        </ScrollView>
-      )}
+        )}
+
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color="#4B68FF" />
+          </View>
+        ) : (
+          <ScrollView style={styles.gridScroll} showsVerticalScrollIndicator={false}>
+            <View style={[styles.grid, { width: timetableWidth, height: gridHeight }]}>
+              {weekDates.map((date, dayIndex) => {
+                const dateString = toLocalDateString(date);
+                const isToday = dateString === todayString;
+                return (
+                  <View
+                    key={`column-${dateString}`}
+                    pointerEvents="none"
+                    style={[
+                      styles.dayColumn,
+                      isToday && styles.todayColumn,
+                      {
+                        left: TIME_GUTTER + dayIndex * dayWidth,
+                        width: dayWidth,
+                        height: gridHeight,
+                      },
+                    ]}
+                  />
+                );
+              })}
+
+              {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => {
+                const hour = START_HOUR + index;
+                const top = index * HOUR_HEIGHT;
+                return (
+                  <View key={`hour-${hour}`} pointerEvents="none">
+                    <View style={[styles.hourLine, { top }]} />
+                    {hour < END_HOUR && (
+                      <Text
+                        style={[
+                          styles.hourLabel,
+                          { top: index === 0 ? 2 : top - 7 },
+                        ]}
+                      >
+                        {hour}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+
+              {weekDates.flatMap((date, dayIndex) => {
+                const dateString = toLocalDateString(date);
+                return Array.from({ length: END_HOUR - START_HOUR }, (_, hourIndex) => {
+                  const hour = START_HOUR + hourIndex;
+                  const startTime = `${String(hour).padStart(2, '0')}:00`;
+                  return (
+                    <Pressable
+                      key={`${dateString}-${hour}`}
+                      accessibilityLabel={`${dateString} ${startTime} 일정 추가`}
+                      style={[
+                        styles.slotButton,
+                        {
+                          left: TIME_GUTTER + dayIndex * dayWidth,
+                          top: hourIndex * HOUR_HEIGHT,
+                          width: dayWidth,
+                          height: HOUR_HEIGHT,
+                        },
+                      ]}
+                      onPress={() => openNewSchedule(dateString, startTime)}
+                    />
+                  );
+                });
+              })}
+
+              {currentLineVisible && (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.currentTimeWrap,
+                    {
+                      left: TIME_GUTTER + todayDayIndex * dayWidth,
+                      top: currentLineTop,
+                      width: dayWidth,
+                    },
+                  ]}
+                >
+                  <View style={styles.currentTimeDot} />
+                  <View style={styles.currentTimeLine} />
+                </View>
+              )}
+
+              {timedSchedules.map((schedule) => {
+                const dayIndex = weekDates.findIndex(
+                  (date) => toLocalDateString(date) === schedule.date,
+                );
+                const startMinutes = timeToMinutes(schedule.startTime);
+                const endMinutes = timeToMinutes(schedule.endTime);
+                if (dayIndex < 0 || startMinutes === null || endMinutes === null) return null;
+
+                const gridStartMinutes = START_HOUR * 60;
+                const gridEndMinutes = END_HOUR * 60;
+                if (endMinutes <= gridStartMinutes || startMinutes >= gridEndMinutes) return null;
+
+                const visibleStart = Math.max(startMinutes, gridStartMinutes);
+                const visibleEnd = Math.min(Math.max(endMinutes, visibleStart + 15), gridEndMinutes);
+                const top = ((visibleStart - gridStartMinutes) / 60) * HOUR_HEIGHT;
+                const height = Math.max(((visibleEnd - visibleStart) / 60) * HOUR_HEIGHT, 17);
+                const ptLabel = schedulePtLabel(schedule);
+                const showPtLabel = Boolean(ptLabel && height >= 26);
+
+                return (
+                  <Pressable
+                    key={schedule.id}
+                    style={[
+                      styles.eventBlock,
+                      {
+                        left: TIME_GUTTER + dayIndex * dayWidth + 2,
+                        top: top + 2,
+                        width: Math.max(dayWidth - 4, 30),
+                        height: Math.max(height - 4, 14),
+                        backgroundColor: scheduleColor(schedule),
+                        opacity: schedule.isCompleted ? 0.55 : 1,
+                      },
+                    ]}
+                    onPress={() => openSchedule(schedule.id)}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.65}
+                      style={styles.eventTitle}
+                    >
+                      {scheduleLabel(schedule)}
+                    </Text>
+                    {showPtLabel ? (
+                      <Text numberOfLines={1} style={styles.eventMeta}>{ptLabel}</Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
+      </View>
 
       <Modal
         visible={moreMenuOpen}
@@ -440,14 +443,20 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F5F6F8',
+  },
   topBar: {
     height: 58,
-    paddingHorizontal: 6,
+    marginTop: 6,
+    marginHorizontal: SCREEN_MARGIN,
+    paddingHorizontal: 9,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ECEEF2',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
   },
   weekSwitcher: {
@@ -457,112 +466,130 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weekArrowButton: {
-    width: 28,
-    height: 42,
+    width: 30,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 10,
   },
   weekArrowText: {
-    marginTop: -4,
-    fontSize: 31,
+    marginTop: -3,
+    fontSize: 29,
     fontWeight: '300',
-    color: '#24272D',
+    color: '#2D3138',
   },
   weekLabelButton: {
     minWidth: 0,
     flex: 1,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1F2228',
-  },
-  headerActions: {
-    marginLeft: 3,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  smallHeaderButton: {
-    height: 32,
-    paddingHorizontal: 7,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F2F6',
-  },
-  smallHeaderButtonText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#555D6B',
-  },
-  addButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.7,
-    borderColor: '#202329',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  addButtonText: {
-    marginTop: -3,
-    fontSize: 26,
-    fontWeight: '400',
-    color: '#202329',
-  },
-  moreButton: {
-    width: 27,
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  moreButtonText: {
-    marginTop: -3,
-    fontSize: 27,
-    lineHeight: 30,
+  weekTitle: {
+    fontSize: 17,
     fontWeight: '900',
-    color: '#202329',
+    color: '#1F232A',
+  },
+  headerActions: {
+    marginLeft: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  smallHeaderButton: {
+    height: 32,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  smallHeaderButtonText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#5B6270',
+  },
+  addButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#24282F',
+  },
+  addButtonText: {
+    marginTop: -2,
+    fontSize: 23,
+    fontWeight: '400',
+    color: '#FFFFFF',
+  },
+  moreButton: {
+    width: 28,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  moreButtonText: {
+    marginTop: -2,
+    fontSize: 25,
+    lineHeight: 27,
+    fontWeight: '900',
+    color: '#2D3138',
+  },
+  timetableShell: {
+    flex: 1,
+    alignSelf: 'center',
+    marginTop: 9,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E0E3E8',
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   dayHeader: {
     height: 48,
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#D4D7DD',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: '#E1E4E9',
+    backgroundColor: '#FBFBFC',
+  },
+  dayHeaderGutter: {
+    width: TIME_GUTTER,
+    borderRightWidth: 1,
+    borderRightColor: '#E6E8EC',
   },
   dayHeaderCell: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: '#E6E8EC',
   },
   dayName: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#8B9098',
+    color: '#8A9099',
   },
   dayNumberWrap: {
     minWidth: 22,
     height: 20,
-    marginTop: 1,
+    marginTop: 2,
     paddingHorizontal: 3,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   todayNumberWrap: { backgroundColor: '#4B68FF' },
-  dayNumber: { fontSize: 10, fontWeight: '800', color: '#666D78' },
+  dayNumber: { fontSize: 10, fontWeight: '800', color: '#646B77' },
   todayText: { color: '#4B68FF' },
   todayNumber: { color: '#FFFFFF' },
   allDayStrip: {
-    minHeight: 28,
+    minHeight: 30,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#D7DAE0',
+    borderBottomColor: '#E3E6EA',
     backgroundColor: '#FAFBFC',
   },
   allDayLabel: {
@@ -572,48 +599,65 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#8A909B',
   },
-  allDayContent: { gap: 4, paddingVertical: 3, paddingRight: 8 },
+  allDayContent: { gap: 5, paddingVertical: 4, paddingRight: 8 },
   allDayChip: {
     maxWidth: 90,
     minHeight: 22,
-    paddingHorizontal: 6,
-    borderRadius: 5,
+    paddingHorizontal: 7,
+    borderRadius: 6,
     justifyContent: 'center',
   },
   allDayChipText: { fontSize: 9, fontWeight: '800', color: '#FFFFFF' },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  gridScroll: { flex: 1, backgroundColor: '#FFFFFF' },
-  grid: { position: 'relative', backgroundColor: '#FFFFFF' },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  gridScroll: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  grid: {
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+  },
   hourLabel: {
     position: 'absolute',
     left: 0,
-    width: TIME_GUTTER - 4,
+    width: TIME_GUTTER - 5,
     height: 14,
-    paddingRight: 4,
+    paddingRight: 3,
     textAlign: 'right',
-    fontSize: 10,
+    fontSize: 9,
     lineHeight: 14,
     fontWeight: '600',
-    color: '#737983',
+    color: '#747B86',
     zIndex: 3,
   },
   hourLine: {
     position: 'absolute',
     left: TIME_GUTTER,
     right: 0,
-    height: 1,
-    backgroundColor: '#D2D6DC',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#DEE2E7',
     zIndex: 2,
   },
   dayColumn: {
     position: 'absolute',
     top: 0,
     zIndex: 0,
-    borderLeftWidth: 1,
-    borderLeftColor: '#D7DAE0',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: '#E1E4E8',
   },
-  todayColumn: { backgroundColor: '#F4F6FB' },
-  slotButton: { position: 'absolute', zIndex: 1, backgroundColor: 'transparent' },
+  todayColumn: {
+    backgroundColor: '#F6F7FB',
+  },
+  slotButton: {
+    position: 'absolute',
+    zIndex: 1,
+    backgroundColor: 'transparent',
+  },
   currentTimeWrap: {
     position: 'absolute',
     zIndex: 4,
@@ -628,13 +672,17 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
     backgroundColor: NOW_COLOR,
   },
-  currentTimeLine: { flex: 1, height: 1.4, backgroundColor: NOW_COLOR },
+  currentTimeLine: {
+    flex: 1,
+    height: 1.4,
+    backgroundColor: NOW_COLOR,
+  },
   eventBlock: {
     position: 'absolute',
     zIndex: 5,
-    paddingHorizontal: 2,
+    paddingHorizontal: 3,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: 6,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -657,7 +705,7 @@ const styles = StyleSheet.create({
   sheetBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.40)',
+    backgroundColor: 'rgba(0,0,0,0.38)',
   },
   bottomSheet: {
     paddingHorizontal: 22,
