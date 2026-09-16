@@ -1,3 +1,4 @@
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -5,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   type GestureResponderEvent,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,8 +14,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 import { DraggableScheduleBlock } from '../src/components/DraggableScheduleBlock';
+import { TimetableMoreMenu } from '../src/components/TimetableMoreMenu';
+import { TimetableSettingsModal } from '../src/components/TimetableSettingsModal';
 import {
+  getTimetableSettings,
+  saveHourHeight,
+  saveOverlapView,
+  saveShowPtRemaining,
+} from '../src/data/appSettingsRepository';
+import {
+  createSchedule,
+  deleteSchedule,
   listSchedulesForRange,
   updateSchedule,
 } from '../src/data/scheduleRepository';
@@ -24,13 +35,14 @@ import type { ScheduleItem } from '../src/types/schedule';
 
 const START_HOUR = 6;
 const END_HOUR = 24;
-const HOUR_HEIGHT = 30;
 const TIME_GUTTER = 32;
 const SCREEN_MARGIN = 10;
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const EVENT_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 const NOW_COLOR = '#FF4D5A';
 const WEEK_SWIPE_DISTANCE = 58;
+const TRASH_ZONE_HEIGHT = 76;
+const TRASH_ZONE_BOTTOM = 18;
 
 function timeToMinutes(value: string | null) {
   if (!value) return null;
@@ -43,6 +55,11 @@ function minutesToTime(minutes: number) {
   const hour = Math.floor(minutes / 60);
   const minute = minutes % 60;
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function parseLocalDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
 
 function scheduleColor(schedule: ScheduleItem) {
@@ -81,24 +98,92 @@ function getWeekOfMonthLabel(date: Date) {
   return `${date.getMonth() + 1}월 ${week}주차`;
 }
 
+function copySignature(schedule: ScheduleItem, date = schedule.date) {
+  return [
+    schedule.title,
+    date,
+    schedule.startTime ?? '',
+    schedule.endTime ?? '',
+    schedule.memberId ?? '',
+    schedule.isAllDay ? '1' : '0',
+  ].join('|');
+}
+
+function overlapPlacement(
+  schedule: ScheduleItem,
+  schedules: ScheduleItem[],
+  enabled: boolean,
+) {
+  if (!enabled) return { lane: 0, count: 1 };
+
+  const start = timeToMinutes(schedule.startTime);
+  const end = timeToMinutes(schedule.endTime);
+  if (start === null || end === null) return { lane: 0, count: 1 };
+
+  const overlapping = schedules
+    .filter((item) => {
+      if (item.date !== schedule.date || item.isAllDay) return false;
+      const otherStart = timeToMinutes(item.startTime);
+      const otherEnd = timeToMinutes(item.endTime);
+      if (otherStart === null || otherEnd === null) return false;
+      return otherStart < end && otherEnd > start;
+    })
+    .sort((a, b) => {
+      const aStart = timeToMinutes(a.startTime) ?? 0;
+      const bStart = timeToMinutes(b.startTime) ?? 0;
+      if (aStart !== bStart) return aStart - bStart;
+      return a.id.localeCompare(b.id);
+    });
+
+  if (overlapping.length <= 1) return { lane: 0, count: 1 };
+
+  const lane = Math.max(0, overlapping.findIndex((item) => item.id === schedule.id));
+  return { lane, count: overlapping.length };
+}
+
 export default function HomeScreen() {
   const db = useSQLiteContext();
-  const { width } = useWindowDimensions();
+  const { width, height: screenHeight } = useWindowDimensions();
   const today = useMemo(() => new Date(), []);
   const todayWeekStart = useMemo(() => startOfWeekMonday(today), [today]);
+  const timetableRef = useRef<View>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeBlockedUntilRef = useRef(0);
+
   const [weekStart, setWeekStart] = useState(todayWeekStart);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [movingScheduleId, setMovingScheduleId] = useState<string | null>(null);
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
-  const swipeBlockedUntilRef = useRef(0);
+  const [trashVisible, setTrashVisible] = useState(false);
+  const [trashActive, setTrashActive] = useState(false);
+  const [hourHeight, setHourHeight] = useState(30);
+  const [showPtRemaining, setShowPtRemaining] = useState(true);
+  const [overlapView, setOverlapView] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void getTimetableSettings(db)
+      .then((settings) => {
+        if (!active) return;
+        setHourHeight(settings.hourHeight);
+        setShowPtRemaining(settings.showPtRemaining);
+        setOverlapView(settings.overlapView);
+      })
+      .catch(console.error);
+
+    return () => {
+      active = false;
+    };
+  }, [db]);
 
   const weekDates = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
@@ -109,8 +194,9 @@ export default function HomeScreen() {
   const todayString = toLocalDateString(today);
   const timetableWidth = Math.max(width - SCREEN_MARGIN * 2, 320);
   const dayWidth = (timetableWidth - TIME_GUTTER) / 7;
-  const gridHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
+  const gridHeight = (END_HOUR - START_HOUR) * hourHeight;
   const weekLabel = getWeekOfMonthLabel(addDays(weekStart, 3));
+  const deleteDropY = screenHeight - TRASH_ZONE_HEIGHT - TRASH_ZONE_BOTTOM - 8;
 
   const loadSchedules = useCallback(async () => {
     try {
@@ -225,6 +311,22 @@ export default function HomeScreen() {
     }
   };
 
+  const deleteDraggedSchedule = async (schedule: ScheduleItem) => {
+    setMovingScheduleId(schedule.id);
+    setSchedules((current) => current.filter((item) => item.id !== schedule.id));
+
+    try {
+      await deleteSchedule(db, schedule.id);
+      await loadSchedules();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('삭제 실패', '일정을 삭제하지 못했어요. 다시 시도해 주세요.');
+      await loadSchedules();
+    } finally {
+      setMovingScheduleId(null);
+    }
+  };
+
   const handleTimetableTouchStart = (event: GestureResponderEvent) => {
     if (Date.now() < swipeBlockedUntilRef.current) {
       swipeStartRef.current = null;
@@ -254,6 +356,9 @@ export default function HomeScreen() {
   };
 
   const handleScheduleDragStateChange = (dragging: boolean) => {
+    setTrashVisible(dragging);
+    if (!dragging) setTrashActive(false);
+
     if (dragging) {
       swipeStartRef.current = null;
       swipeBlockedUntilRef.current = Number.POSITIVE_INFINITY;
@@ -263,9 +368,123 @@ export default function HomeScreen() {
     swipeBlockedUntilRef.current = Date.now() + 400;
   };
 
-  const notReadyYet = (title: string) => {
+  const handleDragMoveY = (pageY: number) => {
+    setTrashActive(pageY >= deleteDropY);
+  };
+
+  const changeHourHeight = async (value: number) => {
+    setHourHeight(value);
+    try {
+      await saveHourHeight(db, value);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const changeShowPtRemaining = async (value: boolean) => {
+    setShowPtRemaining(value);
+    try {
+      await saveShowPtRemaining(db, value);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const toggleOverlapView = async () => {
+    const next = !overlapView;
     setMoreMenuOpen(false);
-    Alert.alert(title, '이 기능은 다음 단계에서 바로 이어서 붙일게요.');
+    setOverlapView(next);
+    try {
+      await saveOverlapView(db, next);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const copyCurrentWeekToNextWeek = () => {
+    setMoreMenuOpen(false);
+    Alert.alert(
+      '다음 주로 복사',
+      `${weekLabel}의 일정을 다음 주로 복사할까요?\n이미 같은 회원·시간 일정이 있으면 건너뜁니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '복사',
+          onPress: () => {
+            void (async () => {
+              try {
+                const nextWeekStart = addDays(weekDates[0], 7);
+                const nextWeekEnd = addDays(weekDates[6], 7);
+                const existingNextWeek = await listSchedulesForRange(
+                  db,
+                  toLocalDateString(nextWeekStart),
+                  toLocalDateString(nextWeekEnd),
+                  todayString,
+                );
+                const existing = new Set(existingNextWeek.map((item) => copySignature(item)));
+                let copied = 0;
+
+                for (const schedule of schedules) {
+                  const targetDate = toLocalDateString(addDays(parseLocalDate(schedule.date), 7));
+                  const signature = copySignature(schedule, targetDate);
+                  if (existing.has(signature)) continue;
+
+                  await createSchedule(db, {
+                    title: schedule.title,
+                    date: targetDate,
+                    startTime: schedule.startTime,
+                    endTime: schedule.endTime,
+                    memo: schedule.memo,
+                    color: schedule.color,
+                    memberId: schedule.memberId,
+                    isAllDay: schedule.isAllDay,
+                  });
+                  existing.add(signature);
+                  copied += 1;
+                }
+
+                Alert.alert(
+                  '복사 완료',
+                  copied > 0
+                    ? `다음 주에 ${copied}개의 일정을 복사했어요.`
+                    : '복사할 새 일정이 없어요.',
+                );
+              } catch (error) {
+                console.error(error);
+                Alert.alert('복사 실패', '시간표를 복사하지 못했어요. 다시 시도해 주세요.');
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const saveTimetableImage = async () => {
+    setMoreMenuOpen(false);
+    if (!timetableRef.current || savingImage) return;
+
+    try {
+      setSavingImage(true);
+      const permission = await MediaLibrary.requestPermissionsAsync(true);
+      if (!permission.granted) {
+        Alert.alert('사진 권한 필요', '시간표 이미지를 저장하려면 사진 저장 권한이 필요해요.');
+        return;
+      }
+
+      const uri = await captureRef(timetableRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert('저장 완료', '현재 시간표를 사진에 저장했어요.');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('저장 실패', '시간표 이미지를 저장하지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      setSavingImage(false);
+    }
   };
 
   const todayDayIndex = weekDates.findIndex(
@@ -276,7 +495,7 @@ export default function HomeScreen() {
     todayDayIndex >= 0 &&
     currentMinutes >= START_HOUR * 60 &&
     currentMinutes < END_HOUR * 60;
-  const currentLineTop = ((currentMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+  const currentLineTop = ((currentMinutes - START_HOUR * 60) / 60) * hourHeight;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -328,6 +547,8 @@ export default function HomeScreen() {
       </View>
 
       <View
+        ref={timetableRef}
+        collapsable={false}
         style={[styles.timetableShell, { width: timetableWidth }]}
         onTouchStart={handleTimetableTouchStart}
         onTouchEnd={handleTimetableTouchEnd}
@@ -401,7 +622,7 @@ export default function HomeScreen() {
 
               {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => {
                 const hour = START_HOUR + index;
-                const top = index * HOUR_HEIGHT;
+                const top = index * hourHeight;
                 return (
                   <View key={`hour-${hour}`} pointerEvents="none">
                     <View style={[styles.hourLine, { top }]} />
@@ -432,9 +653,9 @@ export default function HomeScreen() {
                         styles.slotButton,
                         {
                           left: TIME_GUTTER + dayIndex * dayWidth,
-                          top: hourIndex * HOUR_HEIGHT,
+                          top: hourIndex * hourHeight,
                           width: dayWidth,
-                          height: HOUR_HEIGHT,
+                          height: hourHeight,
                         },
                       ]}
                       onPress={() => openNewSchedule(dateString, startTime)}
@@ -474,10 +695,13 @@ export default function HomeScreen() {
 
                 const visibleStart = Math.max(startMinutes, gridStartMinutes);
                 const visibleEnd = Math.min(Math.max(endMinutes, visibleStart + 15), gridEndMinutes);
-                const top = ((visibleStart - gridStartMinutes) / 60) * HOUR_HEIGHT;
-                const height = Math.max(((visibleEnd - visibleStart) / 60) * HOUR_HEIGHT, 17);
+                const top = ((visibleStart - gridStartMinutes) / 60) * hourHeight;
+                const blockHeight = Math.max(((visibleEnd - visibleStart) / 60) * hourHeight, 17);
                 const ptLabel = schedulePtLabel(schedule);
-                const showPtLabel = Boolean(ptLabel && height >= 26);
+                const showPtLabel = Boolean(showPtRemaining && ptLabel && blockHeight >= 26);
+                const placement = overlapPlacement(schedule, timedSchedules, overlapView);
+                const availableWidth = Math.max(dayWidth - 4, 30);
+                const laneWidth = availableWidth / placement.count;
 
                 return (
                   <DraggableScheduleBlock
@@ -486,18 +710,25 @@ export default function HomeScreen() {
                     metaLabel={ptLabel}
                     showMeta={showPtLabel}
                     dayWidth={dayWidth}
-                    hourHeight={HOUR_HEIGHT}
+                    hourHeight={hourHeight}
                     disabled={movingScheduleId !== null}
+                    deleteDropY={deleteDropY}
                     onPress={() => openSchedule(schedule.id)}
                     onMove={(dayDelta, minuteDelta) =>
                       moveTimedSchedule(schedule, dayDelta, minuteDelta)
                     }
+                    onDelete={() => deleteDraggedSchedule(schedule)}
                     onDragStateChange={handleScheduleDragStateChange}
+                    onDragMoveY={handleDragMoveY}
                     style={{
-                      left: TIME_GUTTER + dayIndex * dayWidth + 2,
+                      left:
+                        TIME_GUTTER +
+                        dayIndex * dayWidth +
+                        2 +
+                        placement.lane * laneWidth,
                       top: top + 2,
-                      width: Math.max(dayWidth - 4, 30),
-                      height: Math.max(height - 4, 14),
+                      width: Math.max(laneWidth - (placement.count > 1 ? 1 : 0), 12),
+                      height: Math.max(blockHeight - 4, 14),
                       backgroundColor: scheduleColor(schedule),
                       opacity: schedule.isCompleted ? 0.55 : 1,
                     }}
@@ -509,61 +740,59 @@ export default function HomeScreen() {
         )}
       </View>
 
-      <Modal
+      {trashVisible && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.trashZone,
+            trashActive && styles.trashZoneActive,
+            { height: TRASH_ZONE_HEIGHT, bottom: TRASH_ZONE_BOTTOM },
+          ]}
+        >
+          <Text style={styles.trashIcon}>🗑️</Text>
+          <Text style={[styles.trashText, trashActive && styles.trashTextActive]}>
+            {trashActive ? '놓으면 삭제' : '여기로 끌어 삭제'}
+          </Text>
+        </View>
+      )}
+
+      <TimetableMoreMenu
         visible={moreMenuOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setMoreMenuOpen(false)}
-      >
-        <Pressable style={styles.sheetBackdrop} onPress={() => setMoreMenuOpen(false)}>
-          <Pressable style={styles.bottomSheet} onPress={() => undefined}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>시간표 메뉴</Text>
+        overlapView={overlapView}
+        onClose={() => setMoreMenuOpen(false)}
+        onMembers={() => {
+          setMoreMenuOpen(false);
+          router.push('./members');
+        }}
+        onCalendar={() => {
+          setMoreMenuOpen(false);
+          router.push('./calendar');
+        }}
+        onSettings={() => {
+          setMoreMenuOpen(false);
+          setSettingsOpen(true);
+        }}
+        onCopyWeek={copyCurrentWeekToNextWeek}
+        onToggleOverlap={() => {
+          void toggleOverlapView();
+        }}
+        onSaveImage={() => {
+          void saveTimetableImage();
+        }}
+      />
 
-            <Pressable
-              style={styles.sheetItem}
-              onPress={() => {
-                setMoreMenuOpen(false);
-                router.push('./members');
-              }}
-            >
-              <Text style={styles.sheetIcon}>👤</Text>
-              <Text style={styles.sheetItemText}>회원 관리</Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.sheetItem}
-              onPress={() => {
-                setMoreMenuOpen(false);
-                router.push('./calendar');
-              }}
-            >
-              <Text style={styles.sheetIcon}>▦</Text>
-              <Text style={styles.sheetItemText}>달력 보기</Text>
-            </Pressable>
-
-            <Pressable style={styles.sheetItem} onPress={() => notReadyYet('시간표 디자인/설정')}>
-              <Text style={styles.sheetIcon}>⚙</Text>
-              <Text style={styles.sheetItemText}>시간표 디자인/설정</Text>
-            </Pressable>
-
-            <Pressable style={styles.sheetItem} onPress={() => notReadyYet('시간표 복사')}>
-              <Text style={styles.sheetIcon}>▣</Text>
-              <Text style={styles.sheetItemText}>시간표 복사</Text>
-            </Pressable>
-
-            <Pressable style={styles.sheetItem} onPress={() => notReadyYet('겹쳐보기')}>
-              <Text style={styles.sheetIcon}>◇</Text>
-              <Text style={styles.sheetItemText}>겹치는 일정 보기</Text>
-            </Pressable>
-
-            <Pressable style={styles.sheetItem} onPress={() => notReadyYet('이미지로 저장')}>
-              <Text style={styles.sheetIcon}>⇩</Text>
-              <Text style={styles.sheetItemText}>이미지로 저장</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <TimetableSettingsModal
+        visible={settingsOpen}
+        hourHeight={hourHeight}
+        showPtRemaining={showPtRemaining}
+        onClose={() => setSettingsOpen(false)}
+        onHourHeightChange={(value) => {
+          void changeHourHeight(value);
+        }}
+        onShowPtRemainingChange={(value) => {
+          void changeShowPtRemaining(value);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -803,45 +1032,35 @@ const styles = StyleSheet.create({
     height: 1.4,
     backgroundColor: NOW_COLOR,
   },
-  sheetBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.38)',
-  },
-  bottomSheet: {
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 30,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: '#FFFFFF',
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 42,
-    height: 5,
-    marginBottom: 12,
-    borderRadius: 3,
-    backgroundColor: '#D8DBE1',
-  },
-  sheetTitle: {
-    marginBottom: 6,
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#1F2228',
-  },
-  sheetItem: {
-    minHeight: 54,
+  trashZone: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    zIndex: 50,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ECEEF2',
+    justifyContent: 'center',
+    gap: 9,
+    borderWidth: 1.5,
+    borderColor: '#F0B9BE',
+    borderRadius: 22,
+    backgroundColor: '#FFF3F4',
+    elevation: 12,
+    shadowColor: '#000000',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
   },
-  sheetIcon: { width: 38, fontSize: 18, textAlign: 'center' },
-  sheetItemText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#272B32',
+  trashZoneActive: {
+    borderColor: '#E73345',
+    backgroundColor: '#E73345',
+    transform: [{ scale: 1.03 }],
   },
+  trashIcon: { fontSize: 25 },
+  trashText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#D83D4B',
+  },
+  trashTextActive: { color: '#FFFFFF' },
 });
