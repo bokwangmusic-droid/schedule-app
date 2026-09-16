@@ -35,6 +35,11 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_schedules_date
       ON schedules(date);
 
