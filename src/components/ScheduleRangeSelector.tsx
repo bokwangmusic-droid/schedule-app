@@ -19,6 +19,7 @@ type Props = {
 
 const HORIZONTAL_SWIPE_DISTANCE = 58;
 const VERTICAL_DRAG_DISTANCE = 10;
+const SNAP_MINUTES = 60;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -47,21 +48,33 @@ export function ScheduleRangeSelector({
   const totalMinutes = (endHour - startHour) * 60;
   const pixelsPerMinute = hourHeight / 60;
 
-  const localYToMinutes = (y: number, snapMinutes: number) => {
+  const localYToMinutes = (y: number) => {
     const raw = clamp(y / pixelsPerMinute, 0, totalMinutes);
-    return clamp(Math.round(raw / snapMinutes) * snapMinutes, 0, totalMinutes);
+    return clamp(Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES, 0, totalMinutes);
+  };
+
+  const getRange = (currentLocalY: number) => {
+    const start = localYToMinutes(startLocalYRef.current);
+    const current = localYToMinutes(currentLocalY);
+    const from = Math.min(start, current);
+    let to = Math.max(start, current);
+
+    if (to === from) {
+      to = Math.min(totalMinutes, from + SNAP_MINUTES);
+    }
+
+    if (to <= from && from >= SNAP_MINUTES) {
+      return { from: from - SNAP_MINUTES, to: from };
+    }
+
+    return { from, to };
   };
 
   const updatePreview = (currentLocalY: number) => {
-    const start = localYToMinutes(startLocalYRef.current, 30);
-    const current = localYToMinutes(currentLocalY, 30);
-    const from = Math.min(start, current);
-    let to = Math.max(start, current);
-    if (to === from) to = Math.min(totalMinutes, from + 30);
-
+    const { from, to } = getRange(currentLocalY);
     setPreview({
       top: from * pixelsPerMinute,
-      height: Math.max((to - from) * pixelsPerMinute, hourHeight / 2),
+      height: Math.max((to - from) * pixelsPerMinute, hourHeight),
     });
   };
 
@@ -96,26 +109,12 @@ export function ScheduleRangeSelector({
             return;
           }
 
-          if (Math.abs(gesture.dy) >= VERTICAL_DRAG_DISTANCE) {
-            const start = localYToMinutes(startLocalYRef.current, 30);
-            const current = localYToMinutes(startLocalYRef.current + gesture.dy, 30);
-            const from = Math.min(start, current);
-            let to = Math.max(start, current);
-            if (to === from) to = Math.min(totalMinutes, from + 30);
-            if (to <= from) return;
+          const { from, to } = getRange(startLocalYRef.current + gesture.dy);
+          if (to <= from) return;
 
-            onRangeSelected(
-              minutesToTime(startHour * 60 + from),
-              minutesToTime(startHour * 60 + to),
-            );
-            return;
-          }
-
-          const tappedMinutes = localYToMinutes(startLocalYRef.current, 60);
-          const startMinutes = Math.min(tappedMinutes, Math.max(0, totalMinutes - 60));
           onRangeSelected(
-            minutesToTime(startHour * 60 + startMinutes),
-            minutesToTime(startHour * 60 + Math.min(totalMinutes, startMinutes + 60)),
+            minutesToTime(startHour * 60 + from),
+            minutesToTime(startHour * 60 + to),
           );
         },
         onPanResponderTerminate: () => {
