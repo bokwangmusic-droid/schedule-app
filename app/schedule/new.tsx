@@ -22,6 +22,8 @@ import {
   toLocalDateString,
 } from '../../src/lib/date';
 
+const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
+
 function addOneHour(time: string) {
   if (!isValidTimeInput(time)) return '10:00';
   const [hour, minute] = time.split(':').map(Number);
@@ -47,6 +49,7 @@ export default function NewScheduleScreen() {
   const [startTime, setStartTime] = useState(initialStartTime);
   const [endTime, setEndTime] = useState(addOneHour(initialStartTime));
   const [memo, setMemo] = useState('');
+  const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -58,7 +61,7 @@ export default function NewScheduleScreen() {
     }
 
     if (!isValidDateInput(date)) {
-      Alert.alert('날짜를 확인해 주세요.', '예: 2026-09-15');
+      Alert.alert('날짜를 확인해 주세요.', '예: 2026-09-16');
       return;
     }
 
@@ -67,8 +70,8 @@ export default function NewScheduleScreen() {
       return;
     }
 
-    if (!isAllDay && startTime > endTime) {
-      Alert.alert('종료 시간을 확인해 주세요.', '종료 시간은 시작 시간보다 빠를 수 없어요.');
+    if (!isAllDay && startTime >= endTime) {
+      Alert.alert('종료 시간을 확인해 주세요.', '종료 시간은 시작 시간보다 늦어야 해요.');
       return;
     }
 
@@ -80,6 +83,7 @@ export default function NewScheduleScreen() {
         startTime: isAllDay ? null : startTime,
         endTime: isAllDay ? null : endTime,
         memo,
+        color,
         isAllDay,
       });
       router.back();
@@ -120,6 +124,31 @@ export default function NewScheduleScreen() {
             style={styles.titleInput}
             returnKeyType="next"
           />
+
+          <View style={styles.section}>
+            <Text style={styles.label}>색상</Text>
+            <View style={styles.colorRow}>
+              {COLORS.map((item) => {
+                const selected = item === color;
+                return (
+                  <Pressable
+                    key={item}
+                    accessibilityLabel={`일정 색상 ${item}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    style={[
+                      styles.colorButton,
+                      { backgroundColor: item },
+                      selected && styles.colorButtonSelected,
+                    ]}
+                    onPress={() => setColor(item)}
+                  >
+                    {selected && <Text style={styles.colorCheck}>✓</Text>}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.label}>날짜</Text>
@@ -274,6 +303,31 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 28,
+  },
+  colorRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  colorButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colorButtonSelected: {
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  colorCheck: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
   input: {
     minHeight: 52,
