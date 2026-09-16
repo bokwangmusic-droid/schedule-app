@@ -230,9 +230,18 @@ export default function HomeScreen() {
               const hour = START_HOUR + index;
               const top = index * HOUR_HEIGHT;
               return (
-                <View key={`hour-${hour}`} style={[styles.hourLineRow, { top }]} pointerEvents="none">
-                  {hour < END_HOUR && <Text style={styles.hourLabel}>{hour}</Text>}
-                  <View style={styles.hourLine} />
+                <View key={`hour-${hour}`} pointerEvents="none">
+                  <View style={[styles.hourLine, { top }]} />
+                  {hour < END_HOUR && (
+                    <Text
+                      style={[
+                        styles.hourLabel,
+                        { top: index === 0 ? 2 : top - 7 },
+                      ]}
+                    >
+                      {hour}
+                    </Text>
+                  )}
                 </View>
               );
             })}
@@ -590,22 +599,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#FFFFFF',
   },
-  hourLineRow: {
+  hourLabel: {
     position: 'absolute',
     left: 0,
-    right: 0,
-    height: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  hourLabel: {
     width: TIME_GUTTER - 4,
-    marginTop: 11,
+    height: 14,
     paddingRight: 4,
     textAlign: 'right',
     fontSize: 10,
-    fontWeight: '500',
-    color: '#8D9299',
+    lineHeight: 14,
+    fontWeight: '600',
+    color: '#7B818A',
+    zIndex: 2,
   },
   hourLine: {
     position: 'absolute',
