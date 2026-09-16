@@ -14,6 +14,7 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       start_time TEXT,
       end_time TEXT,
       memo TEXT,
+      color TEXT,
       is_all_day INTEGER NOT NULL DEFAULT 0,
       is_completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
@@ -26,4 +27,9 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_schedules_date_start_time
       ON schedules(date, start_time);
   `);
+
+  const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(schedules)');
+  if (!columns.some((column) => column.name === 'color')) {
+    await db.execAsync('ALTER TABLE schedules ADD COLUMN color TEXT;');
+  }
 }
