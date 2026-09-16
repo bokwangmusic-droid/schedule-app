@@ -37,9 +37,6 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_schedules_date_start_time
       ON schedules(date, start_time);
 
-    CREATE INDEX IF NOT EXISTS idx_schedules_member_id
-      ON schedules(member_id);
-
     CREATE INDEX IF NOT EXISTS idx_members_name
       ON members(name);
   `);
@@ -50,6 +47,7 @@ export async function migrateDatabase(db: SQLiteDatabase) {
   }
   if (!columns.some((column) => column.name === 'member_id')) {
     await db.execAsync('ALTER TABLE schedules ADD COLUMN member_id TEXT;');
-    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_schedules_member_id ON schedules(member_id);');
   }
+
+  await db.execAsync('CREATE INDEX IF NOT EXISTS idx_schedules_member_id ON schedules(member_id);');
 }
