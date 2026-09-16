@@ -10,7 +10,27 @@
       "package": "com.ijcompany.scheduleapp"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "WeeklyTimetable",
+              "label": "주간 시간표",
+              "description": "이번 주 회원 일정과 개인 일정을 한눈에 봅니다.",
+              "minWidth": "320dp",
+              "minHeight": "250dp",
+              "targetCellWidth": 5,
+              "targetCellHeight": 5,
+              "maxResizeWidth": "600dp",
+              "maxResizeHeight": "700dp",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
