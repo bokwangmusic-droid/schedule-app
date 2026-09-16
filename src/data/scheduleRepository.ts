@@ -13,6 +13,8 @@ type ScheduleRow = {
   end_time: string | null;
   memo: string | null;
   color: string | null;
+  member_id: string | null;
+  member_name: string | null;
   is_all_day: number;
   is_completed: number;
   created_at: string;
@@ -28,6 +30,8 @@ function mapScheduleRow(row: ScheduleRow): ScheduleItem {
     endTime: row.end_time,
     memo: row.memo,
     color: row.color,
+    memberId: row.member_id,
+    memberName: row.member_name,
     isAllDay: row.is_all_day === 1,
     isCompleted: row.is_completed === 1,
     createdAt: row.created_at,
@@ -39,15 +43,20 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+const scheduleSelect = `
+  SELECT s.*, m.name AS member_name
+  FROM schedules s
+  LEFT JOIN members m ON m.id = s.member_id
+`;
+
 export async function listSchedulesForDate(db: SQLiteDatabase, date: string) {
   const rows = await db.getAllAsync<ScheduleRow>(
-    `SELECT *
-     FROM schedules
-     WHERE date = ?
-     ORDER BY is_completed ASC,
-              CASE WHEN is_all_day = 1 THEN 0 ELSE 1 END ASC,
-              start_time ASC,
-              created_at ASC`,
+    `${scheduleSelect}
+     WHERE s.date = ?
+     ORDER BY s.is_completed ASC,
+              CASE WHEN s.is_all_day = 1 THEN 0 ELSE 1 END ASC,
+              s.start_time ASC,
+              s.created_at ASC`,
     [date],
   );
 
@@ -60,13 +69,12 @@ export async function listSchedulesForRange(
   endDate: string,
 ) {
   const rows = await db.getAllAsync<ScheduleRow>(
-    `SELECT *
-     FROM schedules
-     WHERE date >= ? AND date <= ?
-     ORDER BY date ASC,
-              CASE WHEN is_all_day = 1 THEN 0 ELSE 1 END ASC,
-              start_time ASC,
-              created_at ASC`,
+    `${scheduleSelect}
+     WHERE s.date >= ? AND s.date <= ?
+     ORDER BY s.date ASC,
+              CASE WHEN s.is_all_day = 1 THEN 0 ELSE 1 END ASC,
+              s.start_time ASC,
+              s.created_at ASC`,
     [startDate, endDate],
   );
 
@@ -75,7 +83,7 @@ export async function listSchedulesForRange(
 
 export async function getScheduleById(db: SQLiteDatabase, id: string) {
   const row = await db.getFirstAsync<ScheduleRow>(
-    'SELECT * FROM schedules WHERE id = ? LIMIT 1',
+    `${scheduleSelect} WHERE s.id = ? LIMIT 1`,
     [id],
   );
 
@@ -98,11 +106,12 @@ export async function createSchedule(
       end_time,
       memo,
       color,
+      member_id,
       is_all_day,
       is_completed,
       created_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
     [
       id,
       input.title.trim(),
@@ -111,6 +120,7 @@ export async function createSchedule(
       input.endTime ?? null,
       input.memo?.trim() || null,
       input.color ?? null,
+      input.memberId ?? null,
       input.isAllDay ? 1 : 0,
       now,
       now,
@@ -133,6 +143,7 @@ export async function updateSchedule(
          end_time = ?,
          memo = ?,
          color = ?,
+         member_id = ?,
          is_all_day = ?,
          updated_at = ?
      WHERE id = ?`,
@@ -143,6 +154,7 @@ export async function updateSchedule(
       input.endTime ?? null,
       input.memo?.trim() || null,
       input.color ?? null,
+      input.memberId ?? null,
       input.isAllDay ? 1 : 0,
       new Date().toISOString(),
       id,
