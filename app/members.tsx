@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createMember, deleteMember, listMembers } from '../src/data/memberRepository';
+import { isValidDateInput } from '../src/lib/date';
 import type { MemberItem } from '../src/types/member';
 
 export default function MembersScreen() {
@@ -19,6 +20,10 @@ export default function MembersScreen() {
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [membershipStartDate, setMembershipStartDate] = useState('');
+  const [membershipEndDate, setMembershipEndDate] = useState('');
+  const [ptTotalSessions, setPtTotalSessions] = useState('');
+  const [ptRemainingSessions, setPtRemainingSessions] = useState('');
   const [memo, setMemo] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -39,11 +44,61 @@ export default function MembersScreen() {
       return;
     }
 
+    const start = membershipStartDate.trim();
+    const end = membershipEndDate.trim();
+    if (start && !isValidDateInput(start)) {
+      Alert.alert('회원권 시작일을 확인해 주세요.', '예: 2026-09-16');
+      return;
+    }
+    if (end && !isValidDateInput(end)) {
+      Alert.alert('회원권 종료일을 확인해 주세요.', '예: 2026-12-16');
+      return;
+    }
+    if (start && end && start > end) {
+      Alert.alert('회원권 기간을 확인해 주세요.', '종료일은 시작일보다 늦어야 해요.');
+      return;
+    }
+
+    const totalText = ptTotalSessions.trim();
+    const remainingText = ptRemainingSessions.trim();
+    const hasPt = Boolean(totalText || remainingText);
+    let total: number | null = null;
+    let remaining: number | null = null;
+
+    if (hasPt) {
+      if (!totalText || !remainingText) {
+        Alert.alert('PT 횟수를 확인해 주세요.', '총 횟수와 잔여 횟수를 모두 입력해 주세요.');
+        return;
+      }
+      total = Number(totalText);
+      remaining = Number(remainingText);
+      if (!Number.isInteger(total) || total < 0 || !Number.isInteger(remaining) || remaining < 0) {
+        Alert.alert('PT 횟수는 0 이상의 숫자로 입력해 주세요.');
+        return;
+      }
+      if (remaining > total) {
+        Alert.alert('PT 잔여 횟수를 확인해 주세요.', '잔여 횟수는 총 횟수보다 클 수 없어요.');
+        return;
+      }
+    }
+
     try {
       setSaving(true);
-      await createMember(db, { name, phone, memo });
+      await createMember(db, {
+        name,
+        phone,
+        membershipStartDate: start || null,
+        membershipEndDate: end || null,
+        ptTotalSessions: total,
+        ptRemainingSessions: remaining,
+        memo,
+      });
       setName('');
       setPhone('');
+      setMembershipStartDate('');
+      setMembershipEndDate('');
+      setPtTotalSessions('');
+      setPtRemainingSessions('');
       setMemo('');
       await loadMembers();
     } catch (error) {
@@ -98,10 +153,51 @@ export default function MembersScreen() {
             keyboardType="phone-pad"
             style={styles.input}
           />
+
+          <Text style={styles.fieldTitle}>회원권 기간</Text>
+          <View style={styles.twoColumnRow}>
+            <TextInput
+              value={membershipStartDate}
+              onChangeText={setMembershipStartDate}
+              placeholder="시작일 YYYY-MM-DD"
+              placeholderTextColor="#A4AAB5"
+              style={[styles.input, styles.halfInput]}
+              autoCapitalize="none"
+            />
+            <TextInput
+              value={membershipEndDate}
+              onChangeText={setMembershipEndDate}
+              placeholder="종료일 YYYY-MM-DD"
+              placeholderTextColor="#A4AAB5"
+              style={[styles.input, styles.halfInput]}
+              autoCapitalize="none"
+            />
+          </View>
+
+          <Text style={styles.fieldTitle}>PT 횟수</Text>
+          <View style={styles.twoColumnRow}>
+            <TextInput
+              value={ptTotalSessions}
+              onChangeText={setPtTotalSessions}
+              placeholder="총 횟수"
+              placeholderTextColor="#A4AAB5"
+              keyboardType="number-pad"
+              style={[styles.input, styles.halfInput]}
+            />
+            <TextInput
+              value={ptRemainingSessions}
+              onChangeText={setPtRemainingSessions}
+              placeholder="잔여 횟수"
+              placeholderTextColor="#A4AAB5"
+              keyboardType="number-pad"
+              style={[styles.input, styles.halfInput]}
+            />
+          </View>
+
           <TextInput
             value={memo}
             onChangeText={setMemo}
-            placeholder="메모 (선택)"
+            placeholder="메모 (운동 목표, 주의사항 등)"
             placeholderTextColor="#A4AAB5"
             style={[styles.input, styles.memoInput]}
             multiline
@@ -131,7 +227,17 @@ export default function MembersScreen() {
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>{member.name}</Text>
                 {member.phone ? <Text style={styles.memberMeta}>{member.phone}</Text> : null}
-                {member.memo ? <Text numberOfLines={2} style={styles.memberMemo}>{member.memo}</Text> : null}
+                {member.membershipStartDate || member.membershipEndDate ? (
+                  <Text style={styles.memberMeta}>
+                    회원권 {member.membershipStartDate ?? '미입력'} ~ {member.membershipEndDate ?? '미입력'}
+                  </Text>
+                ) : null}
+                {member.ptTotalSessions !== null && member.ptRemainingSessions !== null ? (
+                  <Text style={styles.ptMeta}>
+                    PT 잔여 {member.ptRemainingSessions}/{member.ptTotalSessions}
+                  </Text>
+                ) : null}
+                {member.memo ? <Text numberOfLines={3} style={styles.memberMemo}>{member.memo}</Text> : null}
               </View>
               <Pressable onPress={() => confirmDelete(member)} hitSlop={10}>
                 <Text style={styles.deleteText}>삭제</Text>
@@ -162,6 +268,13 @@ const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 40 },
   card: { padding: 18, borderRadius: 18, backgroundColor: '#FFFFFF' },
   sectionTitle: { fontSize: 16, fontWeight: '900', color: '#22262E' },
+  fieldTitle: {
+    marginTop: 16,
+    marginBottom: -2,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#616977',
+  },
   input: {
     minHeight: 50,
     marginTop: 12,
@@ -171,7 +284,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#171A21',
   },
-  memoInput: { minHeight: 82, paddingTop: 14, paddingBottom: 14 },
+  twoColumnRow: { flexDirection: 'row', gap: 10 },
+  halfInput: { flex: 1, minWidth: 0, fontSize: 13 },
+  memoInput: { minHeight: 88, paddingTop: 14, paddingBottom: 14 },
   saveButton: {
     height: 52,
     marginTop: 14,
@@ -194,7 +309,7 @@ const styles = StyleSheet.create({
   emptyCard: { padding: 22, borderRadius: 16, alignItems: 'center', backgroundColor: '#FFFFFF' },
   emptyText: { fontSize: 14, color: '#8A909B' },
   memberCard: {
-    minHeight: 70,
+    minHeight: 84,
     marginBottom: 10,
     paddingHorizontal: 16,
     paddingVertical: 13,
@@ -205,7 +320,8 @@ const styles = StyleSheet.create({
   },
   memberInfo: { flex: 1, minWidth: 0 },
   memberName: { fontSize: 16, fontWeight: '900', color: '#22262E' },
-  memberMeta: { marginTop: 3, fontSize: 13, color: '#727986' },
-  memberMemo: { marginTop: 4, fontSize: 12, lineHeight: 17, color: '#9298A3' },
+  memberMeta: { marginTop: 3, fontSize: 12, color: '#727986' },
+  ptMeta: { marginTop: 4, fontSize: 13, fontWeight: '900', color: '#4B68FF' },
+  memberMemo: { marginTop: 5, fontSize: 12, lineHeight: 17, color: '#9298A3' },
   deleteText: { marginLeft: 12, fontSize: 13, fontWeight: '800', color: '#D9364F' },
 });
