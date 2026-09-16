@@ -5,6 +5,10 @@ type MemberRow = {
   id: string;
   name: string;
   phone: string | null;
+  membership_start_date: string | null;
+  membership_end_date: string | null;
+  pt_total_sessions: number | null;
+  pt_remaining_sessions: number | null;
   memo: string | null;
   created_at: string;
   updated_at: string;
@@ -15,6 +19,10 @@ function mapMemberRow(row: MemberRow): MemberItem {
     id: row.id,
     name: row.name,
     phone: row.phone,
+    membershipStartDate: row.membership_start_date,
+    membershipEndDate: row.membership_end_date,
+    ptTotalSessions: row.pt_total_sessions,
+    ptRemainingSessions: row.pt_remaining_sessions,
     memo: row.memo,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -40,12 +48,26 @@ export async function createMember(db: SQLiteDatabase, input: CreateMemberInput)
   const id = createId();
 
   await db.runAsync(
-    `INSERT INTO members (id, name, phone, memo, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO members (
+      id,
+      name,
+      phone,
+      membership_start_date,
+      membership_end_date,
+      pt_total_sessions,
+      pt_remaining_sessions,
+      memo,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name.trim(),
       input.phone?.trim() || null,
+      input.membershipStartDate?.trim() || null,
+      input.membershipEndDate?.trim() || null,
+      input.ptTotalSessions ?? null,
+      input.ptRemainingSessions ?? null,
       input.memo?.trim() || null,
       now,
       now,
