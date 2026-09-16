@@ -47,15 +47,18 @@ function scheduleLabel(schedule: ScheduleItem) {
 }
 
 function schedulePtLabel(schedule: ScheduleItem) {
+  const remaining =
+    schedule.memberPtProjectedRemainingSessions ?? schedule.memberPtRemainingSessions;
+
   if (
     !schedule.memberName ||
-    schedule.memberPtRemainingSessions === null ||
+    remaining === null ||
     schedule.memberPtTotalSessions === null
   ) {
     return null;
   }
 
-  return `잔여 ${schedule.memberPtRemainingSessions}/${schedule.memberPtTotalSessions}`;
+  return `잔여 ${remaining}/${schedule.memberPtTotalSessions}`;
 }
 
 function getWeekOfMonthLabel(date: Date) {
@@ -95,14 +98,19 @@ export default function HomeScreen() {
 
   const loadSchedules = useCallback(async () => {
     try {
-      const rows = await listSchedulesForRange(db, weekStartString, weekEndString);
+      const rows = await listSchedulesForRange(
+        db,
+        weekStartString,
+        weekEndString,
+        todayString,
+      );
       setSchedules(rows);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [db, weekEndString, weekStartString]);
+  }, [db, todayString, weekEndString, weekStartString]);
 
   useFocusEffect(
     useCallback(() => {
