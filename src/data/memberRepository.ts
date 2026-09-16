@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { CreateMemberInput, MemberItem } from '../types/member';
+import type { CreateMemberInput, MemberItem, UpdateMemberInput } from '../types/member';
 
 type MemberRow = {
   id: string;
@@ -75,6 +75,36 @@ export async function createMember(db: SQLiteDatabase, input: CreateMemberInput)
   );
 
   return id;
+}
+
+export async function updateMember(
+  db: SQLiteDatabase,
+  id: string,
+  input: UpdateMemberInput,
+) {
+  await db.runAsync(
+    `UPDATE members
+     SET name = ?,
+         phone = ?,
+         membership_start_date = ?,
+         membership_end_date = ?,
+         pt_total_sessions = ?,
+         pt_remaining_sessions = ?,
+         memo = ?,
+         updated_at = ?
+     WHERE id = ?`,
+    [
+      input.name.trim(),
+      input.phone?.trim() || null,
+      input.membershipStartDate?.trim() || null,
+      input.membershipEndDate?.trim() || null,
+      input.ptTotalSessions ?? null,
+      input.ptRemainingSessions ?? null,
+      input.memo?.trim() || null,
+      new Date().toISOString(),
+      id,
+    ],
+  );
 }
 
 export async function deleteMember(db: SQLiteDatabase, id: string) {
