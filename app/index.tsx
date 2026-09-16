@@ -14,11 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { listSchedulesForRange } from '../src/data/scheduleRepository';
-import {
-  addDays,
-  startOfWeekMonday,
-  toLocalDateString,
-} from '../src/lib/date';
+import { addDays, startOfWeekMonday, toLocalDateString } from '../src/lib/date';
 import type { ScheduleItem } from '../src/types/schedule';
 
 const START_HOUR = 6;
@@ -66,7 +62,6 @@ export default function HomeScreen() {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
-  const [weekMenuOpen, setWeekMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -84,8 +79,7 @@ export default function HomeScreen() {
   const dayWidth = Math.max((width - TIME_GUTTER) / 7, 38);
   const timetableWidth = TIME_GUTTER + dayWidth * 7;
   const gridHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
-  const weekLabelDate = addDays(weekStart, 3);
-  const weekLabel = getWeekOfMonthLabel(weekLabelDate);
+  const weekLabel = getWeekOfMonthLabel(addDays(weekStart, 3));
 
   const loadSchedules = useCallback(async () => {
     try {
@@ -124,16 +118,6 @@ export default function HomeScreen() {
     router.push({ pathname: '/schedule/[id]', params: { id } });
   };
 
-  const moveWeek = (days: number) => {
-    setWeekMenuOpen(false);
-    setWeekStart((current) => addDays(current, days));
-  };
-
-  const goToday = () => {
-    setWeekMenuOpen(false);
-    setWeekStart(todayWeekStart);
-  };
-
   const notReadyYet = (title: string) => {
     setMoreMenuOpen(false);
     Alert.alert(title, '이 기능은 다음 단계에서 바로 이어서 붙일게요.');
@@ -152,22 +136,38 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.topBar}>
-        <Pressable
-          accessibilityLabel="이전 주"
-          style={styles.headerIconButton}
-          onPress={() => moveWeek(-7)}
-        >
-          <Text style={styles.chevronText}>‹</Text>
-        </Pressable>
+        <View style={styles.weekSwitcher}>
+          <Pressable
+            accessibilityLabel="이전 주"
+            style={styles.weekArrowButton}
+            onPress={() => setWeekStart((current) => addDays(current, -7))}
+          >
+            <Text style={styles.weekArrowText}>‹</Text>
+          </Pressable>
 
-        <Pressable style={styles.titleButton} onPress={() => setWeekMenuOpen(true)}>
-          <Text numberOfLines={1} style={styles.weekTitle}>{weekLabel}</Text>
-          <Text style={styles.dropArrow}>⌄</Text>
-        </Pressable>
+          <Pressable
+            accessibilityLabel="이번 주로 이동"
+            style={styles.weekLabelButton}
+            onPress={() => setWeekStart(todayWeekStart)}
+          >
+            <Text numberOfLines={1} style={styles.weekTitle}>{weekLabel}</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel="다음 주"
+            style={styles.weekArrowButton}
+            onPress={() => setWeekStart((current) => addDays(current, 7))}
+          >
+            <Text style={styles.weekArrowText}>›</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.headerActions}>
           <Pressable style={styles.smallHeaderButton} onPress={() => router.push('./members')}>
             <Text style={styles.smallHeaderButtonText}>회원</Text>
+          </Pressable>
+          <Pressable style={styles.smallHeaderButton} onPress={() => router.push('./calendar')}>
+            <Text style={styles.smallHeaderButtonText}>달력</Text>
           </Pressable>
           <Pressable style={styles.addButton} onPress={() => openNewSchedule(todayString)}>
             <Text style={styles.addButtonText}>+</Text>
@@ -226,26 +226,6 @@ export default function HomeScreen() {
       ) : (
         <ScrollView style={styles.gridScroll} showsVerticalScrollIndicator={false}>
           <View style={[styles.grid, { width: timetableWidth, height: gridHeight }]}>
-            {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => {
-              const hour = START_HOUR + index;
-              const top = index * HOUR_HEIGHT;
-              return (
-                <View key={`hour-${hour}`} pointerEvents="none">
-                  <View style={[styles.hourLine, { top }]} />
-                  {hour < END_HOUR && (
-                    <Text
-                      style={[
-                        styles.hourLabel,
-                        { top: index === 0 ? 2 : top - 7 },
-                      ]}
-                    >
-                      {hour}
-                    </Text>
-                  )}
-                </View>
-              );
-            })}
-
             {weekDates.map((date, dayIndex) => {
               const dateString = toLocalDateString(date);
               const isToday = dateString === todayString;
@@ -263,6 +243,26 @@ export default function HomeScreen() {
                     },
                   ]}
                 />
+              );
+            })}
+
+            {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => {
+              const hour = START_HOUR + index;
+              const top = index * HOUR_HEIGHT;
+              return (
+                <View key={`hour-${hour}`} pointerEvents="none">
+                  <View style={[styles.hourLine, { top }]} />
+                  {hour < END_HOUR && (
+                    <Text
+                      style={[
+                        styles.hourLabel,
+                        { top: index === 0 ? 2 : top - 7 },
+                      ]}
+                    >
+                      {hour}
+                    </Text>
+                  )}
+                </View>
               );
             })}
 
@@ -356,28 +356,6 @@ export default function HomeScreen() {
       )}
 
       <Modal
-        visible={weekMenuOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setWeekMenuOpen(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setWeekMenuOpen(false)}>
-          <Pressable style={styles.weekMenuCard} onPress={() => undefined}>
-            <Text style={styles.menuTitle}>주간 이동</Text>
-            <Pressable style={styles.weekMenuItem} onPress={() => moveWeek(-7)}>
-              <Text style={styles.weekMenuItemText}>지난주</Text>
-            </Pressable>
-            <Pressable style={styles.weekMenuItem} onPress={goToday}>
-              <Text style={[styles.weekMenuItemText, styles.weekMenuItemPrimary]}>이번 주</Text>
-            </Pressable>
-            <Pressable style={styles.weekMenuItem} onPress={() => moveWeek(7)}>
-              <Text style={styles.weekMenuItemText}>다음주</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
         visible={moreMenuOpen}
         transparent
         animationType="slide"
@@ -397,6 +375,17 @@ export default function HomeScreen() {
             >
               <Text style={styles.sheetIcon}>👤</Text>
               <Text style={styles.sheetItemText}>회원 관리</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.sheetItem}
+              onPress={() => {
+                setMoreMenuOpen(false);
+                router.push('./calendar');
+              }}
+            >
+              <Text style={styles.sheetIcon}>▦</Text>
+              <Text style={styles.sheetItemText}>달력 보기</Text>
             </Pressable>
 
             <Pressable style={styles.sheetItem} onPress={() => notReadyYet('시간표 디자인/설정')}>
@@ -429,67 +418,66 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   topBar: {
     height: 58,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ECEEF2',
     backgroundColor: '#FFFFFF',
   },
-  headerIconButton: {
-    width: 38,
+  weekSwitcher: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weekArrowButton: {
+    width: 28,
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chevronText: {
+  weekArrowText: {
     marginTop: -4,
-    fontSize: 34,
+    fontSize: 31,
     fontWeight: '300',
     color: '#24272D',
   },
-  titleButton: {
+  weekLabelButton: {
     minWidth: 0,
     flex: 1,
-    height: 44,
-    paddingHorizontal: 6,
-    flexDirection: 'row',
+    height: 42,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   weekTitle: {
-    flexShrink: 1,
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '900',
     color: '#1F2228',
   },
-  dropArrow: {
-    marginLeft: 5,
-    marginTop: -4,
-    fontSize: 23,
-    color: '#3B3F46',
-  },
   headerActions: {
+    marginLeft: 3,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   smallHeaderButton: {
-    height: 34,
-    paddingHorizontal: 9,
-    borderRadius: 17,
+    height: 32,
+    paddingHorizontal: 7,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F2F6',
   },
   smallHeaderButtonText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
     color: '#555D6B',
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1.7,
     borderColor: '#202329',
     alignItems: 'center',
@@ -498,19 +486,19 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     marginTop: -3,
-    fontSize: 27,
+    fontSize: 26,
     fontWeight: '400',
     color: '#202329',
   },
   moreButton: {
-    width: 30,
+    width: 27,
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   moreButtonText: {
     marginTop: -3,
-    fontSize: 28,
+    fontSize: 27,
     lineHeight: 30,
     fontWeight: '900',
     color: '#202329',
@@ -518,8 +506,8 @@ const styles = StyleSheet.create({
   dayHeader: {
     height: 48,
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#D9DCE2',
+    borderBottomWidth: 1,
+    borderBottomColor: '#D4D7DD',
     backgroundColor: '#FFFFFF',
   },
   dayHeaderCell: {
@@ -540,26 +528,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  todayNumberWrap: {
-    backgroundColor: '#4B68FF',
-  },
-  dayNumber: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#666D78',
-  },
-  todayText: {
-    color: '#4B68FF',
-  },
-  todayNumber: {
-    color: '#FFFFFF',
-  },
+  todayNumberWrap: { backgroundColor: '#4B68FF' },
+  dayNumber: { fontSize: 10, fontWeight: '800', color: '#666D78' },
+  todayText: { color: '#4B68FF' },
+  todayNumber: { color: '#FFFFFF' },
   allDayStrip: {
     minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
+    borderBottomWidth: 1,
+    borderBottomColor: '#D7DAE0',
     backgroundColor: '#FAFBFC',
   },
   allDayLabel: {
@@ -569,11 +547,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#8A909B',
   },
-  allDayContent: {
-    gap: 4,
-    paddingVertical: 3,
-    paddingRight: 8,
-  },
+  allDayContent: { gap: 4, paddingVertical: 3, paddingRight: 8 },
   allDayChip: {
     maxWidth: 90,
     minHeight: 22,
@@ -581,24 +555,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     justifyContent: 'center',
   },
-  allDayChipText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridScroll: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  grid: {
-    position: 'relative',
-    backgroundColor: '#FFFFFF',
-  },
+  allDayChipText: { fontSize: 9, fontWeight: '800', color: '#FFFFFF' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  gridScroll: { flex: 1, backgroundColor: '#FFFFFF' },
+  grid: { position: 'relative', backgroundColor: '#FFFFFF' },
   hourLabel: {
     position: 'absolute',
     left: 0,
@@ -609,32 +569,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 14,
     fontWeight: '600',
-    color: '#7B818A',
-    zIndex: 2,
+    color: '#737983',
+    zIndex: 3,
   },
   hourLine: {
     position: 'absolute',
     left: TIME_GUTTER,
     right: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#DDE0E5',
+    height: 1,
+    backgroundColor: '#D2D6DC',
+    zIndex: 2,
   },
   dayColumn: {
     position: 'absolute',
     top: 0,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: '#DADDE2',
+    zIndex: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: '#D7DAE0',
   },
-  todayColumn: {
-    backgroundColor: '#F7F8FB',
-  },
-  slotButton: {
-    position: 'absolute',
-    backgroundColor: 'transparent',
-  },
+  todayColumn: { backgroundColor: '#F4F6FB' },
+  slotButton: { position: 'absolute', zIndex: 1, backgroundColor: 'transparent' },
   currentTimeWrap: {
     position: 'absolute',
-    zIndex: 3,
+    zIndex: 4,
     height: 5,
     flexDirection: 'row',
     alignItems: 'center',
@@ -646,14 +603,10 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
     backgroundColor: NOW_COLOR,
   },
-  currentTimeLine: {
-    flex: 1,
-    height: 1.4,
-    backgroundColor: NOW_COLOR,
-  },
+  currentTimeLine: { flex: 1, height: 1.4, backgroundColor: NOW_COLOR },
   eventBlock: {
     position: 'absolute',
-    zIndex: 4,
+    zIndex: 5,
     paddingHorizontal: 2,
     borderRadius: 3,
     overflow: 'hidden',
@@ -666,46 +619,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     textAlign: 'center',
-  },
-  modalBackdrop: {
-    flex: 1,
-    paddingTop: 90,
-    paddingHorizontal: 48,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-  },
-  weekMenuCard: {
-    alignSelf: 'flex-start',
-    minWidth: 180,
-    padding: 10,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOpacity: 0.14,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 8,
-  },
-  menuTitle: {
-    paddingHorizontal: 10,
-    paddingTop: 4,
-    paddingBottom: 7,
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#8B909A',
-  },
-  weekMenuItem: {
-    height: 44,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-    borderRadius: 10,
-  },
-  weekMenuItemText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#272B32',
-  },
-  weekMenuItemPrimary: {
-    color: '#4B68FF',
   },
   sheetBackdrop: {
     flex: 1,
@@ -741,11 +654,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ECEEF2',
   },
-  sheetIcon: {
-    width: 38,
-    fontSize: 18,
-    textAlign: 'center',
-  },
+  sheetIcon: { width: 38, fontSize: 18, textAlign: 'center' },
   sheetItemText: {
     marginLeft: 8,
     fontSize: 16,
