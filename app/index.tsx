@@ -3,7 +3,6 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -37,17 +36,13 @@ function timeToMinutes(value: string | null) {
 }
 
 function scheduleColor(schedule: ScheduleItem) {
+  if (schedule.color) return schedule.color;
+
   let hash = 0;
   for (let index = 0; index < schedule.title.length; index += 1) {
     hash = (hash * 31 + schedule.title.charCodeAt(index)) >>> 0;
   }
   return EVENT_COLORS[hash % EVENT_COLORS.length];
-}
-
-function scheduleTimeLabel(schedule: ScheduleItem) {
-  if (schedule.isAllDay) return '하루 종일';
-  if (schedule.startTime && schedule.endTime) return `${schedule.startTime} - ${schedule.endTime}`;
-  return schedule.startTime ?? '시간 미정';
 }
 
 export default function HomeScreen() {
@@ -109,9 +104,8 @@ export default function HomeScreen() {
     });
   };
 
-  const showSchedule = (schedule: ScheduleItem) => {
-    const memo = schedule.memo ? `\n\n${schedule.memo}` : '';
-    Alert.alert(schedule.title, `${scheduleTimeLabel(schedule)}${memo}`);
+  const openSchedule = (id: string) => {
+    router.push({ pathname: '/schedule/[id]', params: { id } });
   };
 
   const todayDayIndex = weekDates.findIndex(
@@ -122,8 +116,7 @@ export default function HomeScreen() {
     todayDayIndex >= 0 &&
     currentMinutes >= START_HOUR * 60 &&
     currentMinutes < END_HOUR * 60;
-  const currentLineTop =
-    ((currentMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+  const currentLineTop = ((currentMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -185,7 +178,7 @@ export default function HomeScreen() {
               <Pressable
                 key={schedule.id}
                 style={[styles.allDayChip, { backgroundColor: scheduleColor(schedule) }]}
-                onPress={() => showSchedule(schedule)}
+                onPress={() => openSchedule(schedule.id)}
               >
                 <Text numberOfLines={1} style={styles.allDayChipText}>{schedule.title}</Text>
               </Pressable>
@@ -304,7 +297,7 @@ export default function HomeScreen() {
                       opacity: schedule.isCompleted ? 0.55 : 1,
                     },
                   ]}
-                  onPress={() => showSchedule(schedule)}
+                  onPress={() => openSchedule(schedule.id)}
                 >
                   <Text
                     numberOfLines={height >= 96 ? 2 : 1}
@@ -314,11 +307,6 @@ export default function HomeScreen() {
                   >
                     {schedule.title}
                   </Text>
-                  {height >= 52 && schedule.startTime && schedule.endTime && (
-                    <Text numberOfLines={1} style={styles.eventTime}>
-                      {schedule.startTime}–{schedule.endTime}
-                    </Text>
-                  )}
                 </Pressable>
               );
             })}
@@ -567,13 +555,6 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     fontWeight: '900',
     color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  eventTime: {
-    marginTop: 2,
-    fontSize: 8,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.92)',
     textAlign: 'center',
   },
 });
