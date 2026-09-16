@@ -15,6 +15,8 @@ type ScheduleRow = {
   color: string | null;
   member_id: string | null;
   member_name: string | null;
+  member_pt_total_sessions: number | null;
+  member_pt_remaining_sessions: number | null;
   is_all_day: number;
   is_completed: number;
   created_at: string;
@@ -32,6 +34,8 @@ function mapScheduleRow(row: ScheduleRow): ScheduleItem {
     color: row.color,
     memberId: row.member_id,
     memberName: row.member_name,
+    memberPtTotalSessions: row.member_pt_total_sessions,
+    memberPtRemainingSessions: row.member_pt_remaining_sessions,
     isAllDay: row.is_all_day === 1,
     isCompleted: row.is_completed === 1,
     createdAt: row.created_at,
@@ -44,7 +48,11 @@ function createId() {
 }
 
 const scheduleSelect = `
-  SELECT s.*, m.name AS member_name
+  SELECT
+    s.*,
+    m.name AS member_name,
+    m.pt_total_sessions AS member_pt_total_sessions,
+    m.pt_remaining_sessions AS member_pt_remaining_sessions
   FROM schedules s
   LEFT JOIN members m ON m.id = s.member_id
 `;
