@@ -22,8 +22,8 @@ import type { ScheduleItem } from '../src/types/schedule';
 
 const START_HOUR = 6;
 const END_HOUR = 24;
-const HOUR_HEIGHT = 64;
-const TIME_GUTTER = 54;
+const HOUR_HEIGHT = 34;
+const TIME_GUTTER = 50;
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const EVENT_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 const NOW_COLOR = '#FF4D5A';
@@ -43,6 +43,10 @@ function scheduleColor(schedule: ScheduleItem) {
     hash = (hash * 31 + schedule.title.charCodeAt(index)) >>> 0;
   }
   return EVENT_COLORS[hash % EVENT_COLORS.length];
+}
+
+function scheduleLabel(schedule: ScheduleItem) {
+  return schedule.memberName ?? schedule.title;
 }
 
 export default function HomeScreen() {
@@ -67,7 +71,7 @@ export default function HomeScreen() {
   const weekStartString = toLocalDateString(weekDates[0]);
   const weekEndString = toLocalDateString(weekDates[6]);
   const todayString = toLocalDateString(today);
-  const dayWidth = Math.max((width - TIME_GUTTER) / 7, 42);
+  const dayWidth = Math.max((width - TIME_GUTTER) / 7, 40);
   const timetableWidth = TIME_GUTTER + dayWidth * 7;
   const gridHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
 
@@ -145,6 +149,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.actions}>
+          <Pressable style={styles.memberButton} onPress={() => router.push('./members')}>
+            <Text style={styles.memberButtonText}>회원</Text>
+          </Pressable>
           <Pressable style={styles.todayButton} onPress={() => setWeekStart(todayWeekStart)}>
             <Text style={styles.todayButtonText}>오늘</Text>
           </Pressable>
@@ -180,7 +187,7 @@ export default function HomeScreen() {
                 style={[styles.allDayChip, { backgroundColor: scheduleColor(schedule) }]}
                 onPress={() => openSchedule(schedule.id)}
               >
-                <Text numberOfLines={1} style={styles.allDayChipText}>{schedule.title}</Text>
+                <Text numberOfLines={1} style={styles.allDayChipText}>{scheduleLabel(schedule)}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -200,9 +207,7 @@ export default function HomeScreen() {
               return (
                 <View key={`hour-${hour}`} style={[styles.hourLineRow, { top }]} pointerEvents="none">
                   {hour < END_HOUR && (
-                    <Text style={styles.hourLabel}>
-                      {`${String(hour).padStart(2, '0')}:00`}
-                    </Text>
+                    <Text style={styles.hourLabel}>{`${String(hour).padStart(2, '0')}:00`}</Text>
                   )}
                   <View style={styles.hourLine} />
                 </View>
@@ -285,7 +290,7 @@ export default function HomeScreen() {
               const visibleStart = Math.max(startMinutes, gridStartMinutes);
               const visibleEnd = Math.min(Math.max(endMinutes, visibleStart + 15), gridEndMinutes);
               const top = ((visibleStart - gridStartMinutes) / 60) * HOUR_HEIGHT;
-              const height = Math.max(((visibleEnd - visibleStart) / 60) * HOUR_HEIGHT, 24);
+              const height = Math.max(((visibleEnd - visibleStart) / 60) * HOUR_HEIGHT, 18);
 
               return (
                 <Pressable
@@ -293,10 +298,10 @@ export default function HomeScreen() {
                   style={[
                     styles.eventBlock,
                     {
-                      left: TIME_GUTTER + dayIndex * dayWidth + 2,
+                      left: TIME_GUTTER + dayIndex * dayWidth + 1.5,
                       top: top + 1,
-                      width: Math.max(dayWidth - 4, 36),
-                      height: height - 2,
+                      width: Math.max(dayWidth - 3, 34),
+                      height: Math.max(height - 2, 16),
                       backgroundColor: scheduleColor(schedule),
                       opacity: schedule.isCompleted ? 0.55 : 1,
                     },
@@ -304,12 +309,12 @@ export default function HomeScreen() {
                   onPress={() => openSchedule(schedule.id)}
                 >
                   <Text
-                    numberOfLines={height >= 96 ? 2 : 1}
+                    numberOfLines={1}
                     adjustsFontSizeToFit
-                    minimumFontScale={0.78}
+                    minimumFontScale={0.7}
                     style={styles.eventTitle}
                   >
-                    {schedule.title}
+                    {scheduleLabel(schedule)}
                   </Text>
                 </Pressable>
               );
@@ -322,14 +327,11 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   topBar: {
-    minHeight: 68,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    minHeight: 58,
+    paddingHorizontal: 7,
+    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -344,109 +346,68 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   roundButton: {
-    width: 34,
-    height: 42,
+    width: 28,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 17,
+    borderRadius: 14,
   },
-  roundButtonText: {
-    marginTop: -3,
-    fontSize: 32,
-    fontWeight: '300',
-    color: '#30343B',
-  },
-  weekTitleWrap: {
-    flex: 1,
-    minWidth: 0,
+  roundButtonText: { marginTop: -3, fontSize: 29, fontWeight: '300', color: '#30343B' },
+  weekTitleWrap: { flex: 1, minWidth: 0, alignItems: 'center' },
+  weekTitle: { fontSize: 14, fontWeight: '800', color: '#171A21' },
+  weekSubtitle: { marginTop: 1, fontSize: 9, fontWeight: '700', color: '#9298A3' },
+  actions: { marginLeft: 3, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  memberButton: {
+    height: 34,
+    paddingHorizontal: 8,
+    borderRadius: 11,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E9EDFF',
   },
-  weekTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#171A21',
-  },
-  weekSubtitle: {
-    marginTop: 2,
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#9298A3',
-  },
-  actions: {
-    marginLeft: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
+  memberButtonText: { fontSize: 11, fontWeight: '900', color: '#4B68FF' },
   todayButton: {
-    height: 38,
-    paddingHorizontal: 10,
-    borderRadius: 13,
+    height: 34,
+    paddingHorizontal: 8,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F2F6',
   },
-  todayButtonText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#59606D',
-  },
+  todayButtonText: { fontSize: 11, fontWeight: '800', color: '#59606D' },
   addButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4B68FF',
   },
-  addButtonText: {
-    marginTop: -2,
-    fontSize: 27,
-    fontWeight: '400',
-    color: '#FFFFFF',
-  },
+  addButtonText: { marginTop: -2, fontSize: 24, fontWeight: '400', color: '#FFFFFF' },
   dayHeader: {
-    minHeight: 58,
+    minHeight: 48,
     flexDirection: 'row',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#DDE1E7',
     backgroundColor: '#FFFFFF',
   },
-  dayHeaderCell: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 5,
-  },
-  dayName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#8A909B',
-  },
+  dayHeaderCell: { alignItems: 'center', justifyContent: 'center', paddingTop: 3 },
+  dayName: { fontSize: 10, fontWeight: '700', color: '#8A909B' },
   dayNumberWrap: {
-    minWidth: 28,
-    height: 26,
-    marginTop: 2,
-    paddingHorizontal: 4,
-    borderRadius: 13,
+    minWidth: 24,
+    height: 22,
+    marginTop: 1,
+    paddingHorizontal: 3,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  todayNumberWrap: {
-    backgroundColor: '#4B68FF',
-  },
-  dayNumber: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#5E6572',
-  },
-  todayText: {
-    color: '#4B68FF',
-  },
-  todayNumber: {
-    color: '#FFFFFF',
-  },
+  todayNumberWrap: { backgroundColor: '#4B68FF' },
+  dayNumber: { fontSize: 11, fontWeight: '800', color: '#5E6572' },
+  todayText: { color: '#4B68FF' },
+  todayNumber: { color: '#FFFFFF' },
   allDayStrip: {
-    minHeight: 38,
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -456,60 +417,41 @@ const styles = StyleSheet.create({
   allDayLabel: {
     width: TIME_GUTTER,
     textAlign: 'center',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#8A909B',
   },
-  allDayContent: {
-    gap: 6,
-    paddingVertical: 5,
-    paddingRight: 12,
-  },
+  allDayContent: { gap: 5, paddingVertical: 4, paddingRight: 10 },
   allDayChip: {
-    maxWidth: 120,
-    minHeight: 28,
-    paddingHorizontal: 9,
-    borderRadius: 8,
+    maxWidth: 100,
+    minHeight: 24,
+    paddingHorizontal: 7,
+    borderRadius: 7,
     justifyContent: 'center',
   },
-  allDayChipText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridScroll: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  grid: {
-    position: 'relative',
-    backgroundColor: '#FFFFFF',
-  },
+  allDayChipText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  gridScroll: { flex: 1, backgroundColor: '#FFFFFF' },
+  grid: { position: 'relative', backgroundColor: '#FFFFFF' },
   hourLineRow: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: HOUR_HEIGHT,
+    height: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   hourLabel: {
-    width: TIME_GUTTER - 6,
-    marginTop: 6,
+    width: TIME_GUTTER - 4,
+    marginTop: 12,
     paddingRight: 4,
     textAlign: 'right',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#727987',
+    color: '#7E8590',
   },
   hourLine: {
     position: 'absolute',
-    top: 0,
     left: TIME_GUTTER,
     right: 0,
     height: StyleSheet.hairlineWidth,
@@ -521,44 +463,35 @@ const styles = StyleSheet.create({
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: '#E1E4E9',
   },
-  todayColumn: {
-    backgroundColor: '#F7F9FF',
-  },
-  slotButton: {
-    position: 'absolute',
-    backgroundColor: 'transparent',
-  },
+  todayColumn: { backgroundColor: '#F7F9FF' },
+  slotButton: { position: 'absolute', backgroundColor: 'transparent' },
   currentTimeWrap: {
     position: 'absolute',
     zIndex: 3,
-    height: 6,
+    height: 5,
     flexDirection: 'row',
     alignItems: 'center',
   },
   currentTimeDot: {
-    width: 6,
-    height: 6,
-    marginLeft: -3,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    marginLeft: -2.5,
+    borderRadius: 2.5,
     backgroundColor: NOW_COLOR,
   },
-  currentTimeLine: {
-    flex: 1,
-    height: 1.5,
-    backgroundColor: NOW_COLOR,
-  },
+  currentTimeLine: { flex: 1, height: 1.5, backgroundColor: NOW_COLOR },
   eventBlock: {
     position: 'absolute',
     zIndex: 4,
-    paddingHorizontal: 3,
-    paddingVertical: 4,
-    borderRadius: 5,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    borderRadius: 4,
     overflow: 'hidden',
     justifyContent: 'center',
   },
   eventTitle: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 10,
+    lineHeight: 12,
     fontWeight: '900',
     color: '#FFFFFF',
     textAlign: 'center',
