@@ -16,9 +16,12 @@ type Props = {
   dayWidth: number;
   hourHeight: number;
   disabled?: boolean;
+  deleteDropY?: number;
   onPress: () => void;
   onMove: (dayDelta: number, minuteDelta: number) => void | Promise<void>;
+  onDelete?: () => void | Promise<void>;
   onDragStateChange?: (dragging: boolean) => void;
+  onDragMoveY?: (pageY: number) => void;
 };
 
 const LONG_PRESS_MS = 320;
@@ -31,9 +34,12 @@ export function DraggableScheduleBlock({
   dayWidth,
   hourHeight,
   disabled = false,
+  deleteDropY,
   onPress,
   onMove,
+  onDelete,
   onDragStateChange,
+  onDragMoveY,
 }: Props) {
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -72,6 +78,7 @@ export function DraggableScheduleBlock({
         onPanResponderMove: (_, gesture) => {
           if (!draggingRef.current) return;
           setOffset({ x: gesture.dx, y: gesture.dy });
+          onDragMoveY?.(gesture.moveY);
         },
         onPanResponderRelease: (_, gesture) => {
           clearLongPressTimer();
@@ -81,6 +88,17 @@ export function DraggableScheduleBlock({
             if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
               onPress();
             }
+            return;
+          }
+
+          const shouldDelete =
+            deleteDropY !== undefined &&
+            onDelete !== undefined &&
+            gesture.moveY >= deleteDropY;
+
+          if (shouldDelete) {
+            resetDrag();
+            void onDelete();
             return;
           }
 
@@ -96,7 +114,17 @@ export function DraggableScheduleBlock({
         },
         onPanResponderTerminate: resetDrag,
       }),
-    [dayWidth, disabled, hourHeight, onDragStateChange, onMove, onPress],
+    [
+      dayWidth,
+      deleteDropY,
+      disabled,
+      hourHeight,
+      onDelete,
+      onDragMoveY,
+      onDragStateChange,
+      onMove,
+      onPress,
+    ],
   );
 
   return (
