@@ -1,5 +1,9 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { CreateScheduleInput, ScheduleItem } from '../types/schedule';
+import type {
+  CreateScheduleInput,
+  ScheduleItem,
+  UpdateScheduleInput,
+} from '../types/schedule';
 
 type ScheduleRow = {
   id: string;
@@ -8,6 +12,7 @@ type ScheduleRow = {
   start_time: string | null;
   end_time: string | null;
   memo: string | null;
+  color: string | null;
   is_all_day: number;
   is_completed: number;
   created_at: string;
@@ -22,6 +27,7 @@ function mapScheduleRow(row: ScheduleRow): ScheduleItem {
     startTime: row.start_time,
     endTime: row.end_time,
     memo: row.memo,
+    color: row.color,
     isAllDay: row.is_all_day === 1,
     isCompleted: row.is_completed === 1,
     createdAt: row.created_at,
@@ -67,6 +73,15 @@ export async function listSchedulesForRange(
   return rows.map(mapScheduleRow);
 }
 
+export async function getScheduleById(db: SQLiteDatabase, id: string) {
+  const row = await db.getFirstAsync<ScheduleRow>(
+    'SELECT * FROM schedules WHERE id = ? LIMIT 1',
+    [id],
+  );
+
+  return row ? mapScheduleRow(row) : null;
+}
+
 export async function createSchedule(
   db: SQLiteDatabase,
   input: CreateScheduleInput,
@@ -82,11 +97,12 @@ export async function createSchedule(
       start_time,
       end_time,
       memo,
+      color,
       is_all_day,
       is_completed,
       created_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
     [
       id,
       input.title.trim(),
@@ -94,6 +110,7 @@ export async function createSchedule(
       input.startTime ?? null,
       input.endTime ?? null,
       input.memo?.trim() || null,
+      input.color ?? null,
       input.isAllDay ? 1 : 0,
       now,
       now,
@@ -101,6 +118,40 @@ export async function createSchedule(
   );
 
   return id;
+}
+
+export async function updateSchedule(
+  db: SQLiteDatabase,
+  id: string,
+  input: UpdateScheduleInput,
+) {
+  await db.runAsync(
+    `UPDATE schedules
+     SET title = ?,
+         date = ?,
+         start_time = ?,
+         end_time = ?,
+         memo = ?,
+         color = ?,
+         is_all_day = ?,
+         updated_at = ?
+     WHERE id = ?`,
+    [
+      input.title.trim(),
+      input.date,
+      input.startTime ?? null,
+      input.endTime ?? null,
+      input.memo?.trim() || null,
+      input.color ?? null,
+      input.isAllDay ? 1 : 0,
+      new Date().toISOString(),
+      id,
+    ],
+  );
+}
+
+export async function deleteSchedule(db: SQLiteDatabase, id: string) {
+  await db.runAsync('DELETE FROM schedules WHERE id = ?', [id]);
 }
 
 export async function setScheduleCompleted(
