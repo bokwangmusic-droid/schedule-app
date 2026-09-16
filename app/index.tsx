@@ -1,9 +1,10 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  type GestureResponderEvent,
   Modal,
   Pressable,
   ScrollView,
@@ -29,6 +30,7 @@ const SCREEN_MARGIN = 10;
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const EVENT_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 const NOW_COLOR = '#FF4D5A';
+const WEEK_SWIPE_DISTANCE = 58;
 
 function timeToMinutes(value: string | null) {
   if (!value) return null;
@@ -90,6 +92,8 @@ export default function HomeScreen() {
   const [now, setNow] = useState(() => new Date());
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [movingScheduleId, setMovingScheduleId] = useState<string | null>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeBlockedUntilRef = useRef(0);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -221,6 +225,44 @@ export default function HomeScreen() {
     }
   };
 
+  const handleTimetableTouchStart = (event: GestureResponderEvent) => {
+    if (Date.now() < swipeBlockedUntilRef.current) {
+      swipeStartRef.current = null;
+      return;
+    }
+
+    swipeStartRef.current = {
+      x: event.nativeEvent.pageX,
+      y: event.nativeEvent.pageY,
+    };
+  };
+
+  const handleTimetableTouchEnd = (event: GestureResponderEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+
+    if (!start || Date.now() < swipeBlockedUntilRef.current) return;
+
+    const dx = event.nativeEvent.pageX - start.x;
+    const dy = event.nativeEvent.pageY - start.y;
+    const horizontalEnough = Math.abs(dx) >= WEEK_SWIPE_DISTANCE;
+    const mostlyHorizontal = Math.abs(dx) > Math.abs(dy) * 1.35;
+
+    if (!horizontalEnough || !mostlyHorizontal) return;
+
+    setWeekStart((current) => addDays(current, dx < 0 ? 7 : -7));
+  };
+
+  const handleScheduleDragStateChange = (dragging: boolean) => {
+    if (dragging) {
+      swipeStartRef.current = null;
+      swipeBlockedUntilRef.current = Number.POSITIVE_INFINITY;
+      return;
+    }
+
+    swipeBlockedUntilRef.current = Date.now() + 400;
+  };
+
   const notReadyYet = (title: string) => {
     setMoreMenuOpen(false);
     Alert.alert(title, '이 기능은 다음 단계에서 바로 이어서 붙일게요.');
@@ -285,7 +327,14 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <View style={[styles.timetableShell, { width: timetableWidth }]}>
+      <View
+        style={[styles.timetableShell, { width: timetableWidth }]}
+        onTouchStart={handleTimetableTouchStart}
+        onTouchEnd={handleTimetableTouchEnd}
+        onTouchCancel={() => {
+          swipeStartRef.current = null;
+        }}
+      >
         <View style={[styles.dayHeader, { width: timetableWidth }]}>
           <View style={styles.dayHeaderGutter} />
           {weekDates.map((date, index) => {
@@ -443,6 +492,7 @@ export default function HomeScreen() {
                     onMove={(dayDelta, minuteDelta) =>
                       moveTimedSchedule(schedule, dayDelta, minuteDelta)
                     }
+                    onDragStateChange={handleScheduleDragStateChange}
                     style={{
                       left: TIME_GUTTER + dayIndex * dayWidth + 2,
                       top: top + 2,
