@@ -15,12 +15,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { listMembers } from '../../src/data/memberRepository';
 import {
   deleteSchedule,
   getScheduleById,
   updateSchedule,
 } from '../../src/data/scheduleRepository';
 import { isValidDateInput, isValidTimeInput } from '../../src/lib/date';
+import type { MemberItem } from '../../src/types/member';
 
 const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 
@@ -30,6 +32,9 @@ export default function EditScheduleScreen() {
   const id = typeof params.id === 'string' ? params.id : '';
 
   const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [memberId, setMemberId] = useState<string | null>(null);
+  const [memberOpen, setMemberOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [isAllDay, setIsAllDay] = useState(false);
@@ -50,8 +55,13 @@ export default function EditScheduleScreen() {
       }
 
       try {
-        const schedule = await getScheduleById(db, id);
+        const [schedule, memberRows] = await Promise.all([
+          getScheduleById(db, id),
+          listMembers(db),
+        ]);
         if (!active) return;
+
+        setMembers(memberRows);
 
         if (!schedule) {
           Alert.alert('일정을 찾을 수 없어요.');
@@ -61,6 +71,7 @@ export default function EditScheduleScreen() {
 
         setTitle(schedule.title);
         setDate(schedule.date);
+        setMemberId(schedule.memberId);
         setIsAllDay(schedule.isAllDay);
         setStartTime(schedule.startTime ?? '09:00');
         setEndTime(schedule.endTime ?? '10:00');
@@ -80,11 +91,25 @@ export default function EditScheduleScreen() {
     };
   }, [db, id]);
 
+  const selectedMember = members.find((member) => member.id === memberId) ?? null;
+
+  const chooseMember = (member: MemberItem | null) => {
+    const previousName = selectedMember?.name ?? '';
+    if (member) {
+      if (!title.trim() || title === previousName) setTitle(member.name);
+      setMemberId(member.id);
+    } else {
+      if (title === previousName) setTitle('');
+      setMemberId(null);
+    }
+    setMemberOpen(false);
+  };
+
   const save = async () => {
-    const trimmedTitle = title.trim();
+    const trimmedTitle = title.trim() || selectedMember?.name || '';
 
     if (!trimmedTitle) {
-      Alert.alert('일정 이름을 입력해 주세요.');
+      Alert.alert('일정 이름이나 회원을 선택해 주세요.');
       return;
     }
     if (!isValidDateInput(date)) {
@@ -109,6 +134,7 @@ export default function EditScheduleScreen() {
         endTime: isAllDay ? null : endTime,
         memo,
         color,
+        memberId,
         isAllDay,
       });
       router.back();
@@ -172,14 +198,40 @@ export default function EditScheduleScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.label}>일정</Text>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="무엇을 할 예정인가요?"
-            placeholderTextColor="#A4AAB5"
-            style={styles.titleInput}
-          />
+          <Text style={styles.label}>회원 선택</Text>
+          <Pressable style={styles.dropdownButton} onPress={() => setMemberOpen((open) => !open)}>
+            <Text style={[styles.dropdownText, !selectedMember && styles.dropdownPlaceholder]}>
+              {selectedMember?.name ?? '회원 지정 안 함'}
+            </Text>
+            <Text style={styles.dropdownArrow}>{memberOpen ? '▲' : '▼'}</Text>
+          </Pressable>
+          {memberOpen && (
+            <View style={styles.dropdownMenu}>
+              <Pressable style={styles.dropdownItem} onPress={() => chooseMember(null)}>
+                <Text style={styles.dropdownItemText}>회원 지정 안 함</Text>
+              </Pressable>
+              {members.map((member) => (
+                <Pressable key={member.id} style={styles.dropdownItem} onPress={() => chooseMember(member)}>
+                  <View style={styles.dropdownMemberInfo}>
+                    <Text style={styles.dropdownMemberName}>{member.name}</Text>
+                    {member.phone ? <Text style={styles.dropdownMemberPhone}>{member.phone}</Text> : null}
+                  </View>
+                  {member.id === memberId ? <Text style={styles.dropdownCheck}>✓</Text> : null}
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.label}>일정명</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="예: 홍길동 PT"
+              placeholderTextColor="#A4AAB5"
+              style={styles.titleInput}
+            />
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.label}>색상</Text>
@@ -227,21 +279,11 @@ export default function EditScheduleScreen() {
               <View style={styles.timeRow}>
                 <View style={styles.timeField}>
                   <Text style={styles.smallLabel}>시작</Text>
-                  <TextInput
-                    value={startTime}
-                    onChangeText={setStartTime}
-                    style={styles.input}
-                    maxLength={5}
-                  />
+                  <TextInput value={startTime} onChangeText={setStartTime} style={styles.input} maxLength={5} />
                 </View>
                 <View style={styles.timeField}>
                   <Text style={styles.smallLabel}>종료</Text>
-                  <TextInput
-                    value={endTime}
-                    onChangeText={setEndTime}
-                    style={styles.input}
-                    maxLength={5}
-                  />
+                  <TextInput value={endTime} onChangeText={setEndTime} style={styles.input} maxLength={5} />
                 </View>
               </View>
             )}
@@ -306,16 +348,50 @@ const styles = StyleSheet.create({
   content: { padding: 24, paddingBottom: 32 },
   label: { marginBottom: 10, fontSize: 14, fontWeight: '800', color: '#4B5260' },
   labelWithoutMargin: { fontSize: 16, fontWeight: '700', color: '#252932' },
+  section: { marginTop: 26 },
   titleInput: {
-    minHeight: 60,
+    minHeight: 56,
     paddingHorizontal: 18,
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#171A21',
   },
-  section: { marginTop: 28 },
+  dropdownButton: {
+    minHeight: 54,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  dropdownText: { flex: 1, fontSize: 16, fontWeight: '800', color: '#22262E' },
+  dropdownPlaceholder: { fontWeight: '600', color: '#9AA0AA' },
+  dropdownArrow: { marginLeft: 10, fontSize: 11, color: '#727986' },
+  dropdownMenu: {
+    marginTop: 6,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E0E4EA',
+  },
+  dropdownItem: {
+    minHeight: 48,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ECEFF3',
+  },
+  dropdownItemText: { fontSize: 14, fontWeight: '700', color: '#646B77' },
+  dropdownMemberInfo: { flex: 1 },
+  dropdownMemberName: { fontSize: 15, fontWeight: '900', color: '#22262E' },
+  dropdownMemberPhone: { marginTop: 2, fontSize: 12, color: '#8A909B' },
+  dropdownCheck: { fontSize: 17, fontWeight: '900', color: '#4B68FF' },
   colorRow: { flexDirection: 'row', gap: 12 },
   colorButton: {
     width: 42,
@@ -335,17 +411,17 @@ const styles = StyleSheet.create({
   },
   colorCheck: { fontSize: 18, fontWeight: '900', color: '#FFFFFF' },
   input: {
-    minHeight: 52,
+    minHeight: 50,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     fontSize: 16,
     color: '#171A21',
   },
   switchRow: {
-    minHeight: 56,
+    minHeight: 54,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
@@ -354,7 +430,7 @@ const styles = StyleSheet.create({
   timeRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
   timeField: { flex: 1 },
   smallLabel: { marginBottom: 8, fontSize: 13, fontWeight: '700', color: '#7C8493' },
-  memoInput: { minHeight: 120, paddingTop: 16, paddingBottom: 16 },
+  memoInput: { minHeight: 100, paddingTop: 16, paddingBottom: 16 },
   deleteButton: {
     height: 52,
     marginTop: 32,
