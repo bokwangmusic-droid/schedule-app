@@ -6,6 +6,8 @@ export type ScheduleItem = {
   endTime: string | null;
   memo: string | null;
   color: string | null;
+  memberId: string | null;
+  memberName: string | null;
   isAllDay: boolean;
   isCompleted: boolean;
   createdAt: string;
@@ -19,6 +21,7 @@ export type CreateScheduleInput = {
   endTime?: string | null;
   memo?: string | null;
   color?: string | null;
+  memberId?: string | null;
   isAllDay?: boolean;
 };
 
