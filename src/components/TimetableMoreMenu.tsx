@@ -7,6 +7,7 @@ type Props = {
   onMembers: () => void;
   onCalendar: () => void;
   onSettings: () => void;
+  onAddWidget: () => void;
   onCopyWeek: () => void;
   onToggleOverlap: () => void;
   onSaveImage: () => void;
@@ -19,6 +20,7 @@ export function TimetableMoreMenu({
   onMembers,
   onCalendar,
   onSettings,
+  onAddWidget,
   onCopyWeek,
   onToggleOverlap,
   onSaveImage,
@@ -33,6 +35,7 @@ export function TimetableMoreMenu({
           <MenuItem icon="👤" label="회원 관리" onPress={onMembers} />
           <MenuItem icon="▦" label="달력 보기" onPress={onCalendar} />
           <MenuItem icon="⚙" label="시간표 디자인/설정" onPress={onSettings} />
+          <MenuItem icon="▤" label="홈 화면 위젯 추가" onPress={onAddWidget} />
           <MenuItem icon="▣" label="이번 주 → 다음 주 복사" onPress={onCopyWeek} />
           <MenuItem
             icon="◇"
