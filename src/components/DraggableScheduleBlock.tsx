@@ -18,6 +18,7 @@ type Props = {
   disabled?: boolean;
   onPress: () => void;
   onMove: (dayDelta: number, minuteDelta: number) => void | Promise<void>;
+  onDragStateChange?: (dragging: boolean) => void;
 };
 
 const LONG_PRESS_MS = 320;
@@ -32,6 +33,7 @@ export function DraggableScheduleBlock({
   disabled = false,
   onPress,
   onMove,
+  onDragStateChange,
 }: Props) {
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -47,9 +49,11 @@ export function DraggableScheduleBlock({
 
   const resetDrag = () => {
     clearLongPressTimer();
+    const wasDragging = draggingRef.current;
     draggingRef.current = false;
     setDragging(false);
     setOffset({ x: 0, y: 0 });
+    if (wasDragging) onDragStateChange?.(false);
   };
 
   const panResponder = useMemo(
@@ -62,6 +66,7 @@ export function DraggableScheduleBlock({
           timerRef.current = setTimeout(() => {
             draggingRef.current = true;
             setDragging(true);
+            onDragStateChange?.(true);
           }, LONG_PRESS_MS);
         },
         onPanResponderMove: (_, gesture) => {
@@ -91,7 +96,7 @@ export function DraggableScheduleBlock({
         },
         onPanResponderTerminate: resetDrag,
       }),
-    [dayWidth, disabled, hourHeight, onMove, onPress],
+    [dayWidth, disabled, hourHeight, onDragStateChange, onMove, onPress],
   );
 
   return (
