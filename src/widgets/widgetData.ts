@@ -1,6 +1,6 @@
 import { openDatabaseAsync } from 'expo-sqlite';
 import { listSchedulesForRange } from '../data/scheduleRepository';
-import { DATABASE_NAME } from '../db/database';
+import { DATABASE_NAME, migrateDatabase } from '../db/database';
 import { addDays, startOfWeekMonday, toLocalDateString } from '../lib/date';
 import type { ScheduleItem } from '../types/schedule';
 
@@ -37,6 +37,7 @@ export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
   const today = toLocalDateString(now);
 
   const db = await openDatabaseAsync(DATABASE_NAME);
+  await migrateDatabase(db);
   const schedules = await listSchedulesForRange(db, weekStart, weekEnd, today);
 
   return {
