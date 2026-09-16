@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { listMembers } from '../../src/data/memberRepository';
 import { createSchedule } from '../../src/data/scheduleRepository';
 import {
   addDays,
@@ -21,13 +22,15 @@ import {
   isValidTimeInput,
   toLocalDateString,
 } from '../../src/lib/date';
+import type { MemberItem } from '../../src/types/member';
 
 const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 
 function addOneHour(time: string) {
   if (!isValidTimeInput(time)) return '10:00';
   const [hour, minute] = time.split(':').map(Number);
-  return `${String(Math.min(hour + 1, 23)).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  if (hour >= 23) return '23:59';
+  return `${String(hour + 1).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
 export default function NewScheduleScreen() {
@@ -43,6 +46,9 @@ export default function NewScheduleScreen() {
     ? params.startTime
     : '09:00';
 
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [memberId, setMemberId] = useState<string | null>(null);
+  const [memberOpen, setMemberOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(initialDate);
   const [isAllDay, setIsAllDay] = useState(false);
@@ -52,11 +58,29 @@ export default function NewScheduleScreen() {
   const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    void listMembers(db).then(setMembers).catch(console.error);
+  }, [db]);
+
+  const selectedMember = members.find((member) => member.id === memberId) ?? null;
+
+  const chooseMember = (member: MemberItem | null) => {
+    const previousName = selectedMember?.name ?? '';
+    if (member) {
+      if (!title.trim() || title === previousName) setTitle(member.name);
+      setMemberId(member.id);
+    } else {
+      if (title === previousName) setTitle('');
+      setMemberId(null);
+    }
+    setMemberOpen(false);
+  };
+
   const save = async () => {
-    const trimmedTitle = title.trim();
+    const trimmedTitle = title.trim() || selectedMember?.name || '';
 
     if (!trimmedTitle) {
-      Alert.alert('일정 이름을 입력해 주세요.');
+      Alert.alert('일정 이름이나 회원을 선택해 주세요.');
       return;
     }
 
@@ -84,6 +108,7 @@ export default function NewScheduleScreen() {
         endTime: isAllDay ? null : endTime,
         memo,
         color,
+        memberId,
         isAllDay,
       });
       router.back();
@@ -114,16 +139,44 @@ export default function NewScheduleScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.label}>일정</Text>
-          <TextInput
-            autoFocus
-            value={title}
-            onChangeText={setTitle}
-            placeholder="무엇을 할 예정인가요?"
-            placeholderTextColor="#A4AAB5"
-            style={styles.titleInput}
-            returnKeyType="next"
-          />
+          <Text style={styles.label}>회원 선택</Text>
+          <Pressable style={styles.dropdownButton} onPress={() => setMemberOpen((open) => !open)}>
+            <Text style={[styles.dropdownText, !selectedMember && styles.dropdownPlaceholder]}>
+              {selectedMember?.name ?? '회원을 선택하세요'}
+            </Text>
+            <Text style={styles.dropdownArrow}>{memberOpen ? '▲' : '▼'}</Text>
+          </Pressable>
+          {memberOpen && (
+            <View style={styles.dropdownMenu}>
+              <Pressable style={styles.dropdownItem} onPress={() => chooseMember(null)}>
+                <Text style={styles.dropdownItemText}>회원 지정 안 함</Text>
+              </Pressable>
+              {members.map((member) => (
+                <Pressable key={member.id} style={styles.dropdownItem} onPress={() => chooseMember(member)}>
+                  <View style={styles.dropdownMemberInfo}>
+                    <Text style={styles.dropdownMemberName}>{member.name}</Text>
+                    {member.phone ? <Text style={styles.dropdownMemberPhone}>{member.phone}</Text> : null}
+                  </View>
+                  {member.id === memberId ? <Text style={styles.dropdownCheck}>✓</Text> : null}
+                </Pressable>
+              ))}
+              {members.length === 0 ? (
+                <Text style={styles.dropdownEmpty}>먼저 시간표의 회원 메뉴에서 회원을 등록해 주세요.</Text>
+              ) : null}
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.label}>일정명</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="예: 홍길동 PT"
+              placeholderTextColor="#A4AAB5"
+              style={styles.titleInput}
+              returnKeyType="next"
+            />
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.label}>색상</Text>
@@ -157,17 +210,13 @@ export default function NewScheduleScreen() {
                 style={[styles.quickButton, date === todayString && styles.quickButtonActive]}
                 onPress={() => setDate(todayString)}
               >
-                <Text style={[styles.quickButtonText, date === todayString && styles.quickButtonTextActive]}>
-                  오늘
-                </Text>
+                <Text style={[styles.quickButtonText, date === todayString && styles.quickButtonTextActive]}>오늘</Text>
               </Pressable>
               <Pressable
                 style={[styles.quickButton, date === tomorrowString && styles.quickButtonActive]}
                 onPress={() => setDate(tomorrowString)}
               >
-                <Text style={[styles.quickButtonText, date === tomorrowString && styles.quickButtonTextActive]}>
-                  내일
-                </Text>
+                <Text style={[styles.quickButtonText, date === tomorrowString && styles.quickButtonTextActive]}>내일</Text>
               </Pressable>
             </View>
             <TextInput
@@ -247,13 +296,8 @@ export default function NewScheduleScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F7F8FA',
-  },
-  flex: {
-    flex: 1,
-  },
+  safeArea: { flex: 1, backgroundColor: '#F7F8FA' },
+  flex: { flex: 1 },
   header: {
     height: 58,
     paddingHorizontal: 20,
@@ -264,50 +308,58 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#F7F8FA',
   },
-  headerAction: {
-    minWidth: 52,
-    fontSize: 16,
-    color: '#606775',
-  },
-  headerSpacer: {
-    width: 52,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#171A21',
-  },
-  content: {
-    padding: 24,
-    paddingBottom: 32,
-  },
-  label: {
-    marginBottom: 10,
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#4B5260',
-  },
-  labelWithoutMargin: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#252932',
-  },
+  headerAction: { minWidth: 52, fontSize: 16, color: '#606775' },
+  headerSpacer: { width: 52 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#171A21' },
+  content: { padding: 24, paddingBottom: 32 },
+  label: { marginBottom: 10, fontSize: 14, fontWeight: '800', color: '#4B5260' },
+  labelWithoutMargin: { fontSize: 16, fontWeight: '700', color: '#252932' },
+  section: { marginTop: 26 },
   titleInput: {
-    minHeight: 60,
+    minHeight: 56,
     paddingHorizontal: 18,
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#171A21',
   },
-  section: {
-    marginTop: 28,
-  },
-  colorRow: {
+  dropdownButton: {
+    minHeight: 54,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
   },
+  dropdownText: { flex: 1, fontSize: 16, fontWeight: '800', color: '#22262E' },
+  dropdownPlaceholder: { fontWeight: '600', color: '#9AA0AA' },
+  dropdownArrow: { marginLeft: 10, fontSize: 11, color: '#727986' },
+  dropdownMenu: {
+    marginTop: 6,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E0E4EA',
+  },
+  dropdownItem: {
+    minHeight: 48,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ECEFF3',
+  },
+  dropdownItemText: { fontSize: 14, fontWeight: '700', color: '#646B77' },
+  dropdownMemberInfo: { flex: 1 },
+  dropdownMemberName: { fontSize: 15, fontWeight: '900', color: '#22262E' },
+  dropdownMemberPhone: { marginTop: 2, fontSize: 12, color: '#8A909B' },
+  dropdownCheck: { fontSize: 17, fontWeight: '900', color: '#4B68FF' },
+  dropdownEmpty: { padding: 14, fontSize: 12, lineHeight: 18, color: '#9298A3' },
+  colorRow: { flexDirection: 'row', gap: 12 },
   colorButton: {
     width: 42,
     height: 42,
@@ -324,71 +376,40 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  colorCheck: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
+  colorCheck: { fontSize: 18, fontWeight: '900', color: '#FFFFFF' },
   input: {
-    minHeight: 52,
+    minHeight: 50,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     fontSize: 16,
     color: '#171A21',
   },
-  quickRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   quickButton: {
     paddingHorizontal: 18,
-    height: 42,
-    borderRadius: 14,
+    height: 40,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#ECEEF2',
   },
-  quickButtonActive: {
-    backgroundColor: '#E9EDFF',
-  },
-  quickButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#686F7D',
-  },
-  quickButtonTextActive: {
-    color: '#4B68FF',
-  },
+  quickButtonActive: { backgroundColor: '#E9EDFF' },
+  quickButtonText: { fontSize: 14, fontWeight: '700', color: '#686F7D' },
+  quickButtonTextActive: { color: '#4B68FF' },
   switchRow: {
-    minHeight: 56,
+    minHeight: 54,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  timeRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 14,
-  },
-  timeField: {
-    flex: 1,
-  },
-  smallLabel: {
-    marginBottom: 8,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#7C8493',
-  },
-  memoInput: {
-    minHeight: 120,
-    paddingTop: 16,
-    paddingBottom: 16,
-  },
+  timeRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  timeField: { flex: 1 },
+  smallLabel: { marginBottom: 8, fontSize: 13, fontWeight: '700', color: '#7C8493' },
+  memoInput: { minHeight: 100, paddingTop: 16, paddingBottom: 16 },
   footer: {
     paddingHorizontal: 24,
     paddingTop: 10,
@@ -402,15 +423,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#4B68FF',
   },
-  saveButtonPressed: {
-    opacity: 0.88,
-  },
-  saveButtonDisabled: {
-    opacity: 0.55,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
+  saveButtonPressed: { opacity: 0.88 },
+  saveButtonDisabled: { opacity: 0.55 },
+  saveButtonText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
 });
