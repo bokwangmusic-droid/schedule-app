@@ -13,7 +13,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { listSchedulesForRange } from '../src/data/scheduleRepository';
+import { DraggableScheduleBlock } from '../src/components/DraggableScheduleBlock';
+import {
+  listSchedulesForRange,
+  updateSchedule,
+} from '../src/data/scheduleRepository';
 import { addDays, startOfWeekMonday, toLocalDateString } from '../src/lib/date';
 import type { ScheduleItem } from '../src/types/schedule';
 
@@ -31,6 +35,12 @@ function timeToMinutes(value: string | null) {
   const [hour, minute] = value.split(':').map(Number);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
   return hour * 60 + minute;
+}
+
+function minutesToTime(minutes: number) {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
 function scheduleColor(schedule: ScheduleItem) {
@@ -79,6 +89,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [movingScheduleId, setMovingScheduleId] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -137,6 +148,77 @@ export default function HomeScreen() {
 
   const openSchedule = (id: string) => {
     router.push({ pathname: '/schedule/[id]', params: { id } });
+  };
+
+  const moveTimedSchedule = async (
+    schedule: ScheduleItem,
+    dayDelta: number,
+    minuteDelta: number,
+  ) => {
+    const startMinutes = timeToMinutes(schedule.startTime);
+    const endMinutes = timeToMinutes(schedule.endTime);
+    if (startMinutes === null || endMinutes === null) return;
+
+    const currentDayIndex = weekDates.findIndex(
+      (date) => toLocalDateString(date) === schedule.date,
+    );
+    if (currentDayIndex < 0) return;
+
+    const duration = Math.max(endMinutes - startMinutes, 15);
+    const gridStartMinutes = START_HOUR * 60;
+    const gridEndMinutes = END_HOUR * 60;
+    const targetDayIndex = Math.max(0, Math.min(6, currentDayIndex + dayDelta));
+    const maxStartMinutes = Math.max(gridStartMinutes, gridEndMinutes - duration);
+    const targetStartMinutes = Math.max(
+      gridStartMinutes,
+      Math.min(maxStartMinutes, startMinutes + minuteDelta),
+    );
+    const targetEndMinutes = targetStartMinutes + duration;
+    const targetDate = toLocalDateString(weekDates[targetDayIndex]);
+    const targetStartTime = minutesToTime(targetStartMinutes);
+    const targetEndTime = minutesToTime(targetEndMinutes);
+
+    if (
+      targetDate === schedule.date &&
+      targetStartTime === schedule.startTime &&
+      targetEndTime === schedule.endTime
+    ) {
+      return;
+    }
+
+    setMovingScheduleId(schedule.id);
+    setSchedules((current) =>
+      current.map((item) =>
+        item.id === schedule.id
+          ? {
+              ...item,
+              date: targetDate,
+              startTime: targetStartTime,
+              endTime: targetEndTime,
+            }
+          : item,
+      ),
+    );
+
+    try {
+      await updateSchedule(db, schedule.id, {
+        title: schedule.title,
+        date: targetDate,
+        startTime: targetStartTime,
+        endTime: targetEndTime,
+        memo: schedule.memo,
+        color: schedule.color,
+        memberId: schedule.memberId,
+        isAllDay: false,
+      });
+      await loadSchedules();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('일정 이동 실패', '일정을 옮기지 못했어요. 다시 시도해 주세요.');
+      await loadSchedules();
+    } finally {
+      setMovingScheduleId(null);
+    }
   };
 
   const notReadyYet = (title: string) => {
@@ -349,33 +431,27 @@ export default function HomeScreen() {
                 const showPtLabel = Boolean(ptLabel && height >= 26);
 
                 return (
-                  <Pressable
+                  <DraggableScheduleBlock
                     key={schedule.id}
-                    style={[
-                      styles.eventBlock,
-                      {
-                        left: TIME_GUTTER + dayIndex * dayWidth + 2,
-                        top: top + 2,
-                        width: Math.max(dayWidth - 4, 30),
-                        height: Math.max(height - 4, 14),
-                        backgroundColor: scheduleColor(schedule),
-                        opacity: schedule.isCompleted ? 0.55 : 1,
-                      },
-                    ]}
+                    label={scheduleLabel(schedule)}
+                    metaLabel={ptLabel}
+                    showMeta={showPtLabel}
+                    dayWidth={dayWidth}
+                    hourHeight={HOUR_HEIGHT}
+                    disabled={movingScheduleId !== null}
                     onPress={() => openSchedule(schedule.id)}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.65}
-                      style={styles.eventTitle}
-                    >
-                      {scheduleLabel(schedule)}
-                    </Text>
-                    {showPtLabel ? (
-                      <Text numberOfLines={1} style={styles.eventMeta}>{ptLabel}</Text>
-                    ) : null}
-                  </Pressable>
+                    onMove={(dayDelta, minuteDelta) =>
+                      moveTimedSchedule(schedule, dayDelta, minuteDelta)
+                    }
+                    style={{
+                      left: TIME_GUTTER + dayIndex * dayWidth + 2,
+                      top: top + 2,
+                      width: Math.max(dayWidth - 4, 30),
+                      height: Math.max(height - 4, 14),
+                      backgroundColor: scheduleColor(schedule),
+                      opacity: schedule.isCompleted ? 0.55 : 1,
+                    }}
+                  />
                 );
               })}
             </View>
@@ -676,31 +752,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 1.4,
     backgroundColor: NOW_COLOR,
-  },
-  eventBlock: {
-    position: 'absolute',
-    zIndex: 5,
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    borderRadius: 6,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eventTitle: {
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  eventMeta: {
-    marginTop: 1,
-    fontSize: 7,
-    lineHeight: 8,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.92)',
-    textAlign: 'center',
   },
   sheetBackdrop: {
     flex: 1,
