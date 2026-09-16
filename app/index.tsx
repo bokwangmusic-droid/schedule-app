@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  type GestureResponderEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import { DraggableScheduleBlock } from '../src/components/DraggableScheduleBlock';
+import { ScheduleRangeSelector } from '../src/components/ScheduleRangeSelector';
 import { TimetableMoreMenu } from '../src/components/TimetableMoreMenu';
 import { TimetableSettingsModal } from '../src/components/TimetableSettingsModal';
 import {
@@ -40,7 +40,6 @@ const SCREEN_MARGIN = 10;
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const EVENT_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 const NOW_COLOR = '#FF4D5A';
-const WEEK_SWIPE_DISTANCE = 58;
 const TRASH_ZONE_HEIGHT = 76;
 const TRASH_ZONE_BOTTOM = 18;
 
@@ -64,7 +63,6 @@ function parseLocalDate(value: string) {
 
 function scheduleColor(schedule: ScheduleItem) {
   if (schedule.color) return schedule.color;
-
   let hash = 0;
   for (let index = 0; index < schedule.title.length; index += 1) {
     hash = (hash * 31 + schedule.title.charCodeAt(index)) >>> 0;
@@ -79,15 +77,9 @@ function scheduleLabel(schedule: ScheduleItem) {
 function schedulePtLabel(schedule: ScheduleItem) {
   const remaining =
     schedule.memberPtProjectedRemainingSessions ?? schedule.memberPtRemainingSessions;
-
-  if (
-    !schedule.memberName ||
-    remaining === null ||
-    schedule.memberPtTotalSessions === null
-  ) {
+  if (!schedule.memberName || remaining === null || schedule.memberPtTotalSessions === null) {
     return null;
   }
-
   return `잔여 ${remaining}/${schedule.memberPtTotalSessions}`;
 }
 
@@ -109,13 +101,8 @@ function copySignature(schedule: ScheduleItem, date = schedule.date) {
   ].join('|');
 }
 
-function overlapPlacement(
-  schedule: ScheduleItem,
-  schedules: ScheduleItem[],
-  enabled: boolean,
-) {
+function overlapPlacement(schedule: ScheduleItem, schedules: ScheduleItem[], enabled: boolean) {
   if (!enabled) return { lane: 0, count: 1 };
-
   const start = timeToMinutes(schedule.startTime);
   const end = timeToMinutes(schedule.endTime);
   if (start === null || end === null) return { lane: 0, count: 1 };
@@ -125,20 +112,18 @@ function overlapPlacement(
       if (item.date !== schedule.date || item.isAllDay) return false;
       const otherStart = timeToMinutes(item.startTime);
       const otherEnd = timeToMinutes(item.endTime);
-      if (otherStart === null || otherEnd === null) return false;
-      return otherStart < end && otherEnd > start;
+      return otherStart !== null && otherEnd !== null && otherStart < end && otherEnd > start;
     })
     .sort((a, b) => {
-      const aStart = timeToMinutes(a.startTime) ?? 0;
-      const bStart = timeToMinutes(b.startTime) ?? 0;
-      if (aStart !== bStart) return aStart - bStart;
-      return a.id.localeCompare(b.id);
+      const diff = (timeToMinutes(a.startTime) ?? 0) - (timeToMinutes(b.startTime) ?? 0);
+      return diff !== 0 ? diff : a.id.localeCompare(b.id);
     });
 
   if (overlapping.length <= 1) return { lane: 0, count: 1 };
-
-  const lane = Math.max(0, overlapping.findIndex((item) => item.id === schedule.id));
-  return { lane, count: overlapping.length };
+  return {
+    lane: Math.max(0, overlapping.findIndex((item) => item.id === schedule.id)),
+    count: overlapping.length,
+  };
 }
 
 export default function HomeScreen() {
@@ -147,8 +132,6 @@ export default function HomeScreen() {
   const today = useMemo(() => new Date(), []);
   const todayWeekStart = useMemo(() => startOfWeekMonday(today), [today]);
   const timetableRef = useRef<View>(null);
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
-  const swipeBlockedUntilRef = useRef(0);
 
   const [weekStart, setWeekStart] = useState(todayWeekStart);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
@@ -179,7 +162,6 @@ export default function HomeScreen() {
         setOverlapView(settings.overlapView);
       })
       .catch(console.error);
-
     return () => {
       active = false;
     };
@@ -200,12 +182,7 @@ export default function HomeScreen() {
 
   const loadSchedules = useCallback(async () => {
     try {
-      const rows = await listSchedulesForRange(
-        db,
-        weekStartString,
-        weekEndString,
-        todayString,
-      );
+      const rows = await listSchedulesForRange(db, weekStartString, weekEndString, todayString);
       setSchedules(rows);
     } catch (error) {
       console.error(error);
@@ -226,12 +203,13 @@ export default function HomeScreen() {
   );
   const allDaySchedules = schedules.filter((item) => item.isAllDay);
 
-  const openNewSchedule = (date?: string, startTime?: string) => {
+  const openNewSchedule = (date?: string, startTime?: string, endTime?: string) => {
     router.push({
       pathname: '/schedule/new',
       params: {
         ...(date ? { date } : {}),
         ...(startTime ? { startTime } : {}),
+        ...(endTime ? { endTime } : {}),
       },
     });
   };
@@ -272,20 +250,13 @@ export default function HomeScreen() {
       targetDate === schedule.date &&
       targetStartTime === schedule.startTime &&
       targetEndTime === schedule.endTime
-    ) {
-      return;
-    }
+    ) return;
 
     setMovingScheduleId(schedule.id);
     setSchedules((current) =>
       current.map((item) =>
         item.id === schedule.id
-          ? {
-              ...item,
-              date: targetDate,
-              startTime: targetStartTime,
-              endTime: targetEndTime,
-            }
+          ? { ...item, date: targetDate, startTime: targetStartTime, endTime: targetEndTime }
           : item,
       ),
     );
@@ -314,7 +285,6 @@ export default function HomeScreen() {
   const deleteDraggedSchedule = async (schedule: ScheduleItem) => {
     setMovingScheduleId(schedule.id);
     setSchedules((current) => current.filter((item) => item.id !== schedule.id));
-
     try {
       await deleteSchedule(db, schedule.id);
       await loadSchedules();
@@ -327,45 +297,9 @@ export default function HomeScreen() {
     }
   };
 
-  const handleTimetableTouchStart = (event: GestureResponderEvent) => {
-    if (Date.now() < swipeBlockedUntilRef.current) {
-      swipeStartRef.current = null;
-      return;
-    }
-
-    swipeStartRef.current = {
-      x: event.nativeEvent.pageX,
-      y: event.nativeEvent.pageY,
-    };
-  };
-
-  const handleTimetableTouchEnd = (event: GestureResponderEvent) => {
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-
-    if (!start || Date.now() < swipeBlockedUntilRef.current) return;
-
-    const dx = event.nativeEvent.pageX - start.x;
-    const dy = event.nativeEvent.pageY - start.y;
-    const horizontalEnough = Math.abs(dx) >= WEEK_SWIPE_DISTANCE;
-    const mostlyHorizontal = Math.abs(dx) > Math.abs(dy) * 1.35;
-
-    if (!horizontalEnough || !mostlyHorizontal) return;
-
-    setWeekStart((current) => addDays(current, dx < 0 ? 7 : -7));
-  };
-
   const handleScheduleDragStateChange = (dragging: boolean) => {
     setTrashVisible(dragging);
     if (!dragging) setTrashActive(false);
-
-    if (dragging) {
-      swipeStartRef.current = null;
-      swipeBlockedUntilRef.current = Number.POSITIVE_INFINITY;
-      return;
-    }
-
-    swipeBlockedUntilRef.current = Date.now() + 400;
   };
 
   const handleDragMoveY = (pageY: number) => {
@@ -445,9 +379,7 @@ export default function HomeScreen() {
 
                 Alert.alert(
                   '복사 완료',
-                  copied > 0
-                    ? `다음 주에 ${copied}개의 일정을 복사했어요.`
-                    : '복사할 새 일정이 없어요.',
+                  copied > 0 ? `다음 주에 ${copied}개의 일정을 복사했어요.` : '복사할 새 일정이 없어요.',
                 );
               } catch (error) {
                 console.error(error);
@@ -471,7 +403,6 @@ export default function HomeScreen() {
         Alert.alert('사진 권한 필요', '시간표 이미지를 저장하려면 사진 저장 권한이 필요해요.');
         return;
       }
-
       const uri = await captureRef(timetableRef, {
         format: 'png',
         quality: 1,
@@ -508,7 +439,6 @@ export default function HomeScreen() {
           >
             <Text style={styles.weekArrowText}>‹</Text>
           </Pressable>
-
           <Pressable
             accessibilityLabel="이번 주로 이동"
             style={styles.weekLabelButton}
@@ -516,7 +446,6 @@ export default function HomeScreen() {
           >
             <Text numberOfLines={1} style={styles.weekTitle}>{weekLabel}</Text>
           </Pressable>
-
           <Pressable
             accessibilityLabel="다음 주"
             style={styles.weekArrowButton}
@@ -550,11 +479,6 @@ export default function HomeScreen() {
         ref={timetableRef}
         collapsable={false}
         style={[styles.timetableShell, { width: timetableWidth }]}
-        onTouchStart={handleTimetableTouchStart}
-        onTouchEnd={handleTimetableTouchEnd}
-        onTouchCancel={() => {
-          swipeStartRef.current = null;
-        }}
       >
         <View style={[styles.dayHeader, { width: timetableWidth }]}>
           <View style={styles.dayHeaderGutter} />
@@ -627,12 +551,7 @@ export default function HomeScreen() {
                   <View key={`hour-${hour}`} pointerEvents="none">
                     <View style={[styles.hourLine, { top }]} />
                     {hour < END_HOUR && (
-                      <Text
-                        style={[
-                          styles.hourLabel,
-                          { top: index === 0 ? 2 : top - 7 },
-                        ]}
-                      >
+                      <Text style={[styles.hourLabel, { top: index === 0 ? 2 : top - 7 }]}>
                         {hour}
                       </Text>
                     )}
@@ -640,28 +559,26 @@ export default function HomeScreen() {
                 );
               })}
 
-              {weekDates.flatMap((date, dayIndex) => {
+              {weekDates.map((date, dayIndex) => {
                 const dateString = toLocalDateString(date);
-                return Array.from({ length: END_HOUR - START_HOUR }, (_, hourIndex) => {
-                  const hour = START_HOUR + hourIndex;
-                  const startTime = `${String(hour).padStart(2, '0')}:00`;
-                  return (
-                    <Pressable
-                      key={`${dateString}-${hour}`}
-                      accessibilityLabel={`${dateString} ${startTime} 일정 추가`}
-                      style={[
-                        styles.slotButton,
-                        {
-                          left: TIME_GUTTER + dayIndex * dayWidth,
-                          top: hourIndex * hourHeight,
-                          width: dayWidth,
-                          height: hourHeight,
-                        },
-                      ]}
-                      onPress={() => openNewSchedule(dateString, startTime)}
-                    />
-                  );
-                });
+                return (
+                  <ScheduleRangeSelector
+                    key={`range-${dateString}`}
+                    left={TIME_GUTTER + dayIndex * dayWidth}
+                    width={dayWidth}
+                    height={gridHeight}
+                    startHour={START_HOUR}
+                    endHour={END_HOUR}
+                    hourHeight={hourHeight}
+                    disabled={movingScheduleId !== null}
+                    onRangeSelected={(startTime, endTime) =>
+                      openNewSchedule(dateString, startTime, endTime)
+                    }
+                    onWeekSwipe={(direction) =>
+                      setWeekStart((current) => addDays(current, direction === 'next' ? 7 : -7))
+                    }
+                  />
+                );
               })}
 
               {currentLineVisible && (
@@ -798,10 +715,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F5F6F8',
-  },
+  safeArea: { flex: 1, backgroundColor: '#F5F6F8' },
   topBar: {
     height: 58,
     marginTop: 6,
@@ -827,12 +741,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 10,
   },
-  weekArrowText: {
-    marginTop: -3,
-    fontSize: 29,
-    fontWeight: '300',
-    color: '#2D3138',
-  },
+  weekArrowText: { marginTop: -3, fontSize: 29, fontWeight: '300', color: '#2D3138' },
   weekLabelButton: {
     minWidth: 0,
     flex: 1,
@@ -840,17 +749,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weekTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#1F232A',
-  },
-  headerActions: {
-    marginLeft: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
+  weekTitle: { fontSize: 17, fontWeight: '900', color: '#1F232A' },
+  headerActions: { marginLeft: 5, flexDirection: 'row', alignItems: 'center', gap: 5 },
   smallHeaderButton: {
     height: 32,
     paddingHorizontal: 8,
@@ -859,11 +759,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F3F4F6',
   },
-  smallHeaderButtonText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#5B6270',
-  },
+  smallHeaderButtonText: { fontSize: 10, fontWeight: '900', color: '#5B6270' },
   addButton: {
     width: 32,
     height: 32,
@@ -872,12 +768,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#24282F',
   },
-  addButtonText: {
-    marginTop: -2,
-    fontSize: 23,
-    fontWeight: '400',
-    color: '#FFFFFF',
-  },
+  addButtonText: { marginTop: -2, fontSize: 23, fontWeight: '400', color: '#FFFFFF' },
   moreButton: {
     width: 28,
     height: 34,
@@ -885,13 +776,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 10,
   },
-  moreButtonText: {
-    marginTop: -2,
-    fontSize: 25,
-    lineHeight: 27,
-    fontWeight: '900',
-    color: '#2D3138',
-  },
+  moreButtonText: { marginTop: -2, fontSize: 25, lineHeight: 27, fontWeight: '900', color: '#2D3138' },
   timetableShell: {
     flex: 1,
     alignSelf: 'center',
@@ -910,22 +795,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E1E4E9',
     backgroundColor: '#FBFBFC',
   },
-  dayHeaderGutter: {
-    width: TIME_GUTTER,
-    borderRightWidth: 1,
-    borderRightColor: '#E6E8EC',
-  },
+  dayHeaderGutter: { width: TIME_GUTTER, borderRightWidth: 1, borderRightColor: '#E6E8EC' },
   dayHeaderCell: {
     alignItems: 'center',
     justifyContent: 'center',
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: '#E6E8EC',
   },
-  dayName: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#8A9099',
-  },
+  dayName: { fontSize: 10, fontWeight: '700', color: '#8A9099' },
   dayNumberWrap: {
     minWidth: 22,
     height: 20,
@@ -947,13 +824,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E3E6EA',
     backgroundColor: '#FAFBFC',
   },
-  allDayLabel: {
-    width: TIME_GUTTER,
-    textAlign: 'center',
-    fontSize: 8,
-    fontWeight: '700',
-    color: '#8A909B',
-  },
+  allDayLabel: { width: TIME_GUTTER, textAlign: 'center', fontSize: 8, fontWeight: '700', color: '#8A909B' },
   allDayContent: { gap: 5, paddingVertical: 4, paddingRight: 8 },
   allDayChip: {
     maxWidth: 90,
@@ -963,20 +834,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   allDayChipText: { fontSize: 9, fontWeight: '800', color: '#FFFFFF' },
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  gridScroll: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  grid: {
-    position: 'relative',
-    backgroundColor: '#FFFFFF',
-  },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  gridScroll: { flex: 1, backgroundColor: '#FFFFFF' },
+  grid: { position: 'relative', backgroundColor: '#FFFFFF' },
   hourLabel: {
     position: 'absolute',
     left: 0,
@@ -1005,14 +865,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: '#E1E4E8',
   },
-  todayColumn: {
-    backgroundColor: '#F6F7FB',
-  },
-  slotButton: {
-    position: 'absolute',
-    zIndex: 1,
-    backgroundColor: 'transparent',
-  },
+  todayColumn: { backgroundColor: '#F6F7FB' },
   currentTimeWrap: {
     position: 'absolute',
     zIndex: 4,
@@ -1027,11 +880,7 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
     backgroundColor: NOW_COLOR,
   },
-  currentTimeLine: {
-    flex: 1,
-    height: 1.4,
-    backgroundColor: NOW_COLOR,
-  },
+  currentTimeLine: { flex: 1, height: 1.4, backgroundColor: NOW_COLOR },
   trashZone: {
     position: 'absolute',
     left: 24,
@@ -1057,10 +906,6 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.03 }],
   },
   trashIcon: { fontSize: 25 },
-  trashText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#D83D4B',
-  },
+  trashText: { fontSize: 14, fontWeight: '900', color: '#D83D4B' },
   trashTextActive: { color: '#FFFFFF' },
 });
