@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TimePickerField } from '../../src/components/TimePickerField';
 import { listMembers } from '../../src/data/memberRepository';
 import {
   deleteSchedule,
@@ -26,6 +27,13 @@ import type { MemberItem } from '../../src/types/member';
 
 const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 type ScheduleKind = 'member' | 'personal';
+
+function addOneHour(time: string) {
+  if (!isValidTimeInput(time)) return '10:00';
+  const [hour, minute] = time.split(':').map(Number);
+  if (hour >= 23) return '23:59';
+  return `${String(hour + 1).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
 
 export default function EditScheduleScreen() {
   const db = useSQLiteContext();
@@ -116,6 +124,11 @@ export default function EditScheduleScreen() {
     setMemberOpen(false);
   };
 
+  const changeStartTime = (value: string) => {
+    setStartTime(value);
+    if (endTime <= value) setEndTime(addOneHour(value));
+  };
+
   const save = async () => {
     if (scheduleKind === 'member' && !selectedMember) {
       Alert.alert('회원을 선택해 주세요.');
@@ -133,7 +146,7 @@ export default function EditScheduleScreen() {
       return;
     }
     if (!isAllDay && (!isValidTimeInput(startTime) || !isValidTimeInput(endTime))) {
-      Alert.alert('시간을 확인해 주세요.', '24시간 형식으로 입력해 주세요. 예: 09:30');
+      Alert.alert('시간을 확인해 주세요.');
       return;
     }
     if (!isAllDay && startTime >= endTime) {
@@ -314,14 +327,8 @@ export default function EditScheduleScreen() {
 
             {!isAllDay && (
               <View style={styles.timeRow}>
-                <View style={styles.timeField}>
-                  <Text style={styles.smallLabel}>시작</Text>
-                  <TextInput value={startTime} onChangeText={setStartTime} style={styles.input} maxLength={5} />
-                </View>
-                <View style={styles.timeField}>
-                  <Text style={styles.smallLabel}>종료</Text>
-                  <TextInput value={endTime} onChangeText={setEndTime} style={styles.input} maxLength={5} />
-                </View>
+                <TimePickerField label="시작" value={startTime} onChange={changeStartTime} />
+                <TimePickerField label="종료" value={endTime} onChange={setEndTime} />
               </View>
             )}
           </View>
@@ -489,8 +496,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timeRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
-  timeField: { flex: 1 },
-  smallLabel: { marginBottom: 8, fontSize: 13, fontWeight: '700', color: '#7C8493' },
   memoInput: { minHeight: 100, paddingTop: 16, paddingBottom: 16 },
   deleteButton: {
     height: 52,
