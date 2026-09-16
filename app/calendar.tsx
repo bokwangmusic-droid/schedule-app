@@ -12,10 +12,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { listSchedulesForRange } from '../src/data/scheduleRepository';
 import { addDays, toLocalDateString } from '../src/lib/date';
+import { getKoreanHoliday } from '../src/lib/koreanHolidays';
 import type { ScheduleItem } from '../src/types/schedule';
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const FALLBACK_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
+const HOLIDAY_RED = '#E4494F';
+const SATURDAY_BLUE = '#4F73C8';
 
 function startOfCalendarGrid(month: Date) {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -84,6 +87,7 @@ export default function CalendarScreen() {
   }, [schedules]);
 
   const selectedSchedules = schedulesByDate.get(selectedDate) ?? [];
+  const selectedHoliday = getKoreanHoliday(selectedDate);
 
   const changeMonth = (delta: number) => {
     const next = new Date(month.getFullYear(), month.getMonth() + delta, 1);
@@ -112,9 +116,17 @@ export default function CalendarScreen() {
       </View>
 
       <View style={styles.weekRow}>
-        {DAYS.map((day) => (
+        {DAYS.map((day, index) => (
           <View key={day} style={styles.weekCell}>
-            <Text style={styles.weekText}>{day}</Text>
+            <Text
+              style={[
+                styles.weekText,
+                index === 5 && styles.saturdayText,
+                index === 6 && styles.holidayText,
+              ]}
+            >
+              {day}
+            </Text>
           </View>
         ))}
       </View>
@@ -132,6 +144,10 @@ export default function CalendarScreen() {
               const isToday = dateString === todayString;
               const selected = dateString === selectedDate;
               const daySchedules = schedulesByDate.get(dateString) ?? [];
+              const holiday = getKoreanHoliday(dateString);
+              const isSunday = date.getDay() === 0;
+              const isSaturday = date.getDay() === 6;
+              const isRedDay = Boolean(holiday || isSunday);
 
               return (
                 <Pressable
@@ -144,12 +160,28 @@ export default function CalendarScreen() {
                       style={[
                         styles.dateNumber,
                         !inMonth && styles.outMonthText,
+                        isSaturday && !isRedDay && styles.saturdayText,
+                        isRedDay && styles.holidayText,
                         isToday && styles.todayText,
                       ]}
                     >
                       {date.getDate()}
                     </Text>
                   </View>
+
+                  {holiday ? (
+                    <Text
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.72}
+                      style={[styles.holidayLabel, !inMonth && styles.outMonthHoliday]}
+                    >
+                      {holiday.name}
+                    </Text>
+                  ) : (
+                    <View style={styles.holidayPlaceholder} />
+                  )}
+
                   <View style={styles.dotRow}>
                     {daySchedules.slice(0, 3).map((item) => (
                       <View
@@ -164,7 +196,14 @@ export default function CalendarScreen() {
           </View>
 
           <View style={styles.selectedHeader}>
-            <Text style={styles.selectedTitle}>{selectedDate}</Text>
+            <View style={styles.selectedTitleWrap}>
+              <Text style={styles.selectedTitle}>{selectedDate}</Text>
+              {selectedHoliday ? (
+                <Text numberOfLines={1} style={styles.selectedHoliday}>
+                  {selectedHoliday.name}
+                </Text>
+              ) : null}
+            </View>
             <Pressable
               style={styles.addButton}
               onPress={() => router.push({ pathname: '/schedule/new', params: { date: selectedDate } })}
@@ -229,27 +268,42 @@ const styles = StyleSheet.create({
   weekRow: { height: 30, flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E2E4E8' },
   weekCell: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   weekText: { fontSize: 11, fontWeight: '800', color: '#838995' },
+  saturdayText: { color: SATURDAY_BLUE },
+  holidayText: { color: HOLIDAY_RED },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  calendarGrid: { height: 300, flexDirection: 'row', flexWrap: 'wrap' },
+  calendarGrid: { height: 348, flexDirection: 'row', flexWrap: 'wrap' },
   dateCell: {
     width: `${100 / 7}%`,
-    height: 50,
+    height: 58,
     alignItems: 'center',
-    paddingTop: 5,
+    paddingTop: 4,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: '#E5E7EB',
   },
   dateCellSelected: { backgroundColor: '#F2F5FF' },
-  dateNumberWrap: { minWidth: 24, height: 24, paddingHorizontal: 4, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  dateNumberWrap: { minWidth: 23, height: 22, paddingHorizontal: 4, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   todayWrap: { backgroundColor: '#4B68FF' },
   dateNumber: { fontSize: 12, fontWeight: '800', color: '#333842' },
-  outMonthText: { color: '#B8BDC6' },
-  todayText: { color: '#FFFFFF' },
-  dotRow: { height: 8, marginTop: 2, flexDirection: 'row', gap: 2, alignItems: 'center' },
+  outMonthText: { opacity: 0.35 },
+  todayText: { color: '#FFFFFF', opacity: 1 },
+  holidayLabel: {
+    width: '96%',
+    height: 11,
+    marginTop: 1,
+    paddingHorizontal: 1,
+    textAlign: 'center',
+    fontSize: 7.5,
+    lineHeight: 10,
+    fontWeight: '800',
+    color: HOLIDAY_RED,
+  },
+  outMonthHoliday: { opacity: 0.35 },
+  holidayPlaceholder: { height: 12 },
+  dotRow: { height: 7, marginTop: 1, flexDirection: 'row', gap: 2, alignItems: 'center' },
   dot: { width: 4, height: 4, borderRadius: 2 },
   selectedHeader: {
-    height: 54,
+    minHeight: 56,
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
@@ -257,7 +311,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E1E4E9',
   },
+  selectedTitleWrap: { flex: 1, minWidth: 0, paddingRight: 10 },
   selectedTitle: { fontSize: 15, fontWeight: '900', color: '#252932' },
+  selectedHoliday: { marginTop: 2, fontSize: 11, fontWeight: '800', color: HOLIDAY_RED },
   addButton: { height: 34, paddingHorizontal: 12, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4B68FF' },
   addButtonText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
   scheduleList: { flex: 1, backgroundColor: '#F7F8FA' },
