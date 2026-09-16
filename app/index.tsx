@@ -23,7 +23,7 @@ import type { ScheduleItem } from '../src/types/schedule';
 const START_HOUR = 6;
 const END_HOUR = 24;
 const HOUR_HEIGHT = 64;
-const TIME_GUTTER = 38;
+const TIME_GUTTER = 54;
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const EVENT_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 const NOW_COLOR = '#FF4D5A';
@@ -199,7 +199,11 @@ export default function HomeScreen() {
               const top = index * HOUR_HEIGHT;
               return (
                 <View key={`hour-${hour}`} style={[styles.hourLineRow, { top }]} pointerEvents="none">
-                  {hour < END_HOUR && <Text style={styles.hourLabel}>{hour}</Text>}
+                  {hour < END_HOUR && (
+                    <Text style={styles.hourLabel}>
+                      {`${String(hour).padStart(2, '0')}:00`}
+                    </Text>
+                  )}
                   <View style={styles.hourLine} />
                 </View>
               );
@@ -490,20 +494,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 1,
+    height: HOUR_HEIGHT,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   hourLabel: {
-    width: TIME_GUTTER - 5,
-    marginTop: 18,
+    width: TIME_GUTTER - 6,
+    marginTop: 6,
     paddingRight: 4,
     textAlign: 'right',
     fontSize: 10,
-    color: '#9298A3',
+    fontWeight: '700',
+    color: '#727987',
   },
   hourLine: {
     position: 'absolute',
+    top: 0,
     left: TIME_GUTTER,
     right: 0,
     height: StyleSheet.hairlineWidth,
