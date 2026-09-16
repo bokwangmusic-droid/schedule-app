@@ -25,6 +25,7 @@ import {
 import type { MemberItem } from '../../src/types/member';
 
 const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
+type ScheduleKind = 'member' | 'personal';
 
 function addOneHour(time: string) {
   if (!isValidTimeInput(time)) return '10:00';
@@ -35,7 +36,7 @@ function addOneHour(time: string) {
 
 export default function NewScheduleScreen() {
   const db = useSQLiteContext();
-  const params = useLocalSearchParams<{ date?: string; startTime?: string }>();
+  const params = useLocalSearchParams<{ date?: string; startTime?: string; endTime?: string }>();
   const today = useMemo(() => new Date(), []);
   const todayString = useMemo(() => toLocalDateString(today), [today]);
   const tomorrowString = useMemo(() => toLocalDateString(addDays(today, 1)), [today]);
@@ -45,7 +46,14 @@ export default function NewScheduleScreen() {
   const initialStartTime = typeof params.startTime === 'string' && isValidTimeInput(params.startTime)
     ? params.startTime
     : '09:00';
+  const initialEndTime =
+    typeof params.endTime === 'string' &&
+    isValidTimeInput(params.endTime) &&
+    params.endTime > initialStartTime
+      ? params.endTime
+      : addOneHour(initialStartTime);
 
+  const [scheduleKind, setScheduleKind] = useState<ScheduleKind>('member');
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [memberOpen, setMemberOpen] = useState(false);
@@ -53,7 +61,7 @@ export default function NewScheduleScreen() {
   const [date, setDate] = useState(initialDate);
   const [isAllDay, setIsAllDay] = useState(false);
   const [startTime, setStartTime] = useState(initialStartTime);
-  const [endTime, setEndTime] = useState(addOneHour(initialStartTime));
+  const [endTime, setEndTime] = useState(initialEndTime);
   const [memo, setMemo] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
@@ -64,23 +72,36 @@ export default function NewScheduleScreen() {
 
   const selectedMember = members.find((member) => member.id === memberId) ?? null;
 
-  const chooseMember = (member: MemberItem | null) => {
-    const previousName = selectedMember?.name ?? '';
-    if (member) {
-      if (!title.trim() || title === previousName) setTitle(member.name);
-      setMemberId(member.id);
-    } else {
-      if (title === previousName) setTitle('');
+  const chooseKind = (kind: ScheduleKind) => {
+    if (kind === scheduleKind) return;
+
+    if (kind === 'personal') {
+      const selectedName = selectedMember?.name ?? '';
+      if (title === selectedName) setTitle('');
       setMemberId(null);
+      setMemberOpen(false);
     }
+
+    setScheduleKind(kind);
+  };
+
+  const chooseMember = (member: MemberItem) => {
+    const previousName = selectedMember?.name ?? '';
+    if (!title.trim() || title === previousName) setTitle(member.name);
+    setMemberId(member.id);
     setMemberOpen(false);
   };
 
   const save = async () => {
+    if (scheduleKind === 'member' && !selectedMember) {
+      Alert.alert('회원을 선택해 주세요.');
+      return;
+    }
+
     const trimmedTitle = title.trim() || selectedMember?.name || '';
 
     if (!trimmedTitle) {
-      Alert.alert('일정 이름이나 회원을 선택해 주세요.');
+      Alert.alert('일정 이름을 입력해 주세요.');
       return;
     }
 
@@ -108,7 +129,7 @@ export default function NewScheduleScreen() {
         endTime: isAllDay ? null : endTime,
         memo,
         color,
-        memberId,
+        memberId: scheduleKind === 'member' ? memberId : null,
         isAllDay,
       });
       router.back();
@@ -139,39 +160,60 @@ export default function NewScheduleScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.label}>회원 선택</Text>
-          <Pressable style={styles.dropdownButton} onPress={() => setMemberOpen((open) => !open)}>
-            <Text style={[styles.dropdownText, !selectedMember && styles.dropdownPlaceholder]}>
-              {selectedMember?.name ?? '회원을 선택하세요'}
-            </Text>
-            <Text style={styles.dropdownArrow}>{memberOpen ? '▲' : '▼'}</Text>
-          </Pressable>
-          {memberOpen && (
-            <View style={styles.dropdownMenu}>
-              <Pressable style={styles.dropdownItem} onPress={() => chooseMember(null)}>
-                <Text style={styles.dropdownItemText}>회원 지정 안 함</Text>
+          <Text style={styles.label}>일정 종류</Text>
+          <View style={styles.kindRow}>
+            <Pressable
+              style={[styles.kindButton, scheduleKind === 'member' && styles.kindButtonActive]}
+              onPress={() => chooseKind('member')}
+            >
+              <Text style={[styles.kindButtonText, scheduleKind === 'member' && styles.kindButtonTextActive]}>
+                회원 일정
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.kindButton, scheduleKind === 'personal' && styles.kindButtonActive]}
+              onPress={() => chooseKind('personal')}
+            >
+              <Text style={[styles.kindButtonText, scheduleKind === 'personal' && styles.kindButtonTextActive]}>
+                개인 일정
+              </Text>
+            </Pressable>
+          </View>
+
+          {scheduleKind === 'member' ? (
+            <View style={styles.sectionSmall}>
+              <Text style={styles.label}>회원 선택</Text>
+              <Pressable style={styles.dropdownButton} onPress={() => setMemberOpen((open) => !open)}>
+                <Text style={[styles.dropdownText, !selectedMember && styles.dropdownPlaceholder]}>
+                  {selectedMember?.name ?? '회원을 선택하세요'}
+                </Text>
+                <Text style={styles.dropdownArrow}>{memberOpen ? '▲' : '▼'}</Text>
               </Pressable>
-              {members.map((member) => (
-                <Pressable key={member.id} style={styles.dropdownItem} onPress={() => chooseMember(member)}>
-                  <View style={styles.dropdownMemberInfo}>
-                    <Text style={styles.dropdownMemberName}>{member.name}</Text>
-                    {member.phone ? <Text style={styles.dropdownMemberPhone}>{member.phone}</Text> : null}
-                  </View>
-                  {member.id === memberId ? <Text style={styles.dropdownCheck}>✓</Text> : null}
-                </Pressable>
-              ))}
-              {members.length === 0 ? (
-                <Text style={styles.dropdownEmpty}>먼저 시간표의 회원 메뉴에서 회원을 등록해 주세요.</Text>
-              ) : null}
+              {memberOpen && (
+                <View style={styles.dropdownMenu}>
+                  {members.map((member) => (
+                    <Pressable key={member.id} style={styles.dropdownItem} onPress={() => chooseMember(member)}>
+                      <View style={styles.dropdownMemberInfo}>
+                        <Text style={styles.dropdownMemberName}>{member.name}</Text>
+                        {member.phone ? <Text style={styles.dropdownMemberPhone}>{member.phone}</Text> : null}
+                      </View>
+                      {member.id === memberId ? <Text style={styles.dropdownCheck}>✓</Text> : null}
+                    </Pressable>
+                  ))}
+                  {members.length === 0 ? (
+                    <Text style={styles.dropdownEmpty}>먼저 시간표의 회원 메뉴에서 회원을 등록해 주세요.</Text>
+                  ) : null}
+                </View>
+              )}
             </View>
-          )}
+          ) : null}
 
           <View style={styles.section}>
-            <Text style={styles.label}>일정명</Text>
+            <Text style={styles.label}>{scheduleKind === 'member' ? '일정명' : '개인 일정명'}</Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="예: 홍길동 PT"
+              placeholder={scheduleKind === 'member' ? '예: 홍길동 PT' : '예: 병원, 가족약속, 운동'}
               placeholderTextColor="#A4AAB5"
               style={styles.titleInput}
               returnKeyType="next"
@@ -315,6 +357,31 @@ const styles = StyleSheet.create({
   label: { marginBottom: 10, fontSize: 14, fontWeight: '800', color: '#4B5260' },
   labelWithoutMargin: { fontSize: 16, fontWeight: '700', color: '#252932' },
   section: { marginTop: 26 },
+  sectionSmall: { marginTop: 16 },
+  kindRow: {
+    height: 48,
+    padding: 4,
+    flexDirection: 'row',
+    gap: 4,
+    borderRadius: 16,
+    backgroundColor: '#EDEFF3',
+  },
+  kindButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
+  kindButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  kindButtonText: { fontSize: 14, fontWeight: '800', color: '#858C98' },
+  kindButtonTextActive: { color: '#252A32' },
   titleInput: {
     minHeight: 56,
     paddingHorizontal: 18,
@@ -353,7 +420,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ECEFF3',
   },
-  dropdownItemText: { fontSize: 14, fontWeight: '700', color: '#646B77' },
   dropdownMemberInfo: { flex: 1 },
   dropdownMemberName: { fontSize: 15, fontWeight: '900', color: '#22262E' },
   dropdownMemberPhone: { marginTop: 2, fontSize: 12, color: '#8A909B' },
