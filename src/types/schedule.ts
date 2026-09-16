@@ -10,6 +10,7 @@ export type ScheduleItem = {
   memberName: string | null;
   memberPtTotalSessions: number | null;
   memberPtRemainingSessions: number | null;
+  memberPtProjectedRemainingSessions: number | null;
   isAllDay: boolean;
   isCompleted: boolean;
   createdAt: string;
