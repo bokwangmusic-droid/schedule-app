@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -24,6 +24,7 @@ type DatePickerTarget = 'start' | 'end' | null;
 
 export default function MembersScreen() {
   const db = useSQLiteContext();
+  const scrollRef = useRef<ScrollView>(null);
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -72,6 +73,7 @@ export default function MembersScreen() {
       member.ptRemainingSessions === null ? '' : String(member.ptRemainingSessions),
     );
     setMemo(member.memo ?? '');
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
   };
 
   const saveMember = async () => {
@@ -168,7 +170,11 @@ export default function MembersScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.card}>
           <View style={styles.formHeader}>
             <Text style={styles.sectionTitle}>{editingMemberId ? '회원 수정' : '회원 등록'}</Text>
