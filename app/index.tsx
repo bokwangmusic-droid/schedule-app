@@ -46,6 +46,18 @@ function scheduleLabel(schedule: ScheduleItem) {
   return schedule.memberName ?? schedule.title;
 }
 
+function schedulePtLabel(schedule: ScheduleItem) {
+  if (
+    !schedule.memberName ||
+    schedule.memberPtRemainingSessions === null ||
+    schedule.memberPtTotalSessions === null
+  ) {
+    return null;
+  }
+
+  return `잔여 ${schedule.memberPtRemainingSessions}/${schedule.memberPtTotalSessions}`;
+}
+
 function getWeekOfMonthLabel(date: Date) {
   const first = new Date(date.getFullYear(), date.getMonth(), 1);
   const mondayBasedOffset = (first.getDay() + 6) % 7;
@@ -323,6 +335,8 @@ export default function HomeScreen() {
               const visibleEnd = Math.min(Math.max(endMinutes, visibleStart + 15), gridEndMinutes);
               const top = ((visibleStart - gridStartMinutes) / 60) * HOUR_HEIGHT;
               const height = Math.max(((visibleEnd - visibleStart) / 60) * HOUR_HEIGHT, 17);
+              const ptLabel = schedulePtLabel(schedule);
+              const showPtLabel = Boolean(ptLabel && height >= 26);
 
               return (
                 <Pressable
@@ -348,6 +362,9 @@ export default function HomeScreen() {
                   >
                     {scheduleLabel(schedule)}
                   </Text>
+                  {showPtLabel ? (
+                    <Text numberOfLines={1} style={styles.eventMeta}>{ptLabel}</Text>
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -608,16 +625,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 5,
     paddingHorizontal: 2,
+    paddingVertical: 1,
     borderRadius: 3,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   eventTitle: {
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: '900',
     color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  eventMeta: {
+    marginTop: 1,
+    fontSize: 7,
+    lineHeight: 8,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.92)',
     textAlign: 'center',
   },
   sheetBackdrop: {
