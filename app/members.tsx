@@ -11,13 +11,21 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { createMember, deleteMember, listMembers } from '../src/data/memberRepository';
-import { isValidDateInput } from '../src/lib/date';
+import { SimpleDatePickerModal } from '../src/components/SimpleDatePickerModal';
+import {
+  createMember,
+  deleteMember,
+  listMembers,
+  updateMember,
+} from '../src/data/memberRepository';
 import type { MemberItem } from '../src/types/member';
+
+type DatePickerTarget = 'start' | 'end' | null;
 
 export default function MembersScreen() {
   const db = useSQLiteContext();
   const [members, setMembers] = useState<MemberItem[]>([]);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [membershipStartDate, setMembershipStartDate] = useState('');
@@ -25,6 +33,7 @@ export default function MembersScreen() {
   const [ptTotalSessions, setPtTotalSessions] = useState('');
   const [ptRemainingSessions, setPtRemainingSessions] = useState('');
   const [memo, setMemo] = useState('');
+  const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget>(null);
   const [saving, setSaving] = useState(false);
 
   const loadMembers = useCallback(async () => {
@@ -38,6 +47,33 @@ export default function MembersScreen() {
     }, [loadMembers]),
   );
 
+  const resetForm = () => {
+    setEditingMemberId(null);
+    setName('');
+    setPhone('');
+    setMembershipStartDate('');
+    setMembershipEndDate('');
+    setPtTotalSessions('');
+    setPtRemainingSessions('');
+    setMemo('');
+    setDatePickerTarget(null);
+  };
+
+  const beginEdit = (member: MemberItem) => {
+    setEditingMemberId(member.id);
+    setName(member.name);
+    setPhone(member.phone ?? '');
+    setMembershipStartDate(member.membershipStartDate ?? '');
+    setMembershipEndDate(member.membershipEndDate ?? '');
+    setPtTotalSessions(
+      member.ptTotalSessions === null ? '' : String(member.ptTotalSessions),
+    );
+    setPtRemainingSessions(
+      member.ptRemainingSessions === null ? '' : String(member.ptRemainingSessions),
+    );
+    setMemo(member.memo ?? '');
+  };
+
   const saveMember = async () => {
     if (!name.trim()) {
       Alert.alert('회원 이름을 입력해 주세요.');
@@ -46,14 +82,6 @@ export default function MembersScreen() {
 
     const start = membershipStartDate.trim();
     const end = membershipEndDate.trim();
-    if (start && !isValidDateInput(start)) {
-      Alert.alert('회원권 시작일을 확인해 주세요.', '예: 2026-09-16');
-      return;
-    }
-    if (end && !isValidDateInput(end)) {
-      Alert.alert('회원권 종료일을 확인해 주세요.', '예: 2026-12-16');
-      return;
-    }
     if (start && end && start > end) {
       Alert.alert('회원권 기간을 확인해 주세요.', '종료일은 시작일보다 늦어야 해요.');
       return;
@@ -84,7 +112,7 @@ export default function MembersScreen() {
 
     try {
       setSaving(true);
-      await createMember(db, {
+      const input = {
         name,
         phone,
         membershipStartDate: start || null,
@@ -92,18 +120,19 @@ export default function MembersScreen() {
         ptTotalSessions: total,
         ptRemainingSessions: remaining,
         memo,
-      });
-      setName('');
-      setPhone('');
-      setMembershipStartDate('');
-      setMembershipEndDate('');
-      setPtTotalSessions('');
-      setPtRemainingSessions('');
-      setMemo('');
+      };
+
+      if (editingMemberId) {
+        await updateMember(db, editingMemberId, input);
+      } else {
+        await createMember(db, input);
+      }
+
+      resetForm();
       await loadMembers();
     } catch (error) {
       console.error(error);
-      Alert.alert('회원을 등록하지 못했어요.');
+      Alert.alert(editingMemberId ? '회원 정보를 수정하지 못했어요.' : '회원을 등록하지 못했어요.');
     } finally {
       setSaving(false);
     }
@@ -118,12 +147,16 @@ export default function MembersScreen() {
         onPress: () => {
           void (async () => {
             await deleteMember(db, member.id);
+            if (editingMemberId === member.id) resetForm();
             await loadMembers();
           })();
         },
       },
     ]);
   };
+
+  const selectedPickerDate =
+    datePickerTarget === 'start' ? membershipStartDate : membershipEndDate;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -137,7 +170,15 @@ export default function MembersScreen() {
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>회원 등록</Text>
+          <View style={styles.formHeader}>
+            <Text style={styles.sectionTitle}>{editingMemberId ? '회원 수정' : '회원 등록'}</Text>
+            {editingMemberId ? (
+              <Pressable onPress={resetForm} hitSlop={10}>
+                <Text style={styles.cancelEditText}>수정 취소</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
           <TextInput
             value={name}
             onChangeText={setName}
@@ -156,23 +197,37 @@ export default function MembersScreen() {
 
           <Text style={styles.fieldTitle}>회원권 기간</Text>
           <View style={styles.twoColumnRow}>
-            <TextInput
-              value={membershipStartDate}
-              onChangeText={setMembershipStartDate}
-              placeholder="시작일 YYYY-MM-DD"
-              placeholderTextColor="#A4AAB5"
-              style={[styles.input, styles.halfInput]}
-              autoCapitalize="none"
-            />
-            <TextInput
-              value={membershipEndDate}
-              onChangeText={setMembershipEndDate}
-              placeholder="종료일 YYYY-MM-DD"
-              placeholderTextColor="#A4AAB5"
-              style={[styles.input, styles.halfInput]}
-              autoCapitalize="none"
-            />
+            <Pressable
+              style={[styles.dateButton, styles.halfInput]}
+              onPress={() => setDatePickerTarget('start')}
+            >
+              <Text style={membershipStartDate ? styles.dateValue : styles.datePlaceholder}>
+                {membershipStartDate || '시작일 선택'}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.dateButton, styles.halfInput]}
+              onPress={() => setDatePickerTarget('end')}
+            >
+              <Text style={membershipEndDate ? styles.dateValue : styles.datePlaceholder}>
+                {membershipEndDate || '종료일 선택'}
+              </Text>
+            </Pressable>
           </View>
+          {(membershipStartDate || membershipEndDate) ? (
+            <View style={styles.dateClearRow}>
+              {membershipStartDate ? (
+                <Pressable onPress={() => setMembershipStartDate('')}>
+                  <Text style={styles.clearDateText}>시작일 지우기</Text>
+                </Pressable>
+              ) : <View />}
+              {membershipEndDate ? (
+                <Pressable onPress={() => setMembershipEndDate('')}>
+                  <Text style={styles.clearDateText}>종료일 지우기</Text>
+                </Pressable>
+              ) : <View />}
+            </View>
+          ) : null}
 
           <Text style={styles.fieldTitle}>PT 횟수</Text>
           <View style={styles.twoColumnRow}>
@@ -187,12 +242,15 @@ export default function MembersScreen() {
             <TextInput
               value={ptRemainingSessions}
               onChangeText={setPtRemainingSessions}
-              placeholder="잔여 횟수"
+              placeholder="현재 잔여"
               placeholderTextColor="#A4AAB5"
               keyboardType="number-pad"
               style={[styles.input, styles.halfInput]}
             />
           </View>
+          <Text style={styles.helpText}>
+            현재 잔여 횟수를 기준으로 앞으로 잡힌 PT 예약의 잔여 횟수가 자동 계산됩니다.
+          </Text>
 
           <TextInput
             value={memo}
@@ -208,7 +266,9 @@ export default function MembersScreen() {
             onPress={saveMember}
             disabled={saving}
           >
-            <Text style={styles.saveButtonText}>{saving ? '등록 중...' : '회원 등록'}</Text>
+            <Text style={styles.saveButtonText}>
+              {saving ? '저장 중...' : editingMemberId ? '회원 정보 저장' : '회원 등록'}
+            </Text>
           </Pressable>
         </View>
 
@@ -234,18 +294,34 @@ export default function MembersScreen() {
                 ) : null}
                 {member.ptTotalSessions !== null && member.ptRemainingSessions !== null ? (
                   <Text style={styles.ptMeta}>
-                    PT 잔여 {member.ptRemainingSessions}/{member.ptTotalSessions}
+                    PT 현재 잔여 {member.ptRemainingSessions}/{member.ptTotalSessions}
                   </Text>
                 ) : null}
                 {member.memo ? <Text numberOfLines={3} style={styles.memberMemo}>{member.memo}</Text> : null}
               </View>
-              <Pressable onPress={() => confirmDelete(member)} hitSlop={10}>
-                <Text style={styles.deleteText}>삭제</Text>
-              </Pressable>
+              <View style={styles.memberActions}>
+                <Pressable onPress={() => beginEdit(member)} hitSlop={8}>
+                  <Text style={styles.editText}>수정</Text>
+                </Pressable>
+                <Pressable onPress={() => confirmDelete(member)} hitSlop={8}>
+                  <Text style={styles.deleteText}>삭제</Text>
+                </Pressable>
+              </View>
             </View>
           ))
         )}
       </ScrollView>
+
+      <SimpleDatePickerModal
+        visible={datePickerTarget !== null}
+        title={datePickerTarget === 'start' ? '회원권 시작일' : '회원권 종료일'}
+        selectedDate={selectedPickerDate || null}
+        onClose={() => setDatePickerTarget(null)}
+        onSelect={(date) => {
+          if (datePickerTarget === 'start') setMembershipStartDate(date);
+          if (datePickerTarget === 'end') setMembershipEndDate(date);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -267,7 +343,13 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 70 },
   content: { padding: 18, paddingBottom: 40 },
   card: { padding: 18, borderRadius: 18, backgroundColor: '#FFFFFF' },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionTitle: { fontSize: 16, fontWeight: '900', color: '#22262E' },
+  cancelEditText: { fontSize: 13, fontWeight: '800', color: '#7B8290' },
   fieldTitle: {
     marginTop: 16,
     marginBottom: -2,
@@ -285,7 +367,25 @@ const styles = StyleSheet.create({
     color: '#171A21',
   },
   twoColumnRow: { flexDirection: 'row', gap: 10 },
-  halfInput: { flex: 1, minWidth: 0, fontSize: 13 },
+  halfInput: { flex: 1, minWidth: 0 },
+  dateButton: {
+    minHeight: 50,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    justifyContent: 'center',
+    backgroundColor: '#F3F5F8',
+  },
+  dateValue: { fontSize: 13, fontWeight: '800', color: '#303640' },
+  datePlaceholder: { fontSize: 13, fontWeight: '700', color: '#A4AAB5' },
+  dateClearRow: {
+    marginTop: 7,
+    paddingHorizontal: 3,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  clearDateText: { fontSize: 11, fontWeight: '700', color: '#8A909B' },
+  helpText: { marginTop: 8, fontSize: 11, lineHeight: 16, color: '#9097A3' },
   memoInput: { minHeight: 88, paddingTop: 14, paddingBottom: 14 },
   saveButton: {
     height: 52,
@@ -323,5 +423,7 @@ const styles = StyleSheet.create({
   memberMeta: { marginTop: 3, fontSize: 12, color: '#727986' },
   ptMeta: { marginTop: 4, fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   memberMemo: { marginTop: 5, fontSize: 12, lineHeight: 17, color: '#9298A3' },
-  deleteText: { marginLeft: 12, fontSize: 13, fontWeight: '800', color: '#D9364F' },
+  memberActions: { marginLeft: 12, gap: 12, alignItems: 'flex-end' },
+  editText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
+  deleteText: { fontSize: 13, fontWeight: '800', color: '#D9364F' },
 });
