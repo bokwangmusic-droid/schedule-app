@@ -1,4 +1,5 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { requestPinWidget } from 'react-native-android-widget';
 
 type Props = {
   visible: boolean;
@@ -25,6 +26,36 @@ export function TimetableMoreMenu({
   onToggleOverlap,
   onSaveImage,
 }: Props) {
+  const addWidget = async () => {
+    if (onAddWidget) {
+      onAddWidget();
+      return;
+    }
+
+    onClose();
+
+    if (Platform.OS !== 'android') {
+      Alert.alert('Android 위젯', '홈 화면 시간표 위젯은 Android에서 사용할 수 있어요.');
+      return;
+    }
+
+    try {
+      const requested = await requestPinWidget({ widgetName: 'WeeklyTimetable' });
+      if (!requested) {
+        Alert.alert(
+          '위젯 추가',
+          '홈 화면을 길게 누른 뒤 위젯 → 스케줄 → 주간 시간표를 선택해 주세요.',
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        '위젯 추가 실패',
+        '홈 화면을 길게 누른 뒤 위젯 목록에서 주간 시간표를 직접 추가해 주세요.',
+      );
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -32,12 +63,10 @@ export function TimetableMoreMenu({
           <View style={styles.handle} />
           <Text style={styles.title}>시간표 메뉴</Text>
 
+          <MenuItem icon="▤" label="홈 화면 위젯 추가" value="NEW" onPress={() => void addWidget()} />
           <MenuItem icon="👤" label="회원 관리" onPress={onMembers} />
           <MenuItem icon="▦" label="달력 보기" onPress={onCalendar} />
           <MenuItem icon="⚙" label="시간표 디자인/설정" onPress={onSettings} />
-          {onAddWidget ? (
-            <MenuItem icon="▤" label="홈 화면 위젯 추가" onPress={onAddWidget} />
-          ) : null}
           <MenuItem icon="▣" label="이번 주 → 다음 주 복사" onPress={onCopyWeek} />
           <MenuItem
             icon="◇"
