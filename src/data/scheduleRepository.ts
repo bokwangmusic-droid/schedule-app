@@ -17,6 +17,7 @@ type ScheduleRow = {
   member_name: string | null;
   member_pt_total_sessions: number | null;
   member_pt_remaining_sessions: number | null;
+  member_pt_projected_remaining_sessions: number | null;
   is_all_day: number;
   is_completed: number;
   created_at: string;
@@ -36,6 +37,7 @@ function mapScheduleRow(row: ScheduleRow): ScheduleItem {
     memberName: row.member_name,
     memberPtTotalSessions: row.member_pt_total_sessions,
     memberPtRemainingSessions: row.member_pt_remaining_sessions,
+    memberPtProjectedRemainingSessions: row.member_pt_projected_remaining_sessions,
     isAllDay: row.is_all_day === 1,
     isCompleted: row.is_completed === 1,
     createdAt: row.created_at,
@@ -52,20 +54,61 @@ const scheduleSelect = `
     s.*,
     m.name AS member_name,
     m.pt_total_sessions AS member_pt_total_sessions,
-    m.pt_remaining_sessions AS member_pt_remaining_sessions
+    m.pt_remaining_sessions AS member_pt_remaining_sessions,
+    m.pt_remaining_sessions AS member_pt_projected_remaining_sessions
   FROM schedules s
   LEFT JOIN members m ON m.id = s.member_id
 `;
 
-export async function listSchedulesForDate(db: SQLiteDatabase, date: string) {
+const scheduleSelectWithProjection = `
+  SELECT
+    s.*,
+    m.name AS member_name,
+    m.pt_total_sessions AS member_pt_total_sessions,
+    m.pt_remaining_sessions AS member_pt_remaining_sessions,
+    CASE
+      WHEN m.pt_remaining_sessions IS NULL OR s.member_id IS NULL THEN NULL
+      WHEN s.date < ? THEN m.pt_remaining_sessions
+      ELSE MAX(
+        m.pt_remaining_sessions - (
+          SELECT COUNT(*)
+          FROM schedules p
+          WHERE p.member_id = s.member_id
+            AND p.is_all_day = 0
+            AND p.date >= ?
+            AND (
+              p.date < s.date
+              OR (
+                p.date = s.date
+                AND COALESCE(p.start_time, '00:00') < COALESCE(s.start_time, '00:00')
+              )
+              OR (
+                p.date = s.date
+                AND COALESCE(p.start_time, '00:00') = COALESCE(s.start_time, '00:00')
+                AND p.created_at <= s.created_at
+              )
+            )
+        ),
+        0
+      )
+    END AS member_pt_projected_remaining_sessions
+  FROM schedules s
+  LEFT JOIN members m ON m.id = s.member_id
+`;
+
+export async function listSchedulesForDate(
+  db: SQLiteDatabase,
+  date: string,
+  projectionBaseDate = date,
+) {
   const rows = await db.getAllAsync<ScheduleRow>(
-    `${scheduleSelect}
+    `${scheduleSelectWithProjection}
      WHERE s.date = ?
      ORDER BY s.is_completed ASC,
               CASE WHEN s.is_all_day = 1 THEN 0 ELSE 1 END ASC,
               s.start_time ASC,
               s.created_at ASC`,
-    [date],
+    [projectionBaseDate, projectionBaseDate, date],
   );
 
   return rows.map(mapScheduleRow);
@@ -75,15 +118,16 @@ export async function listSchedulesForRange(
   db: SQLiteDatabase,
   startDate: string,
   endDate: string,
+  projectionBaseDate = startDate,
 ) {
   const rows = await db.getAllAsync<ScheduleRow>(
-    `${scheduleSelect}
+    `${scheduleSelectWithProjection}
      WHERE s.date >= ? AND s.date <= ?
      ORDER BY s.date ASC,
               CASE WHEN s.is_all_day = 1 THEN 0 ELSE 1 END ASC,
               s.start_time ASC,
               s.created_at ASC`,
-    [startDate, endDate],
+    [projectionBaseDate, projectionBaseDate, startDate, endDate],
   );
 
   return rows.map(mapScheduleRow);
