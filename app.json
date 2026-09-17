@@ -12,6 +12,14 @@
     "plugins": [
       "expo-router",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      [
         "react-native-android-widget",
         {
           "widgets": [
