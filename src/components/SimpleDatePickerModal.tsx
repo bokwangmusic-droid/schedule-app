@@ -85,6 +85,17 @@ export function SimpleDatePickerModal({
 
           <View style={styles.monthRow}>
             <Pressable
+              style={styles.yearButton}
+              onPress={() =>
+                setMonthCursor(
+                  (current) => new Date(current.getFullYear() - 1, current.getMonth(), 1),
+                )
+              }
+            >
+              <Text style={styles.yearButtonText}>‹ 1년</Text>
+            </Pressable>
+
+            <Pressable
               style={styles.arrowButton}
               onPress={() =>
                 setMonthCursor(
@@ -94,9 +105,11 @@ export function SimpleDatePickerModal({
             >
               <Text style={styles.arrow}>‹</Text>
             </Pressable>
+
             <Text style={styles.monthTitle}>
               {monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월
             </Text>
+
             <Pressable
               style={styles.arrowButton}
               onPress={() =>
@@ -106,6 +119,17 @@ export function SimpleDatePickerModal({
               }
             >
               <Text style={styles.arrow}>›</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.yearButton}
+              onPress={() =>
+                setMonthCursor(
+                  (current) => new Date(current.getFullYear() + 1, current.getMonth(), 1),
+                )
+              }
+            >
+              <Text style={styles.yearButtonText}>1년 ›</Text>
             </Pressable>
           </View>
 
@@ -194,14 +218,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  yearButton: {
+    minWidth: 48,
+    height: 36,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  yearButtonText: { fontSize: 12, fontWeight: '800', color: '#69707D' },
   arrowButton: {
-    width: 40,
+    width: 32,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  arrow: { marginTop: -4, fontSize: 32, fontWeight: '300', color: '#30343B' },
-  monthTitle: { fontSize: 17, fontWeight: '900', color: '#20242C' },
+  arrow: { marginTop: -4, fontSize: 30, fontWeight: '300', color: '#30343B' },
+  monthTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '900', color: '#20242C' },
   weekRow: { marginTop: 8, flexDirection: 'row' },
   weekday: {
     width: `${100 / 7}%`,
