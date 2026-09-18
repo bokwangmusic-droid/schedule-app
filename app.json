@@ -24,15 +24,41 @@
         {
           "widgets": [
             {
-              "name": "WeeklyTimetable",
-              "label": "주간 시간표",
-              "description": "이번 주 회원 일정과 개인 일정을 한눈에 봅니다.",
+              "name": "TodaySchedule",
+              "label": "오늘 일정",
+              "description": "오늘 일정만 빠르게 확인합니다.",
               "minWidth": "320dp",
-              "minHeight": "250dp",
+              "minHeight": "120dp",
               "targetCellWidth": 5,
-              "targetCellHeight": 5,
+              "targetCellHeight": 2,
               "maxResizeWidth": "600dp",
-              "maxResizeHeight": "700dp",
+              "maxResizeHeight": "260dp",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "WeeklyTimetableCompact",
+              "label": "주간 시간표 · 중간",
+              "description": "이번 주 일정을 중간 크기 시간표로 확인합니다.",
+              "minWidth": "320dp",
+              "minHeight": "240dp",
+              "targetCellWidth": 5,
+              "targetCellHeight": 4,
+              "maxResizeWidth": "600dp",
+              "maxResizeHeight": "520dp",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "WeeklyTimetable",
+              "label": "주간 시간표 · 크게",
+              "description": "홈 화면 한 페이지를 채우는 큰 주간 시간표입니다.",
+              "minWidth": "320dp",
+              "minHeight": "430dp",
+              "targetCellWidth": 5,
+              "targetCellHeight": 6,
+              "maxResizeWidth": "600dp",
+              "maxResizeHeight": "850dp",
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
             }
