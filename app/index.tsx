@@ -32,6 +32,7 @@ import {
 } from '../src/data/scheduleRepository';
 import { addDays, startOfWeekMonday, toLocalDateString } from '../src/lib/date';
 import type { ScheduleItem } from '../src/types/schedule';
+import { refreshWeeklyTimetableWidget } from '../src/widgets/widgetController';
 
 const START_HOUR = 6;
 const END_HOUR = 24;
@@ -184,6 +185,7 @@ export default function HomeScreen() {
     try {
       const rows = await listSchedulesForRange(db, weekStartString, weekEndString, todayString);
       setSchedules(rows);
+      void refreshWeeklyTimetableWidget().catch(console.error);
     } catch (error) {
       console.error(error);
     } finally {
