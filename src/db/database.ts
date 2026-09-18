@@ -31,6 +31,11 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       member_id TEXT,
       is_all_day INTEGER NOT NULL DEFAULT 0,
       is_completed INTEGER NOT NULL DEFAULT 0,
+      attendance_status TEXT,
+      session_note TEXT,
+      signature_json TEXT,
+      signed_at TEXT,
+      pt_consumed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -56,6 +61,21 @@ export async function migrateDatabase(db: SQLiteDatabase) {
   }
   if (!scheduleColumns.some((column) => column.name === 'member_id')) {
     await db.execAsync('ALTER TABLE schedules ADD COLUMN member_id TEXT;');
+  }
+  if (!scheduleColumns.some((column) => column.name === 'attendance_status')) {
+    await db.execAsync('ALTER TABLE schedules ADD COLUMN attendance_status TEXT;');
+  }
+  if (!scheduleColumns.some((column) => column.name === 'session_note')) {
+    await db.execAsync('ALTER TABLE schedules ADD COLUMN session_note TEXT;');
+  }
+  if (!scheduleColumns.some((column) => column.name === 'signature_json')) {
+    await db.execAsync('ALTER TABLE schedules ADD COLUMN signature_json TEXT;');
+  }
+  if (!scheduleColumns.some((column) => column.name === 'signed_at')) {
+    await db.execAsync('ALTER TABLE schedules ADD COLUMN signed_at TEXT;');
+  }
+  if (!scheduleColumns.some((column) => column.name === 'pt_consumed')) {
+    await db.execAsync('ALTER TABLE schedules ADD COLUMN pt_consumed INTEGER NOT NULL DEFAULT 0;');
   }
 
   const memberColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(members)');
