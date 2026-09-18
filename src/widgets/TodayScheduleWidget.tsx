@@ -110,7 +110,6 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
               style={{
                 flex: 1,
                 width: 'match_parent',
-                minHeight: 26,
                 flexDirection: 'row',
                 alignItems: 'center',
                 borderRadius: 7,
@@ -142,19 +141,27 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
                   color: '#747B86',
                 }}
               />
-              <TextWidget
-                text={scheduleLabel(schedule)}
-                maxLines={1}
-                truncate="END"
-                allowFontScaling={false}
+              <FlexWidget
                 style={{
                   flex: 1,
-                  paddingRight: 7,
-                  fontSize: 10,
-                  fontWeight: '700',
-                  color: '#252A31',
+                  height: 'match_parent',
+                  justifyContent: 'center',
                 }}
-              />
+              >
+                <TextWidget
+                  text={scheduleLabel(schedule)}
+                  maxLines={1}
+                  truncate="END"
+                  allowFontScaling={false}
+                  style={{
+                    width: 'match_parent',
+                    paddingRight: 7,
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: '#252A31',
+                  }}
+                />
+              </FlexWidget>
             </FlexWidget>
           ))}
         </FlexWidget>
