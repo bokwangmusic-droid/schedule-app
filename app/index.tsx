@@ -475,6 +475,36 @@ export default function HomeScreen() {
     }
   };
 
+  const showDailySummary = () => {
+    setMoreMenuOpen(false);
+    const todayItems = schedules.filter((schedule) => schedule.date === todayString);
+    const memberItems = todayItems.filter((schedule) => schedule.memberId);
+    const completed = memberItems.filter(
+      (schedule) => schedule.attendanceStatus === 'completed' || schedule.ptConsumed,
+    ).length;
+    const canceled = memberItems.filter(
+      (schedule) => schedule.attendanceStatus === 'canceled',
+    ).length;
+    const noShow = memberItems.filter(
+      (schedule) => schedule.attendanceStatus === 'no_show',
+    ).length;
+    const pending = Math.max(memberItems.length - completed - canceled - noShow, 0);
+    const consumed = memberItems.filter((schedule) => schedule.ptConsumed).length;
+
+    Alert.alert(
+      '오늘 마감 요약',
+      [
+        `오늘 회원 수업 ${memberItems.length}타임`,
+        `완료 ${completed} · 취소 ${canceled} · 노쇼 ${noShow} · 미처리 ${pending}`,
+        `회원 서명으로 소진된 PT ${consumed}회`,
+        '',
+        completed > 0
+          ? `오늘도 ${completed}명의 운동을 함께했습니다. 수고 많으셨어요.`
+          : '오늘도 일정 정리하느라 수고 많으셨어요.',
+      ].join('\n'),
+    );
+  };
+
   const todayDayIndex = weekDates.findIndex(
     (date) => toLocalDateString(date) === todayString,
   );
@@ -798,6 +828,7 @@ export default function HomeScreen() {
         onToggleOverlap={() => {
           void toggleOverlapView();
         }}
+        onDailySummary={showDailySummary}
         onSaveImage={() => {
           void saveTimetableImage();
         }}
