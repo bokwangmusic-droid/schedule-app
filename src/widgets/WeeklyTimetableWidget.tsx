@@ -38,10 +38,9 @@ function getBodyHeight(
   widgetHeight: number,
 ) {
   if (variant === 'large') {
-    // Samsung launchers can report a widget height smaller than the actual
-    // allocated area. The large widget has a 430dp minimum height, so keep
-    // enough timetable height to fill a full-height home-screen widget.
-    return clamp(Math.max(widgetHeight - 58, 400), 400, 680);
+    // Leave room for the daily encouragement row while keeping the widget
+    // within the launcher's allocated height.
+    return clamp(Math.max(widgetHeight - 84, 380), 380, 660);
   }
 
   return clamp(Math.max(widgetHeight - 54, 220), 220, 360);
@@ -182,6 +181,7 @@ export function WeeklyTimetableWidget({
   const bodyHeight = getBodyHeight(variant, widgetHeight);
   const timeLabels = large ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
   const titleHeight = large ? 26 : 24;
+  const encouragementHeight = large ? 20 : 0;
   const dayHeaderHeight = large ? 26 : 22;
   const gutterWidth = large ? 27 : 24;
 
@@ -228,6 +228,35 @@ export function WeeklyTimetableWidget({
           }}
         />
       </FlexWidget>
+
+      {large ? (
+        <FlexWidget
+          style={{
+            width: 'match_parent',
+            height: encouragementHeight,
+            paddingLeft: 8,
+            paddingRight: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 8,
+            backgroundColor: '#F4F6FF',
+          }}
+        >
+          <TextWidget
+            text={data.encouragement}
+            maxLines={1}
+            truncate="END"
+            allowFontScaling={false}
+            style={{
+              width: 'match_parent',
+              fontSize: 8,
+              fontWeight: '600',
+              color: '#5968A8',
+              textAlign: 'center',
+            }}
+          />
+        </FlexWidget>
+      ) : null}
 
       <FlexWidget
         style={{
