@@ -3,6 +3,7 @@ import type {
   CreateScheduleInput,
   ScheduleItem,
   UpdateScheduleInput,
+  AttendanceStatus,
 } from '../types/schedule';
 
 type ScheduleRow = {
@@ -20,6 +21,11 @@ type ScheduleRow = {
   member_pt_projected_remaining_sessions: number | null;
   is_all_day: number;
   is_completed: number;
+  attendance_status: AttendanceStatus | null;
+  session_note: string | null;
+  signature_json: string | null;
+  signed_at: string | null;
+  pt_consumed: number;
   created_at: string;
   updated_at: string;
 };
@@ -40,6 +46,11 @@ function mapScheduleRow(row: ScheduleRow): ScheduleItem {
     memberPtProjectedRemainingSessions: row.member_pt_projected_remaining_sessions,
     isAllDay: row.is_all_day === 1,
     isCompleted: row.is_completed === 1,
+    attendanceStatus: row.attendance_status,
+    sessionNote: row.session_note,
+    signatureJson: row.signature_json,
+    signedAt: row.signed_at,
+    ptConsumed: row.pt_consumed === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -75,6 +86,8 @@ const scheduleSelectWithProjection = `
           FROM schedules p
           WHERE p.member_id = s.member_id
             AND p.is_all_day = 0
+            AND COALESCE(p.pt_consumed, 0) = 0
+            AND COALESCE(p.attendance_status, '') NOT IN ('canceled', 'no_show')
             AND p.date >= ?
             AND (
               p.date < s.date
@@ -229,4 +242,132 @@ export async function setScheduleCompleted(
      WHERE id = ?`,
     [completed ? 1 : 0, new Date().toISOString(), id],
   );
+}
+
+export async function getLatestMemberSessionNote(
+  db: SQLiteDatabase,
+  memberId: string,
+  excludeScheduleId?: string,
+) {
+  const row = await db.getFirstAsync<{ session_note: string | null; date: string; start_time: string | null }>(
+    `SELECT session_note, date, start_time
+     FROM schedules
+     WHERE member_id = ?
+       AND attendance_status = 'completed'
+       AND session_note IS NOT NULL
+       AND TRIM(session_note) <> ''
+       ${excludeScheduleId ? 'AND id <> ?' : ''}
+     ORDER BY date DESC, COALESCE(start_time, '00:00') DESC, signed_at DESC
+     LIMIT 1`,
+    excludeScheduleId ? [memberId, excludeScheduleId] : [memberId],
+  );
+
+  return row
+    ? {
+        note: row.session_note ?? '',
+        date: row.date,
+        startTime: row.start_time,
+      }
+    : null;
+}
+
+export async function setScheduleAttendanceStatus(
+  db: SQLiteDatabase,
+  id: string,
+  status: Exclude<AttendanceStatus, 'completed'>,
+) {
+  const schedule = await db.getFirstAsync<{ pt_consumed: number }>(
+    'SELECT pt_consumed FROM schedules WHERE id = ? LIMIT 1',
+    [id],
+  );
+
+  if (!schedule) {
+    throw new Error('SCHEDULE_NOT_FOUND');
+  }
+  if (schedule.pt_consumed === 1) {
+    throw new Error('PT_ALREADY_CONSUMED');
+  }
+
+  await db.runAsync(
+    `UPDATE schedules
+     SET attendance_status = ?,
+         is_completed = 0,
+         session_note = NULL,
+         signature_json = NULL,
+         signed_at = NULL,
+         updated_at = ?
+     WHERE id = ?`,
+    [status, new Date().toISOString(), id],
+  );
+}
+
+export async function completeMemberSessionWithSignature(
+  db: SQLiteDatabase,
+  id: string,
+  signatureJson: string,
+  sessionNote?: string | null,
+) {
+  const now = new Date().toISOString();
+
+  return db.withExclusiveTransactionAsync(async (txn) => {
+    const schedule = await txn.getFirstAsync<{
+      member_id: string | null;
+      pt_consumed: number;
+      attendance_status: string | null;
+    }>(
+      'SELECT member_id, pt_consumed, attendance_status FROM schedules WHERE id = ? LIMIT 1',
+      [id],
+    );
+
+    if (!schedule) {
+      throw new Error('SCHEDULE_NOT_FOUND');
+    }
+    if (!schedule.member_id) {
+      throw new Error('MEMBER_REQUIRED');
+    }
+    if (schedule.pt_consumed === 1 || schedule.attendance_status === 'completed') {
+      throw new Error('PT_ALREADY_CONSUMED');
+    }
+
+    const member = await txn.getFirstAsync<{
+      pt_remaining_sessions: number | null;
+    }>(
+      'SELECT pt_remaining_sessions FROM members WHERE id = ? LIMIT 1',
+      [schedule.member_id],
+    );
+
+    if (!member) {
+      throw new Error('MEMBER_NOT_FOUND');
+    }
+    if (member.pt_remaining_sessions === null) {
+      throw new Error('PT_BALANCE_NOT_SET');
+    }
+    if (member.pt_remaining_sessions <= 0) {
+      throw new Error('NO_PT_REMAINING');
+    }
+
+    const nextRemaining = member.pt_remaining_sessions - 1;
+
+    await txn.runAsync(
+      `UPDATE members
+       SET pt_remaining_sessions = ?, updated_at = ?
+       WHERE id = ?`,
+      [nextRemaining, now, schedule.member_id],
+    );
+
+    await txn.runAsync(
+      `UPDATE schedules
+       SET attendance_status = 'completed',
+           is_completed = 1,
+           session_note = ?,
+           signature_json = ?,
+           signed_at = ?,
+           pt_consumed = 1,
+           updated_at = ?
+       WHERE id = ?`,
+      [sessionNote?.trim() || null, signatureJson, now, now, id],
+    );
+
+    return { remainingSessions: nextRemaining, signedAt: now };
+  });
 }
