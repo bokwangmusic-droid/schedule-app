@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Share,
   ScrollView,
   StyleSheet,
   Switch,
@@ -15,15 +16,21 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SessionSignatureModal } from '../../src/components/SessionSignatureModal';
 import { TimePickerField } from '../../src/components/TimePickerField';
 import { listMembers } from '../../src/data/memberRepository';
 import {
+  completeMemberSessionWithSignature,
   deleteSchedule,
+  getLatestMemberSessionNote,
   getScheduleById,
+  setScheduleAttendanceStatus,
   updateSchedule,
 } from '../../src/data/scheduleRepository';
 import { isValidDateInput, isValidTimeInput } from '../../src/lib/date';
 import type { MemberItem } from '../../src/types/member';
+import type { ScheduleItem } from '../../src/types/schedule';
+import { refreshWeeklyTimetableWidget } from '../../src/widgets/widgetController';
 
 const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 type ScheduleKind = 'member' | 'personal';
@@ -35,12 +42,32 @@ function addOneHour(time: string) {
   return `${String(hour + 1).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+function membershipDday(endDate: string | null) {
+  if (!endDate) return null;
+  const [year, month, day] = endDate.split('-').map(Number);
+  const end = new Date(year, month - 1, day, 12, 0, 0, 0);
+  const today = new Date();
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0);
+  const diff = Math.ceil((end.getTime() - base.getTime()) / 86_400_000);
+  if (diff === 0) return '오늘 만료';
+  if (diff > 0) return `D-${diff}`;
+  return `만료 +${Math.abs(diff)}일`;
+}
+
 export default function EditScheduleScreen() {
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === 'string' ? params.id : '';
 
   const [loading, setLoading] = useState(true);
+  const [scheduleRecord, setScheduleRecord] = useState<ScheduleItem | null>(null);
+  const [latestSessionNote, setLatestSessionNote] = useState<{
+    note: string;
+    date: string;
+    startTime: string | null;
+  } | null>(null);
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const [attendanceBusy, setAttendanceBusy] = useState(false);
   const [scheduleKind, setScheduleKind] = useState<ScheduleKind>('personal');
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [memberId, setMemberId] = useState<string | null>(null);
@@ -79,6 +106,14 @@ export default function EditScheduleScreen() {
           return;
         }
 
+        setScheduleRecord(schedule);
+        if (schedule.memberId) {
+          const previousNote = await getLatestMemberSessionNote(db, schedule.memberId, schedule.id);
+          if (active) setLatestSessionNote(previousNote);
+        } else {
+          setLatestSessionNote(null);
+        }
+
         setTitle(schedule.title);
         setDate(schedule.date);
         setMemberId(schedule.memberId);
@@ -103,6 +138,7 @@ export default function EditScheduleScreen() {
   }, [db, id]);
 
   const selectedMember = members.find((member) => member.id === memberId) ?? null;
+  const dday = membershipDday(selectedMember?.membershipEndDate ?? null);
 
   const chooseKind = (kind: ScheduleKind) => {
     if (kind === scheduleKind) return;
@@ -173,6 +209,74 @@ export default function EditScheduleScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const reloadSessionState = async () => {
+    const [schedule, memberRows] = await Promise.all([
+      getScheduleById(db, id),
+      listMembers(db),
+    ]);
+    setScheduleRecord(schedule);
+    setMembers(memberRows);
+    if (schedule?.memberId) {
+      setLatestSessionNote(
+        await getLatestMemberSessionNote(db, schedule.memberId, schedule.id),
+      );
+    } else {
+      setLatestSessionNote(null);
+    }
+  };
+
+  const markAttendance = async (status: 'canceled' | 'no_show') => {
+    try {
+      setAttendanceBusy(true);
+      await setScheduleAttendanceStatus(db, id, status);
+      await reloadSessionState();
+      void refreshWeeklyTimetableWidget().catch(console.error);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('수업 상태를 변경하지 못했어요.');
+    } finally {
+      setAttendanceBusy(false);
+    }
+  };
+
+  const completeWithSignature = async (signatureJson: string, sessionNote: string) => {
+    try {
+      setAttendanceBusy(true);
+      const result = await completeMemberSessionWithSignature(
+        db,
+        id,
+        signatureJson,
+        sessionNote,
+      );
+      setSignatureOpen(false);
+      await reloadSessionState();
+      void refreshWeeklyTimetableWidget().catch(console.error);
+      Alert.alert('수업 완료', `회원 서명이 저장되고 PT 1회가 소진되었습니다.\n잔여 ${result.remainingSessions}회`);
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('PT_BALANCE_NOT_SET')) {
+        Alert.alert('PT 횟수를 먼저 등록해 주세요.', '회원 관리에서 총 횟수와 현재 잔여 횟수를 입력해 주세요.');
+      } else if (message.includes('NO_PT_REMAINING')) {
+        Alert.alert('남은 PT가 없어요.');
+      } else if (message.includes('PT_ALREADY_CONSUMED')) {
+        Alert.alert('이미 소진 처리된 수업이에요.');
+      } else {
+        Alert.alert('PT 소진 처리를 완료하지 못했어요.');
+      }
+    } finally {
+      setAttendanceBusy(false);
+    }
+  };
+
+  const shareSchedule = async () => {
+    const who = selectedMember?.name ?? title.trim() || '일정';
+    const timeText = isAllDay ? '종일' : `${startTime}~${endTime}`;
+    await Share.share({
+      message: `${who} 일정 안내\n${date} ${timeText}\n확인 부탁드립니다.`,
+    });
   };
 
   const confirmDelete = () => {
@@ -272,6 +376,79 @@ export default function EditScheduleScreen() {
             </View>
           ) : null}
 
+          {scheduleKind === 'member' && selectedMember && scheduleRecord ? (
+            <View style={styles.sessionCard}>
+              <View style={styles.sessionTitleRow}>
+                <View>
+                  <Text style={styles.sessionTitle}>수업 관리</Text>
+                  <Text style={styles.sessionSubText}>
+                    PT 잔여 {selectedMember.ptRemainingSessions ?? '-'}회
+                    {dday ? ` · 회원권 ${dday}` : ''}
+                  </Text>
+                </View>
+                {selectedMember.ptRemainingSessions !== null && selectedMember.ptRemainingSessions <= 3 ? (
+                  <View style={styles.warningBadge}>
+                    <Text style={styles.warningBadgeText}>재등록 체크</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {latestSessionNote ? (
+                <View style={styles.previousNoteCard}>
+                  <Text style={styles.previousNoteLabel}>
+                    지난 수업 · {latestSessionNote.date}
+                    {latestSessionNote.startTime ? ` ${latestSessionNote.startTime.slice(0, 5)}` : ''}
+                  </Text>
+                  <Text style={styles.previousNoteText}>{latestSessionNote.note}</Text>
+                </View>
+              ) : null}
+
+              {scheduleRecord.ptConsumed ? (
+                <View style={styles.completedCard}>
+                  <Text style={styles.completedTitle}>✓ 회원 서명 완료 · PT 1회 소진</Text>
+                  {scheduleRecord.sessionNote ? (
+                    <Text style={styles.completedNote}>{scheduleRecord.sessionNote}</Text>
+                  ) : null}
+                </View>
+              ) : scheduleRecord.attendanceStatus === 'canceled' ? (
+                <View style={styles.statusCard}>
+                  <Text style={styles.statusText}>수업 취소로 처리됨 · PT 차감 없음</Text>
+                </View>
+              ) : scheduleRecord.attendanceStatus === 'no_show' ? (
+                <View style={styles.statusCard}>
+                  <Text style={styles.statusText}>노쇼로 처리됨 · PT 차감 없음</Text>
+                </View>
+              ) : (
+                <>
+                  <Pressable
+                    style={[styles.signatureButton, attendanceBusy && styles.saveButtonDisabled]}
+                    onPress={() => setSignatureOpen(true)}
+                    disabled={attendanceBusy}
+                  >
+                    <Text style={styles.signatureButtonText}>수업 완료 · 회원 서명 받기</Text>
+                    <Text style={styles.signatureButtonHint}>서명 후에만 PT 1회가 소진됩니다</Text>
+                  </Pressable>
+                  <View style={styles.attendanceRow}>
+                    <Pressable
+                      style={styles.attendanceButton}
+                      onPress={() => void markAttendance('canceled')}
+                      disabled={attendanceBusy}
+                    >
+                      <Text style={styles.attendanceButtonText}>수업 취소</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.attendanceButton}
+                      onPress={() => void markAttendance('no_show')}
+                      disabled={attendanceBusy}
+                    >
+                      <Text style={styles.attendanceButtonText}>노쇼</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <Text style={styles.label}>{scheduleKind === 'member' ? '일정명' : '개인 일정명'}</Text>
             <TextInput
@@ -347,6 +524,13 @@ export default function EditScheduleScreen() {
           </View>
 
           <Pressable
+            style={({ pressed }) => [styles.shareButton, pressed && styles.deleteButtonPressed]}
+            onPress={() => void shareSchedule()}
+          >
+            <Text style={styles.shareButtonText}>회원에게 일정 공유</Text>
+          </Pressable>
+
+          <Pressable
             style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
             onPress={confirmDelete}
             disabled={saving || deleting}
@@ -369,6 +553,19 @@ export default function EditScheduleScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {selectedMember ? (
+        <SessionSignatureModal
+          visible={signatureOpen}
+          memberName={selectedMember.name}
+          remainingSessions={selectedMember.ptRemainingSessions}
+          submitting={attendanceBusy}
+          onClose={() => setSignatureOpen(false)}
+          onSubmit={(signatureJson, sessionNote) =>
+            void completeWithSignature(signatureJson, sessionNote)
+          }
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -497,6 +694,79 @@ const styles = StyleSheet.create({
   },
   timeRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
   memoInput: { minHeight: 100, paddingTop: 16, paddingBottom: 16 },
+  sessionCard: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+  },
+  sessionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sessionTitle: { fontSize: 16, fontWeight: '900', color: '#20242C' },
+  sessionSubText: { marginTop: 4, fontSize: 12, fontWeight: '700', color: '#7A818D' },
+  warningBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: '#FFF2E4',
+  },
+  warningBadgeText: { fontSize: 10, fontWeight: '900', color: '#D97615' },
+  previousNoteCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F5F7FA',
+  },
+  previousNoteLabel: { fontSize: 10, fontWeight: '800', color: '#858C98' },
+  previousNoteText: { marginTop: 5, fontSize: 13, lineHeight: 18, color: '#343A44' },
+  completedCard: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 13,
+    backgroundColor: '#EAF8EE',
+  },
+  completedTitle: { fontSize: 13, fontWeight: '900', color: '#278149' },
+  completedNote: { marginTop: 6, fontSize: 12, lineHeight: 17, color: '#4F6958' },
+  statusCard: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 13,
+    backgroundColor: '#F0F2F5',
+  },
+  statusText: { fontSize: 13, fontWeight: '800', color: '#69707B' },
+  signatureButton: {
+    minHeight: 62,
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4B68FF',
+  },
+  signatureButtonText: { fontSize: 15, fontWeight: '900', color: '#FFFFFF' },
+  signatureButtonHint: { marginTop: 3, fontSize: 10, fontWeight: '600', color: '#DDE3FF' },
+  attendanceRow: { marginTop: 9, flexDirection: 'row', gap: 8 },
+  attendanceButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF1F4',
+  },
+  attendanceButtonText: { fontSize: 12, fontWeight: '800', color: '#626A76' },
+  shareButton: {
+    height: 48,
+    marginTop: 26,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF1FF',
+  },
+  shareButtonText: { fontSize: 14, fontWeight: '800', color: '#4B68FF' },
   deleteButton: {
     height: 52,
     marginTop: 32,
