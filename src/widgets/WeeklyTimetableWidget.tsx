@@ -8,64 +8,73 @@ import {
 } from 'react-native-android-widget';
 import type { ScheduleItem } from '../types/schedule';
 import type { WeeklyWidgetData } from './widgetData';
+import {
+  scheduleColor,
+  scheduleLabel,
+  timeToMinutes,
+} from './widgetScheduleUtils';
+
+export type WeeklyTimetableVariant = 'compact' | 'large';
 
 type Props = {
   data: WeeklyWidgetData;
   widgetHeight: number;
+  widgetWidth: number;
+  variant?: WeeklyTimetableVariant;
 };
 
 const START_MINUTES = 6 * 60;
 const END_MINUTES = 24 * 60;
 const TOTAL_MINUTES = END_MINUTES - START_MINUTES;
-const TIME_LABELS = [6, 9, 12, 15, 18, 21];
-const FALLBACK_COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'] as const;
+const COMPACT_TIME_LABELS = [6, 9, 12, 15, 18, 21];
+const LARGE_TIME_LABELS = Array.from({ length: 18 }, (_, index) => index + 6);
 
-function timeToMinutes(value: string | null) {
-  if (!value) return null;
-  const [hour, minute] = value.split(':').map(Number);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-  return hour * 60 + minute;
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
-function scheduleColor(schedule: ScheduleItem): `#${string}` {
-  if (schedule.color && /^#[0-9A-Fa-f]{6}$/.test(schedule.color)) {
-    return schedule.color as `#${string}`;
+function getBodyHeight(
+  variant: WeeklyTimetableVariant,
+  widgetHeight: number,
+) {
+  if (variant === 'large') {
+    // Samsung launchers can report a widget height smaller than the actual
+    // allocated area. The large widget has a 430dp minimum height, so keep
+    // enough timetable height to fill a full-height home-screen widget.
+    return clamp(Math.max(widgetHeight - 58, 400), 400, 680);
   }
 
-  let hash = 0;
-  for (let index = 0; index < schedule.title.length; index += 1) {
-    hash = (hash * 31 + schedule.title.charCodeAt(index)) >>> 0;
-  }
-  return FALLBACK_COLORS[hash % FALLBACK_COLORS.length];
-}
-
-function scheduleLabel(schedule: ScheduleItem) {
-  return schedule.memberName ?? schedule.title;
+  return clamp(Math.max(widgetHeight - 54, 220), 220, 360);
 }
 
 function DayBody({
   schedules,
   height,
   isToday,
+  variant,
 }: {
   schedules: ScheduleItem[];
   height: number;
   isToday: boolean;
+  variant: WeeklyTimetableVariant;
 }) {
   const timedSchedules = schedules.filter(
     (schedule) => !schedule.isAllDay && schedule.startTime && schedule.endTime,
   );
   const allDaySchedules = schedules.filter((schedule) => schedule.isAllDay);
+  const gridHours =
+    variant === 'large' ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
 
   return (
     <OverlapWidget
       style={{
         width: 'match_parent',
         height,
+        overflow: 'hidden',
         backgroundColor: isToday ? '#F5F7FF' : '#FFFFFF',
       }}
     >
-      {TIME_LABELS.map((hour) => {
+      {gridHours.map((hour) => {
         const top = ((hour * 60 - START_MINUTES) / TOTAL_MINUTES) * height;
         return (
           <FlexWidget
@@ -74,7 +83,8 @@ function DayBody({
               width: 'match_parent',
               height: 1,
               marginTop: top,
-              backgroundColor: '#E5E7EB',
+              backgroundColor:
+                variant === 'large' ? '#ECEEF2' : '#E5E7EB',
             }}
           />
         );
@@ -84,7 +94,7 @@ function DayBody({
         <FlexWidget
           key={`all-${schedule.id}`}
           style={{
-            height: 12,
+            height: variant === 'large' ? 16 : 12,
             marginTop: 2,
             marginLeft: 1,
             marginRight: 1,
@@ -99,7 +109,11 @@ function DayBody({
             maxLines={1}
             truncate="END"
             allowFontScaling={false}
-            style={{ fontSize: 6, color: '#FFFFFF' }}
+            style={{
+              fontSize: variant === 'large' ? 7 : 6,
+              fontWeight: '700',
+              color: '#FFFFFF',
+            }}
           />
         </FlexWidget>
       ))}
@@ -114,7 +128,10 @@ function DayBody({
         const visibleEnd = Math.min(end, END_MINUTES);
         const top = ((visibleStart - START_MINUTES) / TOTAL_MINUTES) * height;
         const rawHeight = ((visibleEnd - visibleStart) / TOTAL_MINUTES) * height;
-        const blockHeight = Math.max(rawHeight, 11);
+        const blockHeight = Math.max(
+          rawHeight,
+          variant === 'large' ? 17 : 11,
+        );
 
         return (
           <FlexWidget
@@ -124,7 +141,7 @@ function DayBody({
               marginTop: top,
               marginLeft: 1,
               marginRight: 1,
-              borderRadius: 3,
+              borderRadius: variant === 'large' ? 4 : 3,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: scheduleColor(schedule),
@@ -136,7 +153,15 @@ function DayBody({
               truncate="END"
               allowFontScaling={false}
               style={{
-                fontSize: blockHeight >= 18 ? 7 : 6,
+                fontSize:
+                  variant === 'large'
+                    ? blockHeight >= 23
+                      ? 9
+                      : 8
+                    : blockHeight >= 18
+                      ? 7
+                      : 6,
+                fontWeight: '700',
                 color: '#FFFFFF',
               }}
             />
@@ -147,17 +172,30 @@ function DayBody({
   );
 }
 
-export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
-  const bodyHeight = Math.max(160, Math.min(520, widgetHeight - 66));
+export function WeeklyTimetableWidget({
+  data,
+  widgetHeight,
+  widgetWidth,
+  variant = 'large',
+}: Props) {
+  const large = variant === 'large';
+  const bodyHeight = getBodyHeight(variant, widgetHeight);
+  const timeLabels = large ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
+  const titleHeight = large ? 26 : 24;
+  const dayHeaderHeight = large ? 26 : 22;
+  const gutterWidth = large ? 27 : 24;
 
   return (
     <FlexWidget
       clickAction="OPEN_APP"
-      accessibilityLabel="이번 주 시간표 위젯"
+      accessibilityLabel={
+        large ? '큰 주간 시간표 위젯' : '주간 시간표 중간 위젯'
+      }
       style={{
         width: 'match_parent',
         height: 'match_parent',
-        padding: 8,
+        padding: large ? 6 : 7,
+        overflow: 'hidden',
         borderRadius: 18,
         backgroundColor: '#FFFFFF',
         flexDirection: 'column',
@@ -165,7 +203,7 @@ export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
     >
       <FlexWidget
         style={{
-          height: 28,
+          height: titleHeight,
           width: 'match_parent',
           flexDirection: 'row',
           alignItems: 'center',
@@ -173,27 +211,36 @@ export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
         }}
       >
         <TextWidget
-          text="주간 시간표"
+          text={large ? '주간 시간표' : '이번 주'}
           allowFontScaling={false}
-          style={{ fontSize: 12, color: '#1F232A' }}
+          style={{
+            fontSize: large ? 12 : 11,
+            fontWeight: '700',
+            color: '#1F232A',
+          }}
         />
         <TextWidget
           text={data.weekLabel}
           allowFontScaling={false}
-          style={{ fontSize: 9, color: '#747B86' }}
+          style={{
+            fontSize: large ? 9 : 8,
+            color: '#747B86',
+          }}
         />
       </FlexWidget>
 
       <FlexWidget
         style={{
           width: 'match_parent',
-          height: 24,
+          height: dayHeaderHeight,
           flexDirection: 'row',
           borderBottomWidth: 1,
           borderBottomColor: '#E5E7EB',
         }}
       >
-        <FlexWidget style={{ width: 24, height: 24 }} />
+        <FlexWidget
+          style={{ width: gutterWidth, height: dayHeaderHeight }}
+        />
         {data.days.map((day) => {
           const today = day.date === data.today;
           return (
@@ -201,7 +248,7 @@ export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
               key={`header-${day.date}`}
               style={{
                 flex: 1,
-                height: 24,
+                height: dayHeaderHeight,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderLeftWidth: 1,
@@ -210,11 +257,16 @@ export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
               }}
             >
               <TextWidget
-                text={`${day.dayName} ${day.dateNumber}`}
+                text={
+                  large
+                    ? `${day.dayName} ${day.dateNumber}`
+                    : day.dayName
+                }
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
-                  fontSize: 8,
+                  fontSize: large ? 8 : 8,
+                  fontWeight: today ? '700' : '500',
                   color: today ? '#4B68FF' : '#616874',
                 }}
               />
@@ -230,8 +282,15 @@ export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
           flexDirection: 'row',
         }}
       >
-        <OverlapWidget style={{ width: 24, height: bodyHeight, backgroundColor: '#FAFBFC' }}>
-          {TIME_LABELS.map((hour) => {
+        <OverlapWidget
+          style={{
+            width: gutterWidth,
+            height: bodyHeight,
+            overflow: 'hidden',
+            backgroundColor: '#FAFBFC',
+          }}
+        >
+          {timeLabels.map((hour) => {
             const top = ((hour * 60 - START_MINUTES) / TOTAL_MINUTES) * bodyHeight;
             return (
               <TextWidget
@@ -239,10 +298,10 @@ export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
                 text={String(hour)}
                 allowFontScaling={false}
                 style={{
-                  width: 22,
+                  width: gutterWidth - 2,
                   height: 12,
                   marginTop: Math.max(0, top - 5),
-                  fontSize: 7,
+                  fontSize: large ? 7 : 7,
                   color: '#7A818C',
                   textAlign: 'right',
                 }}
@@ -265,10 +324,25 @@ export function WeeklyTimetableWidget({ data, widgetHeight }: Props) {
               schedules={day.schedules}
               height={bodyHeight}
               isToday={day.date === data.today}
+              variant={variant}
             />
           </FlexWidget>
         ))}
       </FlexWidget>
+
+      {large && widgetWidth < 300 ? (
+        <TextWidget
+          text="위젯을 가로로 조금 넓히면 일정 이름이 더 잘 보여요."
+          maxLines={1}
+          allowFontScaling={false}
+          style={{
+            height: 14,
+            fontSize: 6,
+            color: '#9AA0AA',
+            textAlign: 'center',
+          }}
+        />
+      ) : null}
     </FlexWidget>
   );
 }
