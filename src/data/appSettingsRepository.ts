@@ -4,18 +4,21 @@ export type TimetableSettings = {
   hourHeight: number;
   showPtRemaining: boolean;
   overlapView: boolean;
+  widgetPrivacyMode: boolean;
 };
 
 export const DEFAULT_TIMETABLE_SETTINGS: TimetableSettings = {
   hourHeight: 30,
   showPtRemaining: true,
   overlapView: false,
+  widgetPrivacyMode: false,
 };
 
 const KEYS = {
   hourHeight: 'timetable.hourHeight',
   showPtRemaining: 'timetable.showPtRemaining',
   overlapView: 'timetable.overlapView',
+  widgetPrivacyMode: 'widget.privacyMode',
 } as const;
 
 async function readValue(db: SQLiteDatabase, key: string) {
@@ -36,10 +39,11 @@ async function writeValue(db: SQLiteDatabase, key: string, value: string) {
 }
 
 export async function getTimetableSettings(db: SQLiteDatabase): Promise<TimetableSettings> {
-  const [hourHeightValue, showPtRemainingValue, overlapViewValue] = await Promise.all([
+  const [hourHeightValue, showPtRemainingValue, overlapViewValue, widgetPrivacyModeValue] = await Promise.all([
     readValue(db, KEYS.hourHeight),
     readValue(db, KEYS.showPtRemaining),
     readValue(db, KEYS.overlapView),
+    readValue(db, KEYS.widgetPrivacyMode),
   ]);
 
   const parsedHourHeight = Number(hourHeightValue);
@@ -57,6 +61,10 @@ export async function getTimetableSettings(db: SQLiteDatabase): Promise<Timetabl
       overlapViewValue === null
         ? DEFAULT_TIMETABLE_SETTINGS.overlapView
         : overlapViewValue === '1',
+    widgetPrivacyMode:
+      widgetPrivacyModeValue === null
+        ? DEFAULT_TIMETABLE_SETTINGS.widgetPrivacyMode
+        : widgetPrivacyModeValue === '1',
   };
 }
 
@@ -70,4 +78,8 @@ export async function saveShowPtRemaining(db: SQLiteDatabase, value: boolean) {
 
 export async function saveOverlapView(db: SQLiteDatabase, value: boolean) {
   await writeValue(db, KEYS.overlapView, value ? '1' : '0');
+}
+
+export async function saveWidgetPrivacyMode(db: SQLiteDatabase, value: boolean) {
+  await writeValue(db, KEYS.widgetPrivacyMode, value ? '1' : '0');
 }
