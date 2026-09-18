@@ -23,6 +23,7 @@ import {
   saveHourHeight,
   saveOverlapView,
   saveShowPtRemaining,
+  saveWidgetPrivacyMode,
 } from '../src/data/appSettingsRepository';
 import {
   createSchedule,
@@ -188,6 +189,7 @@ export default function HomeScreen() {
   const [hourHeight, setHourHeight] = useState(30);
   const [showPtRemaining, setShowPtRemaining] = useState(true);
   const [overlapView, setOverlapView] = useState(false);
+  const [widgetPrivacyMode, setWidgetPrivacyMode] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
 
   useEffect(() => {
@@ -203,6 +205,7 @@ export default function HomeScreen() {
         setHourHeight(settings.hourHeight);
         setShowPtRemaining(settings.showPtRemaining);
         setOverlapView(settings.overlapView);
+        setWidgetPrivacyMode(settings.widgetPrivacyMode);
       })
       .catch(console.error);
     return () => {
@@ -363,6 +366,16 @@ export default function HomeScreen() {
     setShowPtRemaining(value);
     try {
       await saveShowPtRemaining(db, value);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const changeWidgetPrivacyMode = async (value: boolean) => {
+    setWidgetPrivacyMode(value);
+    try {
+      await saveWidgetPrivacyMode(db, value);
+      void refreshWeeklyTimetableWidget().catch(console.error);
     } catch (error) {
       console.error(error);
     }
@@ -794,12 +807,16 @@ export default function HomeScreen() {
         visible={settingsOpen}
         hourHeight={hourHeight}
         showPtRemaining={showPtRemaining}
+        widgetPrivacyMode={widgetPrivacyMode}
         onClose={() => setSettingsOpen(false)}
         onHourHeightChange={(value) => {
           void changeHourHeight(value);
         }}
         onShowPtRemainingChange={(value) => {
           void changeShowPtRemaining(value);
+        }}
+        onWidgetPrivacyModeChange={(value) => {
+          void changeWidgetPrivacyMode(value);
         }}
       />
     </SafeAreaView>
