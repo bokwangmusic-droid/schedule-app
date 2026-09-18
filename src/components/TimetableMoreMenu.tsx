@@ -11,6 +11,7 @@ type Props = {
   onAddWidget?: () => void;
   onCopyWeek: () => void;
   onToggleOverlap: () => void;
+  onDailySummary: () => void;
   onSaveImage: () => void;
 };
 
@@ -24,6 +25,7 @@ export function TimetableMoreMenu({
   onAddWidget,
   onCopyWeek,
   onToggleOverlap,
+  onDailySummary,
   onSaveImage,
 }: Props) {
   const addWidget = async () => {
@@ -68,6 +70,7 @@ export function TimetableMoreMenu({
           <MenuItem icon="▦" label="달력 보기" onPress={onCalendar} />
           <MenuItem icon="⚙" label="시간표 디자인/설정" onPress={onSettings} />
           <MenuItem icon="▣" label="이번 주 → 다음 주 복사" onPress={onCopyWeek} />
+          <MenuItem icon="✓" label="오늘 마감 요약" onPress={onDailySummary} />
           <MenuItem
             icon="◇"
             label={overlapView ? '겹쳐보기 끄기' : '겹쳐보기 켜기'}
