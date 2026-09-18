@@ -306,10 +306,11 @@ export async function completeMemberSessionWithSignature(
   id: string,
   signatureJson: string,
   sessionNote?: string | null,
-) {
+): Promise<{ remainingSessions: number; signedAt: string }> {
   const now = new Date().toISOString();
+  let completionResult: { remainingSessions: number; signedAt: string } | null = null;
 
-  return db.withExclusiveTransactionAsync(async (txn) => {
+  await db.withExclusiveTransactionAsync(async (txn) => {
     const schedule = await txn.getFirstAsync<{
       member_id: string | null;
       pt_consumed: number;
@@ -368,6 +369,12 @@ export async function completeMemberSessionWithSignature(
       [sessionNote?.trim() || null, signatureJson, now, now, id],
     );
 
-    return { remainingSessions: nextRemaining, signedAt: now };
+    completionResult = { remainingSessions: nextRemaining, signedAt: now };
   });
+
+  if (!completionResult) {
+    throw new Error('PT_COMPLETION_FAILED');
+  }
+
+  return completionResult;
 }
