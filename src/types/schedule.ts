@@ -1,3 +1,5 @@
+export type AttendanceStatus = 'completed' | 'canceled' | 'no_show';
+
 export type ScheduleItem = {
   id: string;
   title: string;
@@ -13,6 +15,11 @@ export type ScheduleItem = {
   memberPtProjectedRemainingSessions: number | null;
   isAllDay: boolean;
   isCompleted: boolean;
+  attendanceStatus: AttendanceStatus | null;
+  sessionNote: string | null;
+  signatureJson: string | null;
+  signedAt: string | null;
+  ptConsumed: boolean;
   createdAt: string;
   updatedAt: string;
 };
