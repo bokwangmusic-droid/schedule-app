@@ -27,6 +27,12 @@ import type { MemberItem } from '../../src/types/member';
 
 const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 type ScheduleKind = 'member' | 'personal';
+const REPEAT_COUNTS = [1, 4, 8, 12] as const;
+
+function parseLocalDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
 
 function addOneHour(time: string) {
   if (!isValidTimeInput(time)) return '10:00';
@@ -65,6 +71,7 @@ export default function NewScheduleScreen() {
   const [endTime, setEndTime] = useState(initialEndTime);
   const [memo, setMemo] = useState('');
   const [color, setColor] = useState(COLORS[0]);
+  const [repeatCount, setRepeatCount] = useState<(typeof REPEAT_COUNTS)[number]>(1);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -128,16 +135,21 @@ export default function NewScheduleScreen() {
 
     try {
       setSaving(true);
-      await createSchedule(db, {
-        title: trimmedTitle,
-        date,
-        startTime: isAllDay ? null : startTime,
-        endTime: isAllDay ? null : endTime,
-        memo,
-        color,
-        memberId: scheduleKind === 'member' ? memberId : null,
-        isAllDay,
-      });
+      const occurrences = scheduleKind === 'member' ? repeatCount : 1;
+      const firstDate = parseLocalDate(date);
+
+      for (let index = 0; index < occurrences; index += 1) {
+        await createSchedule(db, {
+          title: trimmedTitle,
+          date: toLocalDateString(addDays(firstDate, index * 7)),
+          startTime: isAllDay ? null : startTime,
+          endTime: isAllDay ? null : endTime,
+          memo,
+          color,
+          memberId: scheduleKind === 'member' ? memberId : null,
+          isAllDay,
+        });
+      }
       router.back();
     } catch (error) {
       console.error(error);
@@ -290,6 +302,31 @@ export default function NewScheduleScreen() {
               </View>
             )}
           </View>
+
+          {scheduleKind === 'member' ? (
+            <View style={styles.section}>
+              <Text style={styles.label}>반복 예약</Text>
+              <View style={styles.repeatRow}>
+                {REPEAT_COUNTS.map((count) => {
+                  const selected = repeatCount === count;
+                  return (
+                    <Pressable
+                      key={count}
+                      style={[styles.repeatButton, selected && styles.repeatButtonActive]}
+                      onPress={() => setRepeatCount(count)}
+                    >
+                      <Text style={[styles.repeatButtonText, selected && styles.repeatButtonTextActive]}>
+                        {count === 1 ? '1회' : `${count}주`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.repeatHint}>
+                매주 같은 요일·시간으로 생성되며, 생성 후 각 수업은 따로 이동하거나 취소할 수 있어요.
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.section}>
             <Text style={styles.label}>메모</Text>
@@ -459,6 +496,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timeRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  repeatRow: { flexDirection: 'row', gap: 8 },
+  repeatButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ECEEF2',
+  },
+  repeatButtonActive: { backgroundColor: '#E9EDFF' },
+  repeatButtonText: { fontSize: 13, fontWeight: '800', color: '#777E8A' },
+  repeatButtonTextActive: { color: '#4B68FF' },
+  repeatHint: { marginTop: 8, fontSize: 11, lineHeight: 16, color: '#8D949F' },
   memoInput: { minHeight: 100, paddingTop: 16, paddingBottom: 16 },
   footer: {
     paddingHorizontal: 24,
