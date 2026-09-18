@@ -36,23 +36,32 @@ export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
   const weekEnd = toLocalDateString(weekDates[6]);
   const today = toLocalDateString(now);
 
-  const db = await openDatabaseAsync(DATABASE_NAME);
-  await migrateDatabase(db);
-  const schedules = await listSchedulesForRange(db, weekStart, weekEnd, today);
+  // Widgets run in their own React Native lifecycle. Using Expo SQLite's cached
+  // connection here can poison the app's SQLiteProvider connection on Android
+  // after a widget/runtime restart. Keep widget reads on an isolated connection
+  // and always release it when the render data has been loaded.
+  const db = await openDatabaseAsync(DATABASE_NAME, { useNewConnection: true });
 
-  return {
-    weekLabel: getWeekLabel(weekStartDate),
-    weekStart,
-    weekEnd,
-    today,
-    days: weekDates.map((date, index) => {
-      const dateString = toLocalDateString(date);
-      return {
-        date: dateString,
-        dayName: DAY_NAMES[index],
-        dateNumber: date.getDate(),
-        schedules: schedules.filter((schedule) => schedule.date === dateString),
-      };
-    }),
-  };
+  try {
+    await migrateDatabase(db);
+    const schedules = await listSchedulesForRange(db, weekStart, weekEnd, today);
+
+    return {
+      weekLabel: getWeekLabel(weekStartDate),
+      weekStart,
+      weekEnd,
+      today,
+      days: weekDates.map((date, index) => {
+        const dateString = toLocalDateString(date);
+        return {
+          date: dateString,
+          dayName: DAY_NAMES[index],
+          dateNumber: date.getDate(),
+          schedules: schedules.filter((schedule) => schedule.date === dateString),
+        };
+      }),
+    };
+  } finally {
+    await db.closeAsync();
+  }
 }
