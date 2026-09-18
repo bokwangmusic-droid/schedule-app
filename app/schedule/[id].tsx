@@ -141,6 +141,10 @@ export default function EditScheduleScreen() {
   const dday = membershipDday(selectedMember?.membershipEndDate ?? null);
 
   const chooseKind = (kind: ScheduleKind) => {
+    if (scheduleRecord?.ptConsumed) {
+      Alert.alert('소진 완료 수업', '회원 서명이 완료된 수업은 회원 구분을 변경할 수 없어요.');
+      return;
+    }
     if (kind === scheduleKind) return;
 
     if (kind === 'personal') {
@@ -154,6 +158,10 @@ export default function EditScheduleScreen() {
   };
 
   const chooseMember = (member: MemberItem) => {
+    if (scheduleRecord?.ptConsumed) {
+      Alert.alert('소진 완료 수업', 'PT가 소진된 수업은 다른 회원으로 변경할 수 없어요.');
+      return;
+    }
     const previousName = selectedMember?.name ?? '';
     if (!title.trim() || title === previousName) setTitle(member.name);
     setMemberId(member.id);
@@ -280,6 +288,13 @@ export default function EditScheduleScreen() {
   };
 
   const confirmDelete = () => {
+    if (scheduleRecord?.ptConsumed) {
+      Alert.alert(
+        '삭제할 수 없어요.',
+        '회원 서명으로 PT가 소진된 수업은 기록 보호를 위해 삭제할 수 없어요.',
+      );
+      return;
+    }
     Alert.alert('일정 삭제', '이 일정을 삭제할까요?', [
       { text: '취소', style: 'cancel' },
       {
@@ -527,7 +542,9 @@ export default function EditScheduleScreen() {
             style={({ pressed }) => [styles.shareButton, pressed && styles.deleteButtonPressed]}
             onPress={() => void shareSchedule()}
           >
-            <Text style={styles.shareButtonText}>회원에게 일정 공유</Text>
+            <Text style={styles.shareButtonText}>
+              {scheduleKind === 'member' ? '회원에게 일정 공유' : '일정 공유'}
+            </Text>
           </Pressable>
 
           <Pressable
