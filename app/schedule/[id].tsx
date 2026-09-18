@@ -272,7 +272,7 @@ export default function EditScheduleScreen() {
   };
 
   const shareSchedule = async () => {
-    const who = selectedMember?.name ?? title.trim() || '일정';
+    const who = selectedMember?.name ?? (title.trim() || '일정');
     const timeText = isAllDay ? '종일' : `${startTime}~${endTime}`;
     await Share.share({
       message: `${who} 일정 안내\n${date} ${timeText}\n확인 부탁드립니다.`,
