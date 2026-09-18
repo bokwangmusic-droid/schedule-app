@@ -1,4 +1,5 @@
 import { openDatabaseAsync } from 'expo-sqlite';
+import { getTimetableSettings } from '../data/appSettingsRepository';
 import { listSchedulesForRange } from '../data/scheduleRepository';
 import { DATABASE_NAME, migrateDatabase } from '../db/database';
 import { addDays, startOfWeekMonday, toLocalDateString } from '../lib/date';
@@ -37,6 +38,13 @@ const DAILY_ENCOURAGEMENTS = [
   '오늘도 선생님 덕분에 운동을 이어가는 사람이 있어요.',
 ];
 
+function maskMemberName(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length <= 1) return '○';
+  if (trimmed.length === 2) return `${trimmed[0]}○`;
+  return `${trimmed[0]}○${trimmed[trimmed.length - 1]}`;
+}
+
 function getDailyEncouragement(dateString: string) {
   const [year, month, day] = dateString.split('-').map(Number);
   const dateKey = year * 372 + month * 31 + day;
@@ -68,7 +76,21 @@ export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
 
   try {
     await migrateDatabase(db);
-    const schedules = await listSchedulesForRange(db, weekStart, weekEnd, today);
+    const [schedules, settings] = await Promise.all([
+      listSchedulesForRange(db, weekStart, weekEnd, today),
+      getTimetableSettings(db),
+    ]);
+    const widgetSchedules = settings.widgetPrivacyMode
+      ? schedules.map((schedule) =>
+          schedule.memberId
+            ? {
+                ...schedule,
+                memberName: schedule.memberName ? maskMemberName(schedule.memberName) : null,
+                title: schedule.memberName ? maskMemberName(schedule.memberName) : schedule.title,
+              }
+            : schedule,
+        )
+      : schedules;
 
     return {
       weekLabel: getWeekLabel(weekStartDate),
@@ -82,7 +104,7 @@ export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
           date: dateString,
           dayName: DAY_NAMES[index],
           dateNumber: date.getDate(),
-          schedules: schedules.filter((schedule) => schedule.date === dateString),
+          schedules: widgetSchedules.filter((schedule) => schedule.date === dateString),
         };
       }),
     };
