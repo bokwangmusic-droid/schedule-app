@@ -4,9 +4,11 @@ type Props = {
   visible: boolean;
   hourHeight: number;
   showPtRemaining: boolean;
+  widgetPrivacyMode: boolean;
   onClose: () => void;
   onHourHeightChange: (value: number) => void;
   onShowPtRemainingChange: (value: boolean) => void;
+  onWidgetPrivacyModeChange: (value: boolean) => void;
 };
 
 const DENSITIES = [
@@ -19,9 +21,11 @@ export function TimetableSettingsModal({
   visible,
   hourHeight,
   showPtRemaining,
+  widgetPrivacyMode,
   onClose,
   onHourHeightChange,
   onShowPtRemainingChange,
+  onWidgetPrivacyModeChange,
 }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -60,6 +64,21 @@ export function TimetableSettingsModal({
               onPress={() => onShowPtRemainingChange(!showPtRemaining)}
             >
               <View style={[styles.switchThumb, showPtRemaining && styles.switchThumbOn]} />
+            </Pressable>
+          </View>
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleTextWrap}>
+              <Text style={styles.toggleTitle}>위젯 이름 가리기</Text>
+              <Text style={styles.toggleDescription}>홈 화면 위젯에서 회원 이름을 홍○동처럼 표시해요.</Text>
+            </View>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: widgetPrivacyMode }}
+              style={[styles.switchTrack, widgetPrivacyMode && styles.switchTrackOn]}
+              onPress={() => onWidgetPrivacyModeChange(!widgetPrivacyMode)}
+            >
+              <View style={[styles.switchThumb, widgetPrivacyMode && styles.switchThumbOn]} />
             </Pressable>
           </View>
 
