@@ -9,6 +9,7 @@ export type WeeklyWidgetData = {
   weekStart: string;
   weekEnd: string;
   today: string;
+  encouragement: string;
   days: Array<{
     date: string;
     dayName: string;
@@ -18,6 +19,29 @@ export type WeeklyWidgetData = {
 };
 
 const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'];
+
+const DAILY_ENCOURAGEMENTS = [
+  '오늘도 선생님의 에너지가 누군가의 하루를 바꿔요.',
+  '한 타임 한 타임, 오늘도 충분히 잘하고 있어요.',
+  '회원의 변화만큼 선생님의 컨디션도 중요해요.',
+  '수업 사이 잠깐이라도 물 한 잔 챙겨요.',
+  '오늘도 좋은 수업보다 오래 가는 페이스가 먼저예요.',
+  '선생님의 한마디가 회원에게는 큰 힘이 될 수 있어요.',
+  '바쁜 하루여도 내 몸 한 번 챙기는 걸 잊지 마세요.',
+  '오늘도 한 분 한 분에게 좋은 에너지를 전해봐요.',
+  '완벽한 하루보다 꾸준한 하루면 충분해요.',
+  '오늘 일정도 하나씩, 급하지 않게 해내면 돼요.',
+  '회원님을 챙기듯 선생님 자신도 꼭 챙겨주세요.',
+  '오늘 수업 끝에는 스스로에게도 수고했다고 말해줘요.',
+  '힘든 날에도 쌓인 시간은 절대 사라지지 않아요.',
+  '오늘도 선생님 덕분에 운동을 이어가는 사람이 있어요.',
+];
+
+function getDailyEncouragement(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const dateKey = year * 372 + month * 31 + day;
+  return DAILY_ENCOURAGEMENTS[dateKey % DAILY_ENCOURAGEMENTS.length];
+}
 
 function getWeekLabel(weekStart: Date) {
   const end = addDays(weekStart, 6);
@@ -51,6 +75,7 @@ export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
       weekStart,
       weekEnd,
       today,
+      encouragement: getDailyEncouragement(today),
       days: weekDates.map((date, index) => {
         const dateString = toLocalDateString(date);
         return {
