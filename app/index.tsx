@@ -62,6 +62,48 @@ function parseLocalDate(value: string) {
   return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
 
+function formatMinutes(minutes: number) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+function findFreeSlots(schedules: ScheduleItem[]) {
+  const intervals = schedules
+    .filter(
+      (schedule) =>
+        !schedule.isAllDay &&
+        schedule.startTime &&
+        schedule.endTime &&
+        schedule.attendanceStatus !== 'canceled' &&
+        schedule.attendanceStatus !== 'no_show',
+    )
+    .map((schedule) => ({
+      start: timeToMinutes(schedule.startTime) ?? 0,
+      end: timeToMinutes(schedule.endTime) ?? 0,
+    }))
+    .filter((interval) => interval.end > interval.start)
+    .sort((a, b) => a.start - b.start);
+
+  if (intervals.length < 2) return [];
+
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const interval of intervals) {
+    const last = merged[merged.length - 1];
+    if (!last || interval.start > last.end) {
+      merged.push({ ...interval });
+    } else {
+      last.end = Math.max(last.end, interval.end);
+    }
+  }
+
+  const gaps: string[] = [];
+  for (let index = 0; index < merged.length - 1; index += 1) {
+    const start = merged[index].end;
+    const end = merged[index + 1].start;
+    if (end - start >= 30) gaps.push(`${formatMinutes(start)}–${formatMinutes(end)}`);
+  }
+  return gaps;
+}
+
 function scheduleColor(schedule: ScheduleItem) {
   if (schedule.color) return schedule.color;
   let hash = 0;
@@ -429,6 +471,33 @@ export default function HomeScreen() {
     currentMinutes >= START_HOUR * 60 &&
     currentMinutes < END_HOUR * 60;
   const currentLineTop = ((currentMinutes - START_HOUR * 60) / 60) * hourHeight;
+  const showingCurrentWeek = toLocalDateString(weekDates[0]) === toLocalDateString(todayWeekStart);
+  const todaySchedules = schedules.filter(
+    (schedule) => schedule.date === todayString && schedule.attendanceStatus !== 'canceled',
+  );
+  const todayTimedSchedules = todaySchedules.filter(
+    (schedule) => !schedule.isAllDay && schedule.startTime && schedule.endTime,
+  );
+  const todayFreeSlots = findFreeSlots(todayTimedSchedules);
+  const firstTodayTime = todayTimedSchedules
+    .map((schedule) => schedule.startTime)
+    .filter((value): value is string => Boolean(value))
+    .sort()[0] ?? null;
+  const lastTodayTime = todayTimedSchedules
+    .map((schedule) => schedule.endTime)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? null;
+  const lowPtMembers = new Set(
+    todaySchedules
+      .filter(
+        (schedule) =>
+          schedule.memberId &&
+          schedule.memberPtRemainingSessions !== null &&
+          schedule.memberPtRemainingSessions <= 3,
+      )
+      .map((schedule) => schedule.memberId),
+  ).size;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -476,6 +545,27 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
+
+      {showingCurrentWeek ? (
+        <View style={styles.briefingCard}>
+          <View style={styles.briefingTopRow}>
+            <Text style={styles.briefingTitle}>오늘 수업 브리핑</Text>
+            <Text style={styles.briefingSummary}>
+              {todayTimedSchedules.length}타임
+              {firstTodayTime ? ` · 첫 ${firstTodayTime.slice(0, 5)}` : ''}
+              {lastTodayTime ? ` · 마지막 ${lastTodayTime.slice(0, 5)}` : ''}
+            </Text>
+          </View>
+          <Text numberOfLines={1} style={styles.briefingDetail}>
+            {todayFreeSlots.length > 0
+              ? `빈 시간 ${todayFreeSlots.slice(0, 3).join(' · ')}`
+              : todayTimedSchedules.length > 0
+                ? '수업 사이 30분 이상 빈 시간이 없어요.'
+                : '오늘 등록된 수업이 없어요.'}
+            {lowPtMembers > 0 ? `  ·  PT 3회 이하 회원 ${lowPtMembers}명` : ''}
+          </Text>
+        </View>
+      ) : null}
 
       <View
         ref={timetableRef}
@@ -779,6 +869,25 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   moreButtonText: { marginTop: -2, fontSize: 25, lineHeight: 27, fontWeight: '900', color: '#2D3138' },
+  briefingCard: {
+    marginTop: 8,
+    marginHorizontal: SCREEN_MARGIN,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E3E6F2',
+    backgroundColor: '#F8F9FF',
+  },
+  briefingTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  briefingTitle: { fontSize: 12, fontWeight: '900', color: '#333A52' },
+  briefingSummary: { fontSize: 10, fontWeight: '800', color: '#5667B1' },
+  briefingDetail: { marginTop: 4, fontSize: 10, fontWeight: '600', color: '#7C8493' },
   timetableShell: {
     flex: 1,
     alignSelf: 'center',
