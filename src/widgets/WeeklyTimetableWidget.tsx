@@ -27,7 +27,7 @@ const START_MINUTES = 6 * 60;
 const END_MINUTES = 24 * 60;
 const TOTAL_MINUTES = END_MINUTES - START_MINUTES;
 const COMPACT_TIME_LABELS = [6, 9, 12, 15, 18, 21];
-const LARGE_TIME_LABELS = Array.from({ length: 18 }, (_, index) => index + 6);
+const LARGE_TIME_LABELS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -36,33 +36,32 @@ function clamp(value: number, min: number, max: number) {
 function getBodyHeight(
   variant: WeeklyTimetableVariant,
   widgetHeight: number,
+  widgetWidth: number,
 ) {
   if (variant === 'large') {
-    // Leave room for the daily encouragement row while keeping the widget
-    // within the launcher's allocated height.
-    return clamp(Math.max(widgetHeight - 84, 380), 380, 660);
+    // Some Samsung launchers report widget dimensions smaller than the
+    // visually allocated area. The large widget should still fill the page,
+    // so use a generous minimum instead of leaving a large blank lower half.
+    const minimum = widgetWidth < 300 ? 580 : 540;
+    return clamp(Math.max(widgetHeight - 78, minimum), minimum, 780);
   }
 
-  return clamp(Math.max(widgetHeight - 54, 220), 220, 360);
+  return clamp(Math.max(widgetHeight - 54, 230), 230, 380);
 }
 
-function DayBody({
+function ScheduleLayer({
   schedules,
   height,
-  isToday,
   variant,
 }: {
   schedules: ScheduleItem[];
   height: number;
-  isToday: boolean;
   variant: WeeklyTimetableVariant;
 }) {
   const timedSchedules = schedules.filter(
     (schedule) => !schedule.isAllDay && schedule.startTime && schedule.endTime,
   );
   const allDaySchedules = schedules.filter((schedule) => schedule.isAllDay);
-  const gridHours =
-    variant === 'large' ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
 
   return (
     <OverlapWidget
@@ -70,34 +69,17 @@ function DayBody({
         width: 'match_parent',
         height,
         overflow: 'hidden',
-        backgroundColor: isToday ? '#F5F7FF' : '#FFFFFF',
       }}
     >
-      {gridHours.map((hour) => {
-        const top = ((hour * 60 - START_MINUTES) / TOTAL_MINUTES) * height;
-        return (
-          <FlexWidget
-            key={`line-${hour}`}
-            style={{
-              width: 'match_parent',
-              height: 1,
-              marginTop: top,
-              backgroundColor:
-                variant === 'large' ? '#ECEEF2' : '#E5E7EB',
-            }}
-          />
-        );
-      })}
-
       {allDaySchedules.slice(0, 1).map((schedule) => (
         <FlexWidget
           key={`all-${schedule.id}`}
           style={{
             height: variant === 'large' ? 16 : 12,
             marginTop: 2,
-            marginLeft: 1,
-            marginRight: 1,
-            borderRadius: 3,
+            marginLeft: 2,
+            marginRight: 2,
+            borderRadius: 4,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: scheduleColor(schedule),
@@ -129,7 +111,7 @@ function DayBody({
         const rawHeight = ((visibleEnd - visibleStart) / TOTAL_MINUTES) * height;
         const blockHeight = Math.max(
           rawHeight,
-          variant === 'large' ? 17 : 11,
+          variant === 'large' ? 20 : 12,
         );
         const ptRemaining =
           schedule.memberPtProjectedRemainingSessions ??
@@ -138,7 +120,7 @@ function DayBody({
           variant === 'large' &&
           schedule.memberId !== null &&
           ptRemaining !== null &&
-          blockHeight >= 25;
+          blockHeight >= 34;
 
         return (
           <FlexWidget
@@ -146,9 +128,9 @@ function DayBody({
             style={{
               height: blockHeight,
               marginTop: top,
-              marginLeft: 1,
-              marginRight: 1,
-              borderRadius: variant === 'large' ? 4 : 3,
+              marginLeft: 2,
+              marginRight: 2,
+              borderRadius: variant === 'large' ? 5 : 4,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: scheduleColor(schedule),
@@ -162,7 +144,7 @@ function DayBody({
               style={{
                 fontSize:
                   variant === 'large'
-                    ? blockHeight >= 23
+                    ? blockHeight >= 28
                       ? 9
                       : 8
                     : blockHeight >= 18
@@ -199,12 +181,12 @@ export function WeeklyTimetableWidget({
   variant = 'large',
 }: Props) {
   const large = variant === 'large';
-  const bodyHeight = getBodyHeight(variant, widgetHeight);
+  const bodyHeight = getBodyHeight(variant, widgetHeight, widgetWidth);
   const timeLabels = large ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
-  const titleHeight = large ? 26 : 24;
-  const encouragementHeight = large ? 20 : 0;
-  const dayHeaderHeight = large ? 26 : 22;
-  const gutterWidth = large ? 27 : 24;
+  const titleHeight = large ? 28 : 24;
+  const encouragementHeight = large ? 22 : 0;
+  const dayHeaderHeight = large ? 28 : 22;
+  const gutterWidth = large ? 29 : 24;
 
   return (
     <FlexWidget
@@ -285,12 +267,10 @@ export function WeeklyTimetableWidget({
           height: dayHeaderHeight,
           flexDirection: 'row',
           borderBottomWidth: 1,
-          borderBottomColor: '#E5E7EB',
+          borderBottomColor: '#E6E8EC',
         }}
       >
-        <FlexWidget
-          style={{ width: gutterWidth, height: dayHeaderHeight }}
-        />
+        <FlexWidget style={{ width: gutterWidth, height: dayHeaderHeight }} />
         {data.days.map((day) => {
           const today = day.date === data.today;
           return (
@@ -302,20 +282,16 @@ export function WeeklyTimetableWidget({
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderLeftWidth: 1,
-                borderLeftColor: '#ECEEF2',
-                backgroundColor: today ? '#EEF1FF' : '#FFFFFF',
+                borderLeftColor: '#F0F1F4',
+                backgroundColor: today ? '#F0F3FF' : '#FFFFFF',
               }}
             >
               <TextWidget
-                text={
-                  large
-                    ? `${day.dayName} ${day.dateNumber}`
-                    : day.dayName
-                }
+                text={large ? `${day.dayName} ${day.dateNumber}` : day.dayName}
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
-                  fontSize: large ? 8 : 8,
+                  fontSize: 8,
                   fontWeight: today ? '700' : '500',
                   color: today ? '#4B68FF' : '#616874',
                 }}
@@ -325,74 +301,109 @@ export function WeeklyTimetableWidget({
         })}
       </FlexWidget>
 
-      <FlexWidget
+      <OverlapWidget
         style={{
           width: 'match_parent',
           height: bodyHeight,
-          flexDirection: 'row',
+          overflow: 'hidden',
+          backgroundColor: '#FFFFFF',
         }}
       >
-        <OverlapWidget
+        <FlexWidget
           style={{
-            width: gutterWidth,
+            width: 'match_parent',
             height: bodyHeight,
-            overflow: 'hidden',
-            backgroundColor: '#FAFBFC',
+            flexDirection: 'row',
           }}
         >
-          {timeLabels.map((hour) => {
-            const top = ((hour * 60 - START_MINUTES) / TOTAL_MINUTES) * bodyHeight;
-            return (
-              <TextWidget
-                key={`time-${hour}`}
-                text={String(hour)}
-                allowFontScaling={false}
-                style={{
-                  width: gutterWidth - 2,
-                  height: 12,
-                  marginTop: Math.max(0, top - 5),
-                  fontSize: large ? 7 : 7,
-                  color: '#7A818C',
-                  textAlign: 'right',
-                }}
-              />
-            );
-          })}
-        </OverlapWidget>
-
-        {data.days.map((day) => (
           <FlexWidget
-            key={`body-${day.date}`}
             style={{
-              flex: 1,
+              width: gutterWidth,
               height: bodyHeight,
-              borderLeftWidth: 1,
-              borderLeftColor: '#E5E7EB',
+              backgroundColor: '#FAFBFC',
+            }}
+          />
+          {data.days.map((day) => (
+            <FlexWidget
+              key={`base-${day.date}`}
+              style={{
+                flex: 1,
+                height: bodyHeight,
+                borderLeftWidth: 1,
+                borderLeftColor: '#F0F1F4',
+                backgroundColor:
+                  day.date === data.today ? '#F7F8FF' : '#FFFFFF',
+              }}
+            />
+          ))}
+        </FlexWidget>
+
+        {timeLabels.map((hour) => {
+          const top = ((hour * 60 - START_MINUTES) / TOTAL_MINUTES) * bodyHeight;
+          return (
+            <FlexWidget
+              key={`grid-${hour}`}
+              style={{
+                width: 'match_parent',
+                height: 1,
+                marginTop: top,
+                backgroundColor: '#ECEEF2',
+              }}
+            />
+          );
+        })}
+
+        <FlexWidget
+          style={{
+            width: 'match_parent',
+            height: bodyHeight,
+            flexDirection: 'row',
+          }}
+        >
+          <OverlapWidget
+            style={{
+              width: gutterWidth,
+              height: bodyHeight,
+              overflow: 'hidden',
             }}
           >
-            <DayBody
-              schedules={day.schedules}
-              height={bodyHeight}
-              isToday={day.date === data.today}
-              variant={variant}
-            />
-          </FlexWidget>
-        ))}
-      </FlexWidget>
+            {timeLabels.map((hour) => {
+              const top = ((hour * 60 - START_MINUTES) / TOTAL_MINUTES) * bodyHeight;
+              return (
+                <TextWidget
+                  key={`time-${hour}`}
+                  text={String(hour)}
+                  allowFontScaling={false}
+                  style={{
+                    width: gutterWidth - 3,
+                    height: 12,
+                    marginTop: Math.max(0, top - 5),
+                    fontSize: 7,
+                    color: '#8A909A',
+                    textAlign: 'right',
+                  }}
+                />
+              );
+            })}
+          </OverlapWidget>
 
-      {large && widgetWidth < 300 ? (
-        <TextWidget
-          text="위젯을 가로로 조금 넓히면 일정 이름이 더 잘 보여요."
-          maxLines={1}
-          allowFontScaling={false}
-          style={{
-            height: 14,
-            fontSize: 6,
-            color: '#9AA0AA',
-            textAlign: 'center',
-          }}
-        />
-      ) : null}
+          {data.days.map((day) => (
+            <FlexWidget
+              key={`schedule-${day.date}`}
+              style={{
+                flex: 1,
+                height: bodyHeight,
+              }}
+            >
+              <ScheduleLayer
+                schedules={day.schedules}
+                height={bodyHeight}
+                variant={variant}
+              />
+            </FlexWidget>
+          ))}
+        </FlexWidget>
+      </OverlapWidget>
     </FlexWidget>
   );
 }
