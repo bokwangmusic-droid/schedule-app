@@ -37,6 +37,31 @@ export function SessionSignatureModal({
   const strokeRef = useRef(0);
   const lastPointRef = useRef<SignaturePoint | null>(null);
 
+  const signatureSegments = useMemo(
+    () =>
+      points.flatMap((point, index) => {
+        if (index === 0) return [];
+        const previous = points[index - 1];
+        if (previous.stroke !== point.stroke) return [];
+
+        const dx = point.x - previous.x;
+        const dy = point.y - previous.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        if (length < 0.5) return [];
+
+        return [
+          {
+            key: `${point.stroke}-${index}`,
+            left: (previous.x + point.x) / 2 - length / 2,
+            top: (previous.y + point.y) / 2 - 2.25,
+            width: length,
+            angle: Math.atan2(dy, dx),
+          },
+        ];
+      }),
+    [points],
+  );
+
   const addPoint = (x: number, y: number, stroke: number) => {
     const last = lastPointRef.current;
     if (last && last.stroke === stroke) {
@@ -81,10 +106,14 @@ export function SessionSignatureModal({
     [],
   );
 
-  const reset = () => {
+  const clearSignature = () => {
     setPoints([]);
-    setSessionNote('');
     lastPointRef.current = null;
+  };
+
+  const reset = () => {
+    clearSignature();
+    setSessionNote('');
   };
 
   const close = () => {
@@ -146,7 +175,7 @@ export function SessionSignatureModal({
 
           <View style={styles.signatureHeader}>
             <Text style={styles.fieldLabel}>회원 서명</Text>
-            <Pressable onPress={() => setPoints([])} hitSlop={10}>
+            <Pressable onPress={clearSignature} hitSlop={10}>
               <Text style={styles.clearText}>다시 쓰기</Text>
             </Pressable>
           </View>
@@ -155,15 +184,30 @@ export function SessionSignatureModal({
             {points.length === 0 ? (
               <Text style={styles.signatureHint}>이곳에 손가락으로 서명해주세요</Text>
             ) : null}
+            {signatureSegments.map((segment) => (
+              <View
+                key={segment.key}
+                pointerEvents="none"
+                style={[
+                  styles.signatureSegment,
+                  {
+                    left: segment.left,
+                    top: segment.top,
+                    width: segment.width,
+                    transform: [{ rotate: `${segment.angle}rad` }],
+                  },
+                ]}
+              />
+            ))}
             {points.map((point, index) => (
               <View
-                key={`${point.stroke}-${index}`}
+                key={`dot-${point.stroke}-${index}`}
                 pointerEvents="none"
                 style={[
                   styles.signatureDot,
                   {
-                    left: point.x - 2,
-                    top: point.y - 2,
+                    left: point.x - 2.25,
+                    top: point.y - 2.25,
                   },
                 ]}
               />
@@ -285,11 +329,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#B0B5BE',
   },
+  signatureSegment: {
+    position: 'absolute',
+    height: 4.5,
+    borderRadius: 2.25,
+    backgroundColor: '#222831',
+  },
   signatureDot: {
     position: 'absolute',
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 4.5,
+    height: 4.5,
+    borderRadius: 2.25,
     backgroundColor: '#222831',
   },
   legalHint: {
