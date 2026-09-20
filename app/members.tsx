@@ -2,7 +2,9 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SignaturePreview } from '../src/components/SignaturePreview';
 import { SimpleDatePickerModal } from '../src/components/SimpleDatePickerModal';
 import {
   createMember,
@@ -18,6 +21,10 @@ import {
   listMembers,
   updateMember,
 } from '../src/data/memberRepository';
+import {
+  listSignedMemberSessions,
+  type SignedMemberSession,
+} from '../src/data/scheduleRepository';
 import type { MemberItem } from '../src/types/member';
 
 type DatePickerTarget = 'start' | 'end' | null;
@@ -35,6 +42,9 @@ export default function MembersScreen() {
   const [ptRemainingSessions, setPtRemainingSessions] = useState('');
   const [memo, setMemo] = useState('');
   const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget>(null);
+  const [historyMember, setHistoryMember] = useState<MemberItem | null>(null);
+  const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadMembers = useCallback(async () => {
@@ -155,6 +165,27 @@ export default function MembersScreen() {
         },
       },
     ]);
+  };
+
+  const openSignatureHistory = async (member: MemberItem) => {
+    setHistoryMember(member);
+    setSignedSessions([]);
+    setHistoryLoading(true);
+    try {
+      setSignedSessions(await listSignedMemberSessions(db, member.id));
+    } catch (error) {
+      console.error(error);
+      Alert.alert('서명 기록을 불러오지 못했어요.');
+      setHistoryMember(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeSignatureHistory = () => {
+    setHistoryMember(null);
+    setSignedSessions([]);
+    setHistoryLoading(false);
   };
 
   const selectedPickerDate =
@@ -306,6 +337,9 @@ export default function MembersScreen() {
                 {member.memo ? <Text numberOfLines={3} style={styles.memberMemo}>{member.memo}</Text> : null}
               </View>
               <View style={styles.memberActions}>
+                <Pressable onPress={() => void openSignatureHistory(member)} hitSlop={8}>
+                  <Text style={styles.historyText}>서명기록</Text>
+                </Pressable>
                 <Pressable onPress={() => beginEdit(member)} hitSlop={8}>
                   <Text style={styles.editText}>수정</Text>
                 </Pressable>
@@ -317,6 +351,73 @@ export default function MembersScreen() {
           ))
         )}
       </ScrollView>
+
+      <Modal
+        visible={historyMember !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closeSignatureHistory}
+      >
+        <View style={styles.historyBackdrop}>
+          <View style={styles.historySheet}>
+            <View style={styles.historyHandle} />
+            <View style={styles.historyHeader}>
+              <View>
+                <Text style={styles.historyTitle}>
+                  {historyMember ? `${historyMember.name} · PT 서명 기록` : 'PT 서명 기록'}
+                </Text>
+                <Text style={styles.historySubTitle}>
+                  회원이 직접 서명하고 소진된 수업을 날짜별로 확인합니다.
+                </Text>
+              </View>
+              <Pressable onPress={closeSignatureHistory} hitSlop={10}>
+                <Text style={styles.historyClose}>닫기</Text>
+              </Pressable>
+            </View>
+
+            {historyLoading ? (
+              <View style={styles.historyLoading}>
+                <ActivityIndicator color="#4B68FF" />
+              </View>
+            ) : signedSessions.length === 0 ? (
+              <View style={styles.historyEmpty}>
+                <Text style={styles.historyEmptyText}>아직 저장된 PT 서명이 없어요.</Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.historyList}
+                contentContainerStyle={styles.historyListContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {signedSessions.map((session) => (
+                  <View key={session.id} style={styles.historyCard}>
+                    <View style={styles.historyDateRow}>
+                      <Text style={styles.historyDate}>
+                        {session.date.replaceAll('-', '.')}
+                      </Text>
+                      <Text style={styles.historyTime}>
+                        {session.startTime
+                          ? `${session.startTime.slice(0, 5)}${session.endTime ? `–${session.endTime.slice(0, 5)}` : ''}`
+                          : '시간 미입력'}
+                      </Text>
+                    </View>
+                    <SignaturePreview signatureJson={session.signatureJson} />
+                    {session.sessionNote ? (
+                      <View style={styles.historyNote}>
+                        <Text style={styles.historyNoteLabel}>수업 메모</Text>
+                        <Text style={styles.historyNoteText}>{session.sessionNote}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.historySignedAt}>
+                      서명 저장 {new Date(session.signedAt).toLocaleString('ko-KR')}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <SimpleDatePickerModal
         visible={datePickerTarget !== null}
@@ -429,7 +530,92 @@ const styles = StyleSheet.create({
   memberMeta: { marginTop: 3, fontSize: 12, color: '#727986' },
   ptMeta: { marginTop: 4, fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   memberMemo: { marginTop: 5, fontSize: 12, lineHeight: 17, color: '#9298A3' },
-  memberActions: { marginLeft: 12, gap: 12, alignItems: 'flex-end' },
+  memberActions: { marginLeft: 12, gap: 10, alignItems: 'flex-end' },
+  historyText: { fontSize: 13, fontWeight: '900', color: '#5266C7' },
   editText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   deleteText: { fontSize: 13, fontWeight: '800', color: '#D9364F' },
+  historyBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(16,20,28,0.42)',
+  },
+  historySheet: {
+    maxHeight: '86%',
+    paddingTop: 10,
+    paddingHorizontal: 18,
+    paddingBottom: 22,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: '#F7F8FA',
+  },
+  historyHandle: {
+    width: 40,
+    height: 4,
+    marginBottom: 14,
+    alignSelf: 'center',
+    borderRadius: 2,
+    backgroundColor: '#D7DAE1',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  historyTitle: { fontSize: 19, fontWeight: '900', color: '#20242C' },
+  historySubTitle: {
+    marginTop: 5,
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#858C98',
+  },
+  historyClose: { fontSize: 13, fontWeight: '900', color: '#5968B5' },
+  historyLoading: {
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyEmpty: {
+    height: 160,
+    marginTop: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  historyEmptyText: { fontSize: 13, fontWeight: '700', color: '#9298A3' },
+  historyList: { marginTop: 14 },
+  historyListContent: { paddingBottom: 10, gap: 10 },
+  historyCard: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  historyDateRow: {
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  historyDate: { fontSize: 15, fontWeight: '900', color: '#252A31' },
+  historyTime: { fontSize: 12, fontWeight: '800', color: '#6F7682' },
+  historyNote: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#F5F7FA',
+  },
+  historyNoteLabel: { fontSize: 10, fontWeight: '900', color: '#878E99' },
+  historyNoteText: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#424852',
+  },
+  historySignedAt: {
+    marginTop: 8,
+    fontSize: 10,
+    color: '#9AA0AA',
+    textAlign: 'right',
+  },
 });
