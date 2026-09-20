@@ -52,10 +52,12 @@ function getBodyHeight(
 function ScheduleLayer({
   schedules,
   height,
+  width,
   variant,
 }: {
   schedules: ScheduleItem[];
   height: number;
+  width: number;
   variant: WeeklyTimetableVariant;
 }) {
   const timedSchedules = schedules.filter(
@@ -66,7 +68,7 @@ function ScheduleLayer({
   return (
     <OverlapWidget
       style={{
-        width: 'match_parent',
+        width,
         height,
         overflow: 'hidden',
       }}
@@ -75,6 +77,7 @@ function ScheduleLayer({
         <FlexWidget
           key={`all-${schedule.id}`}
           style={{
+            width: Math.max(width - 4, 20),
             height: variant === 'large' ? 16 : 12,
             marginTop: 2,
             marginLeft: 2,
@@ -126,6 +129,7 @@ function ScheduleLayer({
           <FlexWidget
             key={schedule.id}
             style={{
+              width: Math.max(width - 4, 20),
               height: blockHeight,
               marginTop: top,
               marginLeft: 2,
@@ -402,6 +406,7 @@ export function WeeklyTimetableWidget({
               <ScheduleLayer
                 schedules={day.schedules}
                 height={bodyHeight}
+                width={dayWidth}
                 variant={variant}
               />
             </FlexWidget>
