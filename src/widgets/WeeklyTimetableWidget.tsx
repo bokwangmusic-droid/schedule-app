@@ -194,7 +194,7 @@ export function WeeklyTimetableWidget({
   const outerPadding = large ? 6 : 7;
   const resolvedWidgetWidth = widgetWidth > 0 ? widgetWidth : large ? 360 : 340;
   const innerWidth = Math.max(resolvedWidgetWidth - outerPadding * 2, 280);
-  const dayWidth = Math.max((innerWidth - gutterWidth) / 7, 28);
+  const dayWidth = Math.max(Math.floor((innerWidth - gutterWidth) / 7), 28);
 
   return (
     <FlexWidget
