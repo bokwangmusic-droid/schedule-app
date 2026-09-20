@@ -378,3 +378,56 @@ export async function completeMemberSessionWithSignature(
 
   return completionResult;
 }
+
+
+export type SignedMemberSession = {
+  id: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  sessionNote: string | null;
+  signatureJson: string;
+  signedAt: string;
+};
+
+export async function listSignedMemberSessions(
+  db: SQLiteDatabase,
+  memberId: string,
+): Promise<SignedMemberSession[]> {
+  const rows = await db.getAllAsync<{
+    id: string;
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+    session_note: string | null;
+    signature_json: string;
+    signed_at: string;
+  }>(
+    `SELECT
+       id,
+       date,
+       start_time,
+       end_time,
+       session_note,
+       signature_json,
+       signed_at
+     FROM schedules
+     WHERE member_id = ?
+       AND attendance_status = 'completed'
+       AND pt_consumed = 1
+       AND signature_json IS NOT NULL
+       AND signed_at IS NOT NULL
+     ORDER BY date DESC, COALESCE(start_time, '00:00') DESC, signed_at DESC`,
+    [memberId],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    sessionNote: row.session_note,
+    signatureJson: row.signature_json,
+    signedAt: row.signed_at,
+  }));
+}
