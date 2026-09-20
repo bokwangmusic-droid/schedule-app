@@ -187,6 +187,10 @@ export function WeeklyTimetableWidget({
   const encouragementHeight = large ? 22 : 0;
   const dayHeaderHeight = large ? 28 : 22;
   const gutterWidth = large ? 29 : 24;
+  const outerPadding = large ? 6 : 7;
+  const resolvedWidgetWidth = widgetWidth > 0 ? widgetWidth : large ? 360 : 340;
+  const innerWidth = Math.max(resolvedWidgetWidth - outerPadding * 2, 280);
+  const dayWidth = Math.max((innerWidth - gutterWidth) / 7, 28);
 
   return (
     <FlexWidget
@@ -197,7 +201,7 @@ export function WeeklyTimetableWidget({
       style={{
         width: 'match_parent',
         height: 'match_parent',
-        padding: large ? 6 : 7,
+        padding: outerPadding,
         overflow: 'hidden',
         borderRadius: 18,
         backgroundColor: '#FFFFFF',
@@ -277,7 +281,7 @@ export function WeeklyTimetableWidget({
             <FlexWidget
               key={`header-${day.date}`}
               style={{
-                flex: 1,
+                width: dayWidth,
                 height: dayHeaderHeight,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -327,7 +331,7 @@ export function WeeklyTimetableWidget({
             <FlexWidget
               key={`base-${day.date}`}
               style={{
-                flex: 1,
+                width: dayWidth,
                 height: bodyHeight,
                 borderLeftWidth: 1,
                 borderLeftColor: '#F0F1F4',
@@ -391,7 +395,7 @@ export function WeeklyTimetableWidget({
             <FlexWidget
               key={`schedule-${day.date}`}
               style={{
-                flex: 1,
+                width: dayWidth,
                 height: bodyHeight,
               }}
             >
