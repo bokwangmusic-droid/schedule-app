@@ -131,6 +131,14 @@ function DayBody({
           rawHeight,
           variant === 'large' ? 17 : 11,
         );
+        const ptRemaining =
+          schedule.memberPtProjectedRemainingSessions ??
+          schedule.memberPtRemainingSessions;
+        const showPtRemaining =
+          variant === 'large' &&
+          schedule.memberId !== null &&
+          ptRemaining !== null &&
+          blockHeight >= 25;
 
         return (
           <FlexWidget
@@ -164,6 +172,19 @@ function DayBody({
                 color: '#FFFFFF',
               }}
             />
+            {showPtRemaining ? (
+              <TextWidget
+                text={`잔여 ${ptRemaining}회`}
+                maxLines={1}
+                allowFontScaling={false}
+                style={{
+                  marginTop: 1,
+                  fontSize: 6,
+                  fontWeight: '600',
+                  color: '#FFFFFF',
+                }}
+              />
+            ) : null}
           </FlexWidget>
         );
       })}
