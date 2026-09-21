@@ -71,6 +71,16 @@ function formatVolume(value: number) {
     : value.toLocaleString('ko-KR', { maximumFractionDigits: 1 });
 }
 
+function parseLogDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function volumeChangePercent(current: number, previous: number) {
+  if (previous <= 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
 export default function MemberDetailScreen() {
   const db = useSQLiteContext();
   const { width } = useWindowDimensions();
@@ -139,6 +149,45 @@ export default function MemberDetailScreen() {
 
   const latestBody = bodyRecords[0] ?? null;
   const previousBody = bodyRecords[1] ?? null;
+  const latestTrainingLog = trainingLogs[0] ?? null;
+  const previousTrainingLog = trainingLogs[1] ?? null;
+  const latestTrainingVolume = latestTrainingLog
+    ? trainingLogVolume(latestTrainingLog)
+    : 0;
+  const previousTrainingVolume = previousTrainingLog
+    ? trainingLogVolume(previousTrainingLog)
+    : 0;
+  const latestVolumeChange = volumeChangePercent(
+    latestTrainingVolume,
+    previousTrainingVolume,
+  );
+  const fourWeekCutoff = new Date();
+  fourWeekCutoff.setHours(0, 0, 0, 0);
+  fourWeekCutoff.setDate(fourWeekCutoff.getDate() - 27);
+  const fourWeekVolume = trainingLogs
+    .filter((log) => parseLogDate(log.date) >= fourWeekCutoff)
+    .reduce((total, log) => total + trainingLogVolume(log), 0);
+  const exercisePrs = Array.from(
+    trainingLogs.reduce((map, log) => {
+      for (const exercise of log.exercises) {
+        const maxWeight = exercise.sets.reduce(
+          (best, set) =>
+            set.weight !== null && set.weight > best ? set.weight : best,
+          0,
+        );
+        if (maxWeight <= 0) continue;
+        const key = exercise.name.trim().toLocaleLowerCase();
+        const previous = map.get(key);
+        if (!previous || maxWeight > previous.weight) {
+          map.set(key, { name: exercise.name.trim(), weight: maxWeight });
+        }
+      }
+      return map;
+    }, new Map<string, { name: string; weight: number }>()),
+  )
+    .map(([, value]) => value)
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 3);
   const dday = membershipDday(member?.membershipEndDate ?? null);
 
   const saveTrainingLog = async (input: CreateTrainingLogInput) => {
@@ -316,6 +365,50 @@ export default function MemberDetailScreen() {
             <Text style={styles.emptyText}>첫 측정값을 입력해 주세요.</Text>
           </Pressable>
         )}
+
+        {trainingLogs.length > 0 ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>운동 분석</Text>
+              <Text style={styles.sectionCount}>최근 기록 기준</Text>
+            </View>
+
+            <View style={styles.analysisCard}>
+              <View style={styles.analysisMetricRow}>
+                <View style={styles.analysisMetric}>
+                  <Text style={styles.analysisMetricLabel}>최근 총 볼륨</Text>
+                  <Text style={styles.analysisMetricValue}>
+                    {formatVolume(latestTrainingVolume)}kg
+                  </Text>
+                  <Text style={styles.analysisMetricSub}>
+                    {latestVolumeChange === null
+                      ? '비교 기록 없음'
+                      : `직전 대비 ${latestVolumeChange >= 0 ? '+' : ''}${latestVolumeChange.toFixed(1)}%`}
+                  </Text>
+                </View>
+                <View style={styles.analysisMetric}>
+                  <Text style={styles.analysisMetricLabel}>최근 4주 볼륨</Text>
+                  <Text style={styles.analysisMetricValue}>
+                    {formatVolume(fourWeekVolume)}kg
+                  </Text>
+                  <Text style={styles.analysisMetricSub}>최근 28일 합계</Text>
+                </View>
+              </View>
+
+              {exercisePrs.length > 0 ? (
+                <View style={styles.prSection}>
+                  <Text style={styles.prTitle}>종목 최고중량</Text>
+                  {exercisePrs.map((pr) => (
+                    <View key={pr.name} style={styles.prRow}>
+                      <Text style={styles.prName} numberOfLines={1}>{pr.name}</Text>
+                      <Text style={styles.prWeight}>{formatVolume(pr.weight)}kg</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          </>
+        ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>운동일지</Text>
@@ -555,6 +648,69 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 13, fontWeight: '900', color: '#515864' },
   emptyText: { marginTop: 4, fontSize: 11, color: '#9299A4' },
+  analysisCard: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+  },
+  analysisMetricRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  analysisMetric: {
+    flex: 1,
+    minHeight: 92,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#F6F8F7',
+  },
+  analysisMetricLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#7A827D',
+  },
+  analysisMetricValue: {
+    marginTop: 7,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#2D7A57',
+  },
+  analysisMetricSub: {
+    marginTop: 5,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#7C857F',
+  },
+  prSection: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E1E5E2',
+  },
+  prTitle: {
+    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#4E5751',
+  },
+  prRow: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  prName: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#555E58',
+  },
+  prWeight: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#2D7A57',
+  },
   logCard: {
     marginBottom: 9,
     padding: 14,
