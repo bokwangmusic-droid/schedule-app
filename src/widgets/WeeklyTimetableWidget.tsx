@@ -44,10 +44,12 @@ function getBodyHeight(
     // visually allocated area. The large widget should still fill the page,
     // so use a generous minimum instead of leaving a large blank lower half.
     const minimum = widgetWidth < 300 ? 580 : 540;
-    return clamp(Math.max(widgetHeight - 78, minimum), minimum, 780);
+    const maximum = widgetWidth >= 560 ? 1400 : 850;
+    return clamp(Math.max(widgetHeight - 78, minimum), minimum, maximum);
   }
 
-  return clamp(Math.max(widgetHeight - 54, 230), 230, 380);
+  const maximum = widgetWidth >= 560 ? 760 : 420;
+  return clamp(Math.max(widgetHeight - 54, 230), 230, maximum);
 }
 
 function ScheduleLayer({
@@ -216,8 +218,15 @@ export function WeeklyTimetableWidget({
   const encouragementHeight = large ? 22 : 0;
   const dayHeaderHeight = large ? 28 : 22;
   const gutterWidth = large ? 29 : 24;
-  const outerPadding = large ? 6 : 7;
   const resolvedWidgetWidth = widgetWidth > 0 ? widgetWidth : large ? 360 : 340;
+  const wideWidget = resolvedWidgetWidth >= 560;
+  const outerPadding = large
+    ? wideWidget
+      ? 2
+      : 6
+    : wideWidget
+      ? 3
+      : 7;
   const innerWidth = Math.max(Math.floor(resolvedWidgetWidth - outerPadding * 2), 280);
   const usableDaysWidth = Math.max(innerWidth - gutterWidth, 196);
   const baseDayWidth = Math.max(Math.floor(usableDaysWidth / 7), 28);
