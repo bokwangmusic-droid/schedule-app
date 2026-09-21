@@ -124,11 +124,16 @@ function ScheduleLayer({
         const ptRemaining =
           schedule.memberPtProjectedRemainingSessions ??
           schedule.memberPtRemainingSessions;
+        const hasPtRemaining =
+          schedule.memberId !== null &&
+          ptRemaining !== null;
         const showPtRemaining =
           variant === 'large' &&
-          schedule.memberId !== null &&
-          ptRemaining !== null &&
-          blockHeight >= 34;
+          hasPtRemaining &&
+          blockHeight >= 38;
+        const primaryLabel = hasPtRemaining
+          ? `${scheduleLabel(schedule)} · ${ptRemaining}회`
+          : scheduleLabel(schedule);
 
         return (
           <FlexWidget
@@ -146,7 +151,7 @@ function ScheduleLayer({
             }}
           >
             <TextWidget
-              text={scheduleLabel(schedule)}
+              text={primaryLabel}
               maxLines={1}
               truncate="END"
               allowFontScaling={false}
@@ -165,7 +170,7 @@ function ScheduleLayer({
             />
             {showPtRemaining ? (
               <TextWidget
-                text={`잔여 ${ptRemaining}회`}
+                text={`PT 잔여 ${ptRemaining}회`}
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
