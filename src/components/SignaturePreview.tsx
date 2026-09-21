@@ -16,9 +16,14 @@ type SignaturePayload = {
 type Props = {
   signatureJson: string;
   height?: number;
+  compact?: boolean;
 };
 
-export function SignaturePreview({ signatureJson, height = 110 }: Props) {
+export function SignaturePreview({
+  signatureJson,
+  height = 110,
+  compact = false,
+}: Props) {
   const [width, setWidth] = useState(0);
 
   const points = useMemo(() => {
@@ -47,7 +52,7 @@ export function SignaturePreview({ signatureJson, height = 110 }: Props) {
     const maxY = Math.max(...ys);
     const sourceWidth = Math.max(maxX - minX, 1);
     const sourceHeight = Math.max(maxY - minY, 1);
-    const padding = 10;
+    const padding = compact ? 2 : 10;
     const scale = Math.min(
       (width - padding * 2) / sourceWidth,
       (height - padding * 2) / sourceHeight,
@@ -77,11 +82,15 @@ export function SignaturePreview({ signatureJson, height = 110 }: Props) {
         angle: Math.atan2(dy, dx),
       }];
     });
-  }, [height, points, width]);
+  }, [compact, height, points, width]);
 
   return (
     <View
-      style={[styles.wrap, { height }]}
+      style={[
+        styles.wrap,
+        compact && styles.compactWrap,
+        { height },
+      ]}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       {points.length === 0 ? (
@@ -97,6 +106,8 @@ export function SignaturePreview({ signatureJson, height = 110 }: Props) {
               left: segment.left,
               top: segment.top,
               width: segment.width,
+              height: compact ? 1.8 : 3.2,
+              borderRadius: compact ? 0.9 : 1.6,
               transform: [{ rotate: `${segment.angle}rad` }],
             },
           ]}
@@ -117,10 +128,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FAFBFC',
   },
+  compactWrap: {
+    borderWidth: 0,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
   segment: {
     position: 'absolute',
-    height: 3.2,
-    borderRadius: 1.6,
     backgroundColor: '#252B34',
   },
   emptyText: {
