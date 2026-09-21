@@ -51,6 +51,26 @@ function formatMetric(value: number | null, suffix = '') {
   return value === null ? '-' : `${value}${suffix}`;
 }
 
+function exerciseVolume(exercise: TrainingLogItem['exercises'][number]) {
+  return exercise.sets.reduce((total, set) => {
+    if (set.weight === null || set.reps === null) return total;
+    return total + set.weight * set.reps;
+  }, 0);
+}
+
+function trainingLogVolume(log: TrainingLogItem) {
+  return log.exercises.reduce(
+    (total, exercise) => total + exerciseVolume(exercise),
+    0,
+  );
+}
+
+function formatVolume(value: number) {
+  return Number.isInteger(value)
+    ? value.toLocaleString('ko-KR')
+    : value.toLocaleString('ko-KR', { maximumFractionDigits: 1 });
+}
+
 export default function MemberDetailScreen() {
   const db = useSQLiteContext();
   const { width } = useWindowDimensions();
@@ -337,7 +357,12 @@ export default function MemberDetailScreen() {
                   <View style={styles.exerciseList}>
                     {log.exercises.map((exercise) => (
                       <View key={exercise.id} style={styles.exerciseRow}>
-                        <Text style={styles.exerciseName}>{exercise.name}</Text>
+                        <View style={styles.exerciseNameRow}>
+                          <Text style={styles.exerciseName}>{exercise.name}</Text>
+                          <Text style={styles.exerciseVolume}>
+                            {formatVolume(exerciseVolume(exercise))}kg
+                          </Text>
+                        </View>
                         <Text style={styles.exerciseSets}>
                           {exercise.sets.length > 0
                             ? exercise.sets
@@ -349,6 +374,15 @@ export default function MemberDetailScreen() {
                         </Text>
                       </View>
                     ))}
+                  </View>
+                ) : null}
+
+                {log.exercises.length > 0 ? (
+                  <View style={styles.totalVolumeCard}>
+                    <Text style={styles.totalVolumeLabel}>총 볼륨</Text>
+                    <Text style={styles.totalVolumeValue}>
+                      {formatVolume(trainingLogVolume(log))}kg
+                    </Text>
                   </View>
                 ) : null}
 
@@ -545,8 +579,39 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#F6F7F9',
   },
-  exerciseName: { fontSize: 11, fontWeight: '900', color: '#3F4650' },
+  exerciseNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  exerciseName: { flex: 1, fontSize: 11, fontWeight: '900', color: '#3F4650' },
+  exerciseVolume: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#2D7A57',
+  },
   exerciseSets: { marginTop: 2, fontSize: 10, color: '#727A86' },
+  totalVolumeCard: {
+    minHeight: 36,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EAF6F0',
+  },
+  totalVolumeLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#517060',
+  },
+  totalVolumeValue: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#2D7A57',
+  },
   logCardio: { marginTop: 8, fontSize: 10, color: '#757D88' },
   logSummary: { marginTop: 10, fontSize: 12, fontWeight: '800', color: '#343A44' },
   logFeedback: { marginTop: 5, fontSize: 11, lineHeight: 16, color: '#777E89' },
