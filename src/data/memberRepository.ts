@@ -43,6 +43,18 @@ export async function listMembers(db: SQLiteDatabase) {
   return rows.map(mapMemberRow);
 }
 
+export async function getMemberById(db: SQLiteDatabase, id: string) {
+  const row = await db.getFirstAsync<MemberRow>(
+    `SELECT *
+     FROM members
+     WHERE id = ?
+     LIMIT 1`,
+    [id],
+  );
+
+  return row ? mapMemberRow(row) : null;
+}
+
 export async function createMember(db: SQLiteDatabase, input: CreateMemberInput) {
   const now = new Date().toISOString();
   const id = createId();
