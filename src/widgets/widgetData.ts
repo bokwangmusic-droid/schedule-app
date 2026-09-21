@@ -10,6 +10,7 @@ export type WeeklyWidgetData = {
   weekStart: string;
   weekEnd: string;
   today: string;
+  currentMinutes: number;
   encouragement: string;
   days: Array<{
     date: string;
@@ -52,12 +53,11 @@ function getDailyEncouragement(dateString: string) {
 }
 
 function getWeekLabel(weekStart: Date) {
-  const end = addDays(weekStart, 6);
-  const sameMonth = weekStart.getMonth() === end.getMonth();
-  if (sameMonth) {
-    return `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}–${end.getDate()}일`;
-  }
-  return `${weekStart.getMonth() + 1}/${weekStart.getDate()}–${end.getMonth() + 1}/${end.getDate()}`;
+  const center = addDays(weekStart, 3);
+  const first = new Date(center.getFullYear(), center.getMonth(), 1);
+  const mondayBasedOffset = (first.getDay() + 6) % 7;
+  const week = Math.ceil((center.getDate() + mondayBasedOffset) / 7);
+  return `${center.getMonth() + 1}월 ${week}주차`;
 }
 
 export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
@@ -97,6 +97,7 @@ export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
       weekStart,
       weekEnd,
       today,
+      currentMinutes: now.getHours() * 60 + now.getMinutes(),
       encouragement: getDailyEncouragement(today),
       days: weekDates.map((date, index) => {
         const dateString = toLocalDateString(date);
