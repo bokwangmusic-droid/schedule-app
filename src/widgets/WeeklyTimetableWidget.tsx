@@ -129,14 +129,14 @@ function ScheduleLayer({
         const hasPtRemaining =
           schedule.memberId !== null &&
           ptRemaining !== null;
+        const narrowColumn = width < 52;
         const showPtRemaining =
           variant === 'large' &&
           hasPtRemaining &&
-          blockHeight >= 38;
-        const primaryLabel =
-          hasPtRemaining && !showPtRemaining
-            ? `${scheduleLabel(schedule)} · ${ptRemaining}회`
-            : scheduleLabel(schedule);
+          blockHeight >= 26;
+        const primaryLabel = scheduleLabel(schedule);
+        const ptRemainingLabel =
+          narrowColumn ? `${ptRemaining}회` : `PT 잔여 ${ptRemaining}회`;
 
         return (
           <FlexWidget
@@ -161,9 +161,11 @@ function ScheduleLayer({
               style={{
                 fontSize:
                   variant === 'large'
-                    ? blockHeight >= 28
-                      ? 9
-                      : 8
+                    ? narrowColumn
+                      ? 7
+                      : blockHeight >= 28
+                        ? 9
+                        : 8
                     : blockHeight >= 18
                       ? 7
                       : 6,
@@ -173,12 +175,12 @@ function ScheduleLayer({
             />
             {showPtRemaining ? (
               <TextWidget
-                text={`PT 잔여 ${ptRemaining}회`}
+                text={ptRemainingLabel}
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
                   marginTop: 1,
-                  fontSize: 6,
+                  fontSize: narrowColumn ? 5 : 6,
                   fontWeight: '600',
                   color: '#FFFFFF',
                 }}
