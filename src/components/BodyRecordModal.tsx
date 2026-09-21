@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CreateBodyRecordInput } from '../types/memberFitness';
@@ -38,6 +39,8 @@ export function BodyRecordModal({
   onClose,
   onSubmit,
 }: Props) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 700;
   const [measuredDate, setMeasuredDate] = useState(date);
   const [weight, setWeight] = useState('');
   const [skeletalMuscle, setSkeletalMuscle] = useState('');
@@ -81,7 +84,7 @@ export function BodyRecordModal({
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, isTablet && styles.headerTablet]}>
             <Pressable onPress={close} hitSlop={10}>
               <Text style={styles.headerAction}>취소</Text>
             </Pressable>
@@ -96,19 +99,24 @@ export function BodyRecordModal({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.content}>
-            <View style={styles.card}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              isTablet && styles.contentTablet,
+            ]}
+          >
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>측정 정보</Text>
               <TextInput
                 value={measuredDate}
                 onChangeText={setMeasuredDate}
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor="#A2A8B2"
-                style={styles.input}
+                style={[styles.input, isTablet && styles.inputTablet]}
               />
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>체성분</Text>
               <TextInput
                 value={weight}
@@ -116,7 +124,7 @@ export function BodyRecordModal({
                 placeholder="몸무게 kg"
                 placeholderTextColor="#A2A8B2"
                 keyboardType="decimal-pad"
-                style={styles.input}
+                style={[styles.input, isTablet && styles.inputTablet]}
               />
               <TextInput
                 value={skeletalMuscle}
@@ -124,7 +132,7 @@ export function BodyRecordModal({
                 placeholder="골격근량 kg"
                 placeholderTextColor="#A2A8B2"
                 keyboardType="decimal-pad"
-                style={styles.input}
+                style={[styles.input, isTablet && styles.inputTablet]}
               />
               <TextInput
                 value={bodyFat}
@@ -132,7 +140,7 @@ export function BodyRecordModal({
                 placeholder="체지방량 kg"
                 placeholderTextColor="#A2A8B2"
                 keyboardType="decimal-pad"
-                style={styles.input}
+                style={[styles.input, isTablet && styles.inputTablet]}
               />
               <TextInput
                 value={bodyFatPercentage}
@@ -140,7 +148,7 @@ export function BodyRecordModal({
                 placeholder="체지방률 %"
                 placeholderTextColor="#A2A8B2"
                 keyboardType="decimal-pad"
-                style={styles.input}
+                style={[styles.input, isTablet && styles.inputTablet]}
               />
             </View>
 
@@ -170,6 +178,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E2E5EA',
     backgroundColor: '#FFFFFF',
   },
+  headerTablet: {
+    height: 72,
+    paddingHorizontal: 28,
+  },
   headerAction: { width: 54, fontSize: 15, color: '#68707D' },
   headerCenter: { alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '900', color: '#20242B' },
@@ -183,7 +195,19 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.45 },
   content: { padding: 16, gap: 10 },
+  contentTablet: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    gap: 14,
+  },
   card: { padding: 16, borderRadius: 18, backgroundColor: '#FFFFFF' },
+  cardTablet: {
+    padding: 22,
+    borderRadius: 22,
+  },
   sectionTitle: { fontSize: 15, fontWeight: '900', color: '#252A32' },
   input: {
     minHeight: 48,
@@ -193,6 +217,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F5F8',
     fontSize: 14,
     color: '#252A32',
+  },
+  inputTablet: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    fontSize: 16,
   },
   guideCard: {
     padding: 14,
