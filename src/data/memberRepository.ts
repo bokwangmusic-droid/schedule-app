@@ -125,6 +125,25 @@ export async function deleteMember(db: SQLiteDatabase, id: string) {
       'UPDATE schedules SET member_id = NULL, updated_at = ? WHERE member_id = ?',
       [new Date().toISOString(), id],
     );
+    await db.runAsync(
+      `DELETE FROM member_training_sets
+       WHERE exercise_id IN (
+         SELECT e.id
+         FROM member_training_exercises e
+         INNER JOIN member_training_logs l ON l.id = e.log_id
+         WHERE l.member_id = ?
+       )`,
+      [id],
+    );
+    await db.runAsync(
+      `DELETE FROM member_training_exercises
+       WHERE log_id IN (
+         SELECT id FROM member_training_logs WHERE member_id = ?
+       )`,
+      [id],
+    );
+    await db.runAsync('DELETE FROM member_training_logs WHERE member_id = ?', [id]);
+    await db.runAsync('DELETE FROM member_body_records WHERE member_id = ?', [id]);
     await db.runAsync('DELETE FROM members WHERE id = ?', [id]);
   });
 }
