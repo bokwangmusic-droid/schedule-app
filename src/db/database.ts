@@ -40,6 +40,66 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       updated_at TEXT NOT NULL
     );
 
+
+    CREATE TABLE IF NOT EXISTS member_training_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      member_id TEXT NOT NULL,
+      schedule_id TEXT,
+      date TEXT NOT NULL,
+      body_part TEXT,
+      sleep_quality TEXT,
+      condition_level TEXT,
+      activity_level TEXT,
+      diet_control INTEGER NOT NULL DEFAULT 0,
+      hydration INTEGER NOT NULL DEFAULT 0,
+      cardio_treadmill TEXT,
+      cardio_bike TEXT,
+      cardio_stepmill TEXT,
+      breakfast_carbs TEXT,
+      breakfast_protein TEXT,
+      breakfast_fat TEXT,
+      lunch_carbs TEXT,
+      lunch_protein TEXT,
+      lunch_fat TEXT,
+      dinner_carbs TEXT,
+      dinner_protein TEXT,
+      dinner_fat TEXT,
+      snack TEXT,
+      summary TEXT,
+      feedback TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS member_training_exercises (
+      id TEXT PRIMARY KEY NOT NULL,
+      log_id TEXT NOT NULL,
+      exercise_order INTEGER NOT NULL DEFAULT 0,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS member_training_sets (
+      id TEXT PRIMARY KEY NOT NULL,
+      exercise_id TEXT NOT NULL,
+      set_number INTEGER NOT NULL,
+      weight REAL,
+      reps INTEGER,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS member_body_records (
+      id TEXT PRIMARY KEY NOT NULL,
+      member_id TEXT NOT NULL,
+      measured_date TEXT NOT NULL,
+      weight REAL,
+      skeletal_muscle REAL,
+      body_fat REAL,
+      body_fat_percentage REAL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
@@ -53,6 +113,21 @@ export async function migrateDatabase(db: SQLiteDatabase) {
 
     CREATE INDEX IF NOT EXISTS idx_members_name
       ON members(name);
+
+    CREATE INDEX IF NOT EXISTS idx_training_logs_member_date
+      ON member_training_logs(member_id, date);
+
+    CREATE INDEX IF NOT EXISTS idx_training_logs_schedule
+      ON member_training_logs(schedule_id);
+
+    CREATE INDEX IF NOT EXISTS idx_training_exercises_log
+      ON member_training_exercises(log_id, exercise_order);
+
+    CREATE INDEX IF NOT EXISTS idx_training_sets_exercise
+      ON member_training_sets(exercise_id, set_number);
+
+    CREATE INDEX IF NOT EXISTS idx_body_records_member_date
+      ON member_body_records(member_id, measured_date);
   `);
 
   const scheduleColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(schedules)');
