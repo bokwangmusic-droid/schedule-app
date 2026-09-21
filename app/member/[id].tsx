@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -103,10 +103,11 @@ export default function MemberDetailScreen() {
     }, [loadAll]),
   );
 
-  if (!didAutoOpen && params.newLog === '1' && member) {
+  useEffect(() => {
+    if (didAutoOpen || params.newLog !== '1' || !member) return;
     setDidAutoOpen(true);
     setLogModalOpen(true);
-  }
+  }, [didAutoOpen, member, params.newLog]);
 
   const signedSessionNumberByScheduleId = useMemo(
     () => new Map(signedSessions.map((session) => [session.id, session.sessionNumber])),
