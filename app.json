@@ -7,7 +7,8 @@
     "userInterfaceStyle": "automatic",
     "scheme": "scheduleapp",
     "android": {
-      "package": "com.ijcompany.scheduleapp"
+      "package": "com.ijcompany.scheduleapp",
+      "icon": "./assets/icon.png"
     },
     "plugins": [
       "expo-router",
@@ -74,6 +75,7 @@
       "eas": {
         "projectId": "4a7b0461-abca-4c30-a4a9-1667a7f75de7"
       }
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }
