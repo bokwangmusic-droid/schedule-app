@@ -50,7 +50,7 @@ export function ScheduleRangeSelector({
 
   const localYToMinutes = (y: number) => {
     const raw = clamp(y / pixelsPerMinute, 0, totalMinutes);
-    return clamp(Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES, 0, totalMinutes);
+    return clamp(Math.floor(raw / SNAP_MINUTES) * SNAP_MINUTES, 0, totalMinutes);
   };
 
   const getRange = (currentLocalY: number) => {
