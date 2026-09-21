@@ -212,8 +212,14 @@ export function WeeklyTimetableWidget({
   const gutterWidth = large ? 29 : 24;
   const outerPadding = large ? 6 : 7;
   const resolvedWidgetWidth = widgetWidth > 0 ? widgetWidth : large ? 360 : 340;
-  const innerWidth = Math.max(resolvedWidgetWidth - outerPadding * 2, 280);
-  const dayWidth = Math.max(Math.floor((innerWidth - gutterWidth) / 7), 28);
+  const innerWidth = Math.max(Math.floor(resolvedWidgetWidth - outerPadding * 2), 280);
+  const usableDaysWidth = Math.max(innerWidth - gutterWidth, 196);
+  const baseDayWidth = Math.max(Math.floor(usableDaysWidth / 7), 28);
+  const leftoverPixels = Math.max(usableDaysWidth - baseDayWidth * 7, 0);
+  const dayWidths = Array.from(
+    { length: 7 },
+    (_, index) => baseDayWidth + (index < leftoverPixels ? 1 : 0),
+  );
 
   return (
     <FlexWidget
@@ -298,8 +304,9 @@ export function WeeklyTimetableWidget({
         }}
       >
         <FlexWidget style={{ width: gutterWidth, height: dayHeaderHeight }} />
-        {data.days.map((day) => {
+        {data.days.map((day, index) => {
           const today = day.date === data.today;
+          const dayWidth = dayWidths[index] ?? baseDayWidth;
           return (
             <FlexWidget
               key={`header-${day.date}`}
@@ -373,11 +380,11 @@ export function WeeklyTimetableWidget({
               backgroundColor: '#FAFBFC',
             }}
           />
-          {data.days.map((day) => (
+          {data.days.map((day, index) => (
             <FlexWidget
               key={`base-${day.date}`}
               style={{
-                width: dayWidth,
+                width: dayWidths[index] ?? baseDayWidth,
                 height: bodyHeight,
                 borderLeftWidth: 1,
                 borderLeftColor: '#F0F1F4',
@@ -437,7 +444,9 @@ export function WeeklyTimetableWidget({
             })}
           </OverlapWidget>
 
-          {data.days.map((day) => (
+          {data.days.map((day, index) => {
+            const dayWidth = dayWidths[index] ?? baseDayWidth;
+            return (
             <FlexWidget
               key={`schedule-${day.date}`}
               style={{
@@ -454,7 +463,8 @@ export function WeeklyTimetableWidget({
                 currentMinutes={data.currentMinutes}
               />
             </FlexWidget>
-          ))}
+            );
+          })}
         </FlexWidget>
       </OverlapWidget>
     </FlexWidget>
