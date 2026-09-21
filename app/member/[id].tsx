@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BodyRecordModal } from '../../src/components/BodyRecordModal';
@@ -52,6 +53,8 @@ function formatMetric(value: number | null, suffix = '') {
 
 export default function MemberDetailScreen() {
   const db = useSQLiteContext();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 700;
   const params = useLocalSearchParams<{
     id?: string;
     scheduleId?: string;
@@ -188,8 +191,13 @@ export default function MemberDetailScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.profileCard}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          isTablet && styles.contentTablet,
+        ]}
+      >
+        <View style={[styles.profileCard, isTablet && styles.profileCardTablet]}>
           <View style={styles.profileTop}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{member.name.slice(0, 1)}</Text>
@@ -205,15 +213,18 @@ export default function MemberDetailScreen() {
           </View>
 
           <View style={styles.quickActions}>
-            <Pressable style={styles.primaryAction} onPress={() => setLogModalOpen(true)}>
+            <Pressable
+              style={[styles.primaryAction, isTablet && styles.primaryActionTablet]}
+              onPress={() => setLogModalOpen(true)}
+            >
               <Text style={styles.primaryActionTitle}>+ 운동일지</Text>
               <Text style={styles.primaryActionSub}>오늘 수업 기록</Text>
             </Pressable>
-            <Pressable style={styles.quickAction} onPress={() => setBodyModalOpen(true)}>
+            <Pressable style={[styles.quickAction, isTablet && styles.quickActionTablet]} onPress={() => setBodyModalOpen(true)}>
               <Text style={styles.quickActionTitle}>인바디</Text>
               <Text style={styles.quickActionSub}>체성분 기록</Text>
             </Pressable>
-            <Pressable style={styles.quickAction} onPress={() => setSignatureModalOpen(true)}>
+            <Pressable style={[styles.quickAction, isTablet && styles.quickActionTablet]} onPress={() => setSignatureModalOpen(true)}>
               <Text style={styles.quickActionTitle}>서명</Text>
               <Text style={styles.quickActionSub}>{signedSessions.length}개 기록</Text>
             </Pressable>
@@ -406,7 +417,19 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '900', color: '#20242C' },
   headerSpacer: { width: 60 },
   content: { padding: 14, paddingBottom: 36 },
+  contentTablet: {
+    width: '100%',
+    maxWidth: 1120,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 48,
+  },
   profileCard: { padding: 16, borderRadius: 20, backgroundColor: '#FFFFFF' },
+  profileCardTablet: {
+    padding: 22,
+    borderRadius: 24,
+  },
   profileTop: { flexDirection: 'row', alignItems: 'center' },
   avatar: {
     width: 48,
@@ -430,6 +453,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#4B68FF',
   },
+  primaryActionTablet: {
+    minHeight: 76,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+  },
   primaryActionTitle: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   primaryActionSub: { marginTop: 3, fontSize: 10, color: '#DDE3FF' },
   quickAction: {
@@ -439,6 +467,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     backgroundColor: '#F1F3F7',
+  },
+  quickActionTablet: {
+    minHeight: 76,
+    paddingHorizontal: 14,
+    borderRadius: 16,
   },
   quickActionTitle: { fontSize: 13, fontWeight: '900', color: '#383F49' },
   quickActionSub: { marginTop: 3, fontSize: 10, color: '#858C98' },
