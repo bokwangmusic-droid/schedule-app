@@ -346,7 +346,7 @@ export default function MembersScreen() {
               <View style={styles.memberActions}>
                 <Pressable
                   onPress={() =>
-                    router.push({ pathname: '/member/[id]', params: { id: member.id } })
+                    router.push({ pathname: '/member/[id]', params: { id: member.id } } as never)
                   }
                   hitSlop={8}
                 >
