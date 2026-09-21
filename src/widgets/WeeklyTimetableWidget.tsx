@@ -131,9 +131,10 @@ function ScheduleLayer({
           variant === 'large' &&
           hasPtRemaining &&
           blockHeight >= 38;
-        const primaryLabel = hasPtRemaining
-          ? `${scheduleLabel(schedule)} · ${ptRemaining}회`
-          : scheduleLabel(schedule);
+        const primaryLabel =
+          hasPtRemaining && !showPtRemaining
+            ? `${scheduleLabel(schedule)} · ${ptRemaining}회`
+            : scheduleLabel(schedule);
 
         return (
           <FlexWidget
