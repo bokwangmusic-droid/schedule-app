@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MemberSignatureHistoryModal } from '../../src/components/MemberSignatureHistoryModal';
 import { SessionSignatureModal } from '../../src/components/SessionSignatureModal';
 import { TimePickerField } from '../../src/components/TimePickerField';
+import { getTrainingLogForSchedule } from '../../src/data/memberFitnessRepository';
 import { listMembers } from '../../src/data/memberRepository';
 import {
   completeMemberSessionWithSignature,
@@ -73,6 +74,7 @@ export default function EditScheduleScreen() {
   const [signatureHistoryOpen, setSignatureHistoryOpen] = useState(false);
   const [signatureHistoryLoading, setSignatureHistoryLoading] = useState(false);
   const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
+  const [hasTrainingLog, setHasTrainingLog] = useState(false);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const [scheduleKind, setScheduleKind] = useState<ScheduleKind>('personal');
   const [members, setMembers] = useState<MemberItem[]>([]);
@@ -113,6 +115,8 @@ export default function EditScheduleScreen() {
         }
 
         setScheduleRecord(schedule);
+        const trainingLog = await getTrainingLogForSchedule(db, schedule.id);
+        if (active) setHasTrainingLog(Boolean(trainingLog));
         if (schedule.memberId) {
           const previousNote = await getLatestMemberSessionNote(db, schedule.memberId, schedule.id);
           if (active) setLatestSessionNote(previousNote);
@@ -232,6 +236,7 @@ export default function EditScheduleScreen() {
     ]);
     setScheduleRecord(schedule);
     setMembers(memberRows);
+    setHasTrainingLog(schedule ? Boolean(await getTrainingLogForSchedule(db, schedule.id)) : false);
     if (schedule?.memberId) {
       setLatestSessionNote(
         await getLatestMemberSessionNote(db, schedule.memberId, schedule.id),
@@ -453,6 +458,28 @@ export default function EditScheduleScreen() {
                   ) : null}
                 </View>
               </View>
+
+              <Pressable
+                style={styles.trainingLogButton}
+                onPress={() =>
+                  router.push({
+                    pathname: '/member/[id]',
+                    params: {
+                      id: selectedMember.id,
+                      scheduleId: id,
+                      date,
+                      newLog: hasTrainingLog ? '0' : '1',
+                    },
+                  } as never)
+                }
+              >
+                <Text style={styles.trainingLogButtonTitle}>
+                  {hasTrainingLog ? '운동일지 보기' : '오늘 운동일지 작성'}
+                </Text>
+                <Text style={styles.trainingLogButtonSub}>
+                  운동 · 세트 · 컨디션 · 식단 · 피드백 기록
+                </Text>
+              </Pressable>
 
               {latestSessionNote ? (
                 <View style={styles.previousNoteCard}>
@@ -819,6 +846,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF2E4',
   },
   warningBadgeText: { fontSize: 10, fontWeight: '900', color: '#D97615' },
+  trainingLogButton: {
+    minHeight: 54,
+    marginTop: 12,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    justifyContent: 'center',
+    backgroundColor: '#EAF6F0',
+  },
+  trainingLogButtonTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#2D7A57',
+  },
+  trainingLogButtonSub: {
+    marginTop: 3,
+    fontSize: 10,
+    color: '#5E8875',
+  },
   previousNoteCard: {
     marginTop: 12,
     padding: 12,
