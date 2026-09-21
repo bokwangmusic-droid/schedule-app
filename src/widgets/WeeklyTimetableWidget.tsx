@@ -162,13 +162,13 @@ function ScheduleLayer({
                 fontSize:
                   variant === 'large'
                     ? narrowColumn
-                      ? 7
+                      ? 9
                       : blockHeight >= 28
-                        ? 9
-                        : 8
+                        ? 10
+                        : 9
                     : blockHeight >= 18
-                      ? 7
-                      : 6,
+                      ? 8
+                      : 7,
                 fontWeight: '700',
                 color: '#FFFFFF',
               }}
@@ -180,7 +180,7 @@ function ScheduleLayer({
                 allowFontScaling={false}
                 style={{
                   marginTop: 1,
-                  fontSize: narrowColumn ? 5 : 6,
+                  fontSize: narrowColumn ? 7 : 7,
                   fontWeight: '600',
                   color: '#FFFFFF',
                 }}
@@ -218,8 +218,8 @@ export function WeeklyTimetableWidget({
   const timeLabels = large ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
   const titleHeight = large ? 28 : 24;
   const encouragementHeight = large ? 22 : 0;
-  const dayHeaderHeight = large ? 28 : 22;
-  const gutterWidth = large ? 29 : 24;
+  const dayHeaderHeight = large ? 30 : 24;
+  const gutterWidth = large ? 32 : 27;
   const resolvedWidgetWidth = widgetWidth > 0 ? widgetWidth : large ? 360 : 340;
   const wideWidget = resolvedWidgetWidth >= 560;
   const outerPadding = large
@@ -338,38 +338,15 @@ export function WeeklyTimetableWidget({
               }}
             >
               <TextWidget
-                text={day.dayName}
+                text={`${day.dayName} ${day.dateNumber}`}
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
-                  fontSize: large ? 7 : 8,
-                  fontWeight: today ? '700' : '500',
-                  color: today ? '#4B68FF' : '#8A9099',
+                  fontSize: large ? 10 : 9,
+                  fontWeight: today ? '900' : '700',
+                  color: today ? '#4B68FF' : '#646B77',
                 }}
               />
-              {large ? (
-                <FlexWidget
-                  style={{
-                    width: 18,
-                    height: 18,
-                    marginTop: 1,
-                    borderRadius: 9,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: today ? '#4B68FF' : '#FFFFFF',
-                  }}
-                >
-                  <TextWidget
-                    text={String(day.dateNumber)}
-                    allowFontScaling={false}
-                    style={{
-                      fontSize: 7,
-                      fontWeight: '700',
-                      color: today ? '#FFFFFF' : '#646B77',
-                    }}
-                  />
-                </FlexWidget>
-              ) : null}
             </FlexWidget>
           );
         })}
@@ -450,9 +427,9 @@ export function WeeklyTimetableWidget({
                   allowFontScaling={false}
                   style={{
                     width: gutterWidth - 3,
-                    height: 12,
-                    marginTop: Math.max(0, top - 5),
-                    fontSize: 7,
+                    height: 14,
+                    marginTop: Math.max(0, top - 6),
+                    fontSize: 9,
                     color: '#8A909A',
                     textAlign: 'right',
                   }}
