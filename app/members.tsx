@@ -44,6 +44,7 @@ export default function MembersScreen() {
   const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget>(null);
   const [historyMember, setHistoryMember] = useState<MemberItem | null>(null);
   const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
+  const [selectedSignedSession, setSelectedSignedSession] = useState<SignedMemberSession | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -185,7 +186,13 @@ export default function MembersScreen() {
   const closeSignatureHistory = () => {
     setHistoryMember(null);
     setSignedSessions([]);
+    setSelectedSignedSession(null);
     setHistoryLoading(false);
+  };
+
+  const shortDate = (value: string) => {
+    const [, month, day] = value.split('-').map(Number);
+    return `${month}/${day}`;
   };
 
   const selectedPickerDate =
@@ -384,37 +391,69 @@ export default function MembersScreen() {
                 <Text style={styles.historyEmptyText}>아직 저장된 PT 서명이 없어요.</Text>
               </View>
             ) : (
-              <ScrollView
-                style={styles.historyList}
-                contentContainerStyle={styles.historyListContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {signedSessions.map((session) => (
-                  <View key={session.id} style={styles.historyCard}>
-                    <View style={styles.historyDateRow}>
-                      <Text style={styles.historyDate}>
-                        {session.date.replaceAll('-', '.')}
-                      </Text>
-                      <Text style={styles.historyTime}>
-                        {session.startTime
-                          ? `${session.startTime.slice(0, 5)}${session.endTime ? `–${session.endTime.slice(0, 5)}` : ''}`
-                          : '시간 미입력'}
-                      </Text>
-                    </View>
-                    <SignaturePreview signatureJson={session.signatureJson} />
-                    {session.sessionNote ? (
-                      <View style={styles.historyNote}>
-                        <Text style={styles.historyNoteLabel}>수업 메모</Text>
-                        <Text style={styles.historyNoteText}>{session.sessionNote}</Text>
-                      </View>
-                    ) : null}
-                    <Text style={styles.historySignedAt}>
-                      서명 저장 {new Date(session.signedAt).toLocaleString('ko-KR')}
-                    </Text>
-                  </View>
+              <View style={styles.historyGrid}>
+                {signedSessions.slice(0, 50).map((session) => (
+                  <Pressable
+                    key={session.id}
+                    style={styles.historyChip}
+                    onPress={() => setSelectedSignedSession(session)}
+                  >
+                    <Text style={styles.historyChipDate}>{shortDate(session.date)}</Text>
+                    <Text style={styles.historyChipAction}>[ 서명 ]</Text>
+                  </Pressable>
                 ))}
-              </ScrollView>
+                {signedSessions.length > 50 ? (
+                  <Text style={styles.historyMoreText}>
+                    최근 50개만 표시 중 · 총 {signedSessions.length}개
+                  </Text>
+                ) : null}
+              </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={selectedSignedSession !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedSignedSession(null)}
+      >
+        <View style={styles.signatureDetailBackdrop}>
+          <View style={styles.signatureDetailCard}>
+            <View style={styles.signatureDetailHeader}>
+              <View>
+                <Text style={styles.signatureDetailTitle}>
+                  {selectedSignedSession ? `${shortDate(selectedSignedSession.date)} PT 서명` : 'PT 서명'}
+                </Text>
+                {selectedSignedSession?.startTime ? (
+                  <Text style={styles.signatureDetailTime}>
+                    {selectedSignedSession.startTime.slice(0, 5)}
+                    {selectedSignedSession.endTime ? `–${selectedSignedSession.endTime.slice(0, 5)}` : ''}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable onPress={() => setSelectedSignedSession(null)} hitSlop={10}>
+                <Text style={styles.historyClose}>닫기</Text>
+              </Pressable>
+            </View>
+            {selectedSignedSession ? (
+              <>
+                <SignaturePreview
+                  signatureJson={selectedSignedSession.signatureJson}
+                  height={180}
+                />
+                {selectedSignedSession.sessionNote ? (
+                  <View style={styles.historyNote}>
+                    <Text style={styles.historyNoteLabel}>수업 메모</Text>
+                    <Text style={styles.historyNoteText}>{selectedSignedSession.sessionNote}</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.historySignedAt}>
+                  서명 저장 {new Date(selectedSignedSession.signedAt).toLocaleString('ko-KR')}
+                </Text>
+              </>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -540,10 +579,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16,20,28,0.42)',
   },
   historySheet: {
-    maxHeight: '86%',
+    height: '92%',
     paddingTop: 10,
-    paddingHorizontal: 18,
-    paddingBottom: 22,
+    paddingHorizontal: 14,
+    paddingBottom: 16,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     backgroundColor: '#F7F8FA',
@@ -584,21 +623,58 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   historyEmptyText: { fontSize: 13, fontWeight: '700', color: '#9298A3' },
-  historyList: { marginTop: 14 },
-  historyListContent: { paddingBottom: 10, gap: 10 },
-  historyCard: {
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+  historyGrid: {
+    flex: 1,
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignContent: 'flex-start',
+    columnGap: 8,
+    rowGap: 4,
   },
-  historyDateRow: {
-    marginBottom: 10,
+  historyChip: {
+    width: '48.7%',
+    height: 26,
+    paddingHorizontal: 9,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E1E4EA',
   },
-  historyDate: { fontSize: 15, fontWeight: '900', color: '#252A31' },
-  historyTime: { fontSize: 12, fontWeight: '800', color: '#6F7682' },
+  historyChipDate: { fontSize: 11, fontWeight: '900', color: '#303640' },
+  historyChipAction: { fontSize: 10, fontWeight: '900', color: '#5266C7' },
+  historyMoreText: {
+    width: '100%',
+    marginTop: 4,
+    fontSize: 10,
+    color: '#8D949F',
+    textAlign: 'center',
+  },
+  signatureDetailBackdrop: {
+    flex: 1,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16,20,28,0.52)',
+  },
+  signatureDetailCard: {
+    width: '100%',
+    maxWidth: 420,
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+  },
+  signatureDetailHeader: {
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  signatureDetailTitle: { fontSize: 18, fontWeight: '900', color: '#22262E' },
+  signatureDetailTime: { marginTop: 3, fontSize: 12, fontWeight: '700', color: '#7A818D' },
   historyNote: {
     marginTop: 10,
     padding: 10,
