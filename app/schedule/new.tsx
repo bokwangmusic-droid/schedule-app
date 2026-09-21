@@ -27,7 +27,16 @@ import type { MemberItem } from '../../src/types/member';
 
 const COLORS = ['#5B8DEF', '#91D948', '#FF4E7D', '#9C6ADE', '#FF9F43', '#37B8A5'];
 type ScheduleKind = 'member' | 'personal';
-const REPEAT_COUNTS = [1, 4, 8, 12] as const;
+const WEEKDAYS = [
+  { label: '월', value: 1 },
+  { label: '화', value: 2 },
+  { label: '수', value: 3 },
+  { label: '목', value: 4 },
+  { label: '금', value: 5 },
+  { label: '토', value: 6 },
+  { label: '일', value: 0 },
+] as const;
+const REPEAT_WEEKS = [4, 8, 12] as const;
 
 function parseLocalDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -71,7 +80,11 @@ export default function NewScheduleScreen() {
   const [endTime, setEndTime] = useState(initialEndTime);
   const [memo, setMemo] = useState('');
   const [color, setColor] = useState(COLORS[0]);
-  const [repeatCount, setRepeatCount] = useState<(typeof REPEAT_COUNTS)[number]>(1);
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatWeekdays, setRepeatWeekdays] = useState<number[]>([
+    parseLocalDate(initialDate).getDay(),
+  ]);
+  const [repeatWeeks, setRepeatWeeks] = useState<(typeof REPEAT_WEEKS)[number]>(4);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -105,6 +118,21 @@ export default function NewScheduleScreen() {
     if (endTime <= value) setEndTime(addOneHour(value));
   };
 
+  const toggleRepeat = (enabled: boolean) => {
+    setRepeatEnabled(enabled);
+    if (enabled && repeatWeekdays.length === 0 && isValidDateInput(date)) {
+      setRepeatWeekdays([parseLocalDate(date).getDay()]);
+    }
+  };
+
+  const toggleRepeatWeekday = (weekday: number) => {
+    setRepeatWeekdays((current) =>
+      current.includes(weekday)
+        ? current.filter((item) => item !== weekday)
+        : [...current, weekday],
+    );
+  };
+
   const save = async () => {
     if (scheduleKind === 'member' && !selectedMember) {
       Alert.alert('회원을 선택해 주세요.');
@@ -133,15 +161,31 @@ export default function NewScheduleScreen() {
       return;
     }
 
+    if (scheduleKind === 'member' && repeatEnabled && repeatWeekdays.length === 0) {
+      Alert.alert('반복할 요일을 선택해 주세요.');
+      return;
+    }
+
     try {
       setSaving(true);
-      const occurrences = scheduleKind === 'member' ? repeatCount : 1;
       const firstDate = parseLocalDate(date);
+      const dates: string[] = [];
 
-      for (let index = 0; index < occurrences; index += 1) {
+      if (scheduleKind === 'member' && repeatEnabled) {
+        for (let offset = 0; offset < repeatWeeks * 7; offset += 1) {
+          const candidate = addDays(firstDate, offset);
+          if (repeatWeekdays.includes(candidate.getDay())) {
+            dates.push(toLocalDateString(candidate));
+          }
+        }
+      } else {
+        dates.push(date);
+      }
+
+      for (const targetDate of dates) {
         await createSchedule(db, {
           title: trimmedTitle,
-          date: toLocalDateString(addDays(firstDate, index * 7)),
+          date: targetDate,
           startTime: isAllDay ? null : startTime,
           endTime: isAllDay ? null : endTime,
           memo,
@@ -305,26 +349,61 @@ export default function NewScheduleScreen() {
 
           {scheduleKind === 'member' ? (
             <View style={styles.section}>
-              <Text style={styles.label}>반복 예약</Text>
-              <View style={styles.repeatRow}>
-                {REPEAT_COUNTS.map((count) => {
-                  const selected = repeatCount === count;
-                  return (
-                    <Pressable
-                      key={count}
-                      style={[styles.repeatButton, selected && styles.repeatButtonActive]}
-                      onPress={() => setRepeatCount(count)}
-                    >
-                      <Text style={[styles.repeatButtonText, selected && styles.repeatButtonTextActive]}>
-                        {count === 1 ? '1회' : `${count}주`}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <View style={styles.repeatSwitchRow}>
+                <View style={styles.repeatSwitchText}>
+                  <Text style={styles.labelWithoutMargin}>반복 예약</Text>
+                  <Text style={styles.repeatSwitchHint}>원하는 요일을 직접 체크해요.</Text>
+                </View>
+                <Switch value={repeatEnabled} onValueChange={toggleRepeat} />
               </View>
-              <Text style={styles.repeatHint}>
-                매주 같은 요일·시간으로 생성되며, 생성 후 각 수업은 따로 이동하거나 취소할 수 있어요.
-              </Text>
+
+              {repeatEnabled ? (
+                <View style={styles.repeatOptions}>
+                  <Text style={styles.repeatSubLabel}>반복 요일</Text>
+                  <View style={styles.weekdayRow}>
+                    {WEEKDAYS.map((weekday) => {
+                      const selected = repeatWeekdays.includes(weekday.value);
+                      return (
+                        <Pressable
+                          key={weekday.label}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: selected }}
+                          style={[styles.weekdayButton, selected && styles.weekdayButtonActive]}
+                          onPress={() => toggleRepeatWeekday(weekday.value)}
+                        >
+                          <View style={[styles.weekdayCheckbox, selected && styles.weekdayCheckboxActive]}>
+                            {selected ? <Text style={styles.weekdayCheck}>✓</Text> : null}
+                          </View>
+                          <Text style={[styles.weekdayText, selected && styles.weekdayTextActive]}>
+                            {weekday.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={styles.repeatSubLabel}>반복 기간</Text>
+                  <View style={styles.repeatRow}>
+                    {REPEAT_WEEKS.map((weeks) => {
+                      const selected = repeatWeeks === weeks;
+                      return (
+                        <Pressable
+                          key={weeks}
+                          style={[styles.repeatButton, selected && styles.repeatButtonActive]}
+                          onPress={() => setRepeatWeeks(weeks)}
+                        >
+                          <Text style={[styles.repeatButtonText, selected && styles.repeatButtonTextActive]}>
+                            {weeks}주
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.repeatHint}>
+                    선택한 날짜부터 체크한 요일·시간으로 생성돼요. 생성 후 각 수업은 따로 이동하거나 취소할 수 있어요.
+                  </Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -496,6 +575,73 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timeRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  repeatSwitchRow: {
+    minHeight: 62,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 15,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  repeatSwitchText: { flex: 1, paddingRight: 12 },
+  repeatSwitchHint: { marginTop: 3, fontSize: 11, color: '#8D949F' },
+  repeatOptions: {
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  repeatSubLabel: {
+    marginBottom: 9,
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#5B6370',
+  },
+  weekdayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 5,
+    marginBottom: 16,
+  },
+  weekdayButton: {
+    flex: 1,
+    minWidth: 0,
+    height: 54,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F3F6',
+  },
+  weekdayButtonActive: { backgroundColor: '#E9EDFF' },
+  weekdayCheckbox: {
+    width: 19,
+    height: 19,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: '#BCC2CC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  weekdayCheckboxActive: {
+    borderColor: '#4B68FF',
+    backgroundColor: '#4B68FF',
+  },
+  weekdayCheck: {
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  weekdayText: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#727986',
+  },
+  weekdayTextActive: { color: '#4B68FF' },
   repeatRow: { flexDirection: 'row', gap: 8 },
   repeatButton: {
     flex: 1,
