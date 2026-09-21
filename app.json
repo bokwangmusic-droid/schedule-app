@@ -31,7 +31,7 @@
               "minHeight": "120dp",
               "targetCellWidth": 5,
               "targetCellHeight": 2,
-              "maxResizeWidth": "600dp",
+              "maxResizeWidth": "1400dp",
               "maxResizeHeight": "260dp",
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
@@ -44,7 +44,7 @@
               "minHeight": "280dp",
               "targetCellWidth": 5,
               "targetCellHeight": 4,
-              "maxResizeWidth": "600dp",
+              "maxResizeWidth": "1400dp",
               "maxResizeHeight": "520dp",
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
@@ -57,7 +57,7 @@
               "minHeight": "470dp",
               "targetCellWidth": 5,
               "targetCellHeight": 6,
-              "maxResizeWidth": "600dp",
+              "maxResizeWidth": "1400dp",
               "maxResizeHeight": "850dp",
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
