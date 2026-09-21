@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MemberSignatureHistoryModal } from '../../src/components/MemberSignatureHistoryModal';
 import { SessionSignatureModal } from '../../src/components/SessionSignatureModal';
 import { TimePickerField } from '../../src/components/TimePickerField';
 import { listMembers } from '../../src/data/memberRepository';
@@ -24,8 +25,10 @@ import {
   deleteSchedule,
   getLatestMemberSessionNote,
   getScheduleById,
+  listSignedMemberSessions,
   setScheduleAttendanceStatus,
   updateSchedule,
+  type SignedMemberSession,
 } from '../../src/data/scheduleRepository';
 import { isValidDateInput, isValidTimeInput } from '../../src/lib/date';
 import type { MemberItem } from '../../src/types/member';
@@ -67,6 +70,9 @@ export default function EditScheduleScreen() {
     startTime: string | null;
   } | null>(null);
   const [signatureOpen, setSignatureOpen] = useState(false);
+  const [signatureHistoryOpen, setSignatureHistoryOpen] = useState(false);
+  const [signatureHistoryLoading, setSignatureHistoryLoading] = useState(false);
+  const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const [scheduleKind, setScheduleKind] = useState<ScheduleKind>('personal');
   const [members, setMembers] = useState<MemberItem[]>([]);
@@ -235,6 +241,21 @@ export default function EditScheduleScreen() {
     }
   };
 
+  const openSignatureHistory = async () => {
+    if (!selectedMember) return;
+    setSignatureHistoryOpen(true);
+    setSignatureHistoryLoading(true);
+    try {
+      setSignedSessions(await listSignedMemberSessions(db, selectedMember.id));
+    } catch (error) {
+      console.error(error);
+      setSignatureHistoryOpen(false);
+      Alert.alert('서명 기록을 불러오지 못했어요.');
+    } finally {
+      setSignatureHistoryLoading(false);
+    }
+  };
+
   const markAttendance = async (status: 'canceled' | 'no_show') => {
     try {
       setAttendanceBusy(true);
@@ -394,18 +415,26 @@ export default function EditScheduleScreen() {
           {scheduleKind === 'member' && selectedMember && scheduleRecord ? (
             <View style={styles.sessionCard}>
               <View style={styles.sessionTitleRow}>
-                <View>
+                <View style={styles.sessionTitleInfo}>
                   <Text style={styles.sessionTitle}>수업 관리</Text>
                   <Text style={styles.sessionSubText}>
                     PT 잔여 {selectedMember.ptRemainingSessions ?? '-'}회
                     {dday ? ` · 회원권 ${dday}` : ''}
                   </Text>
                 </View>
-                {selectedMember.ptRemainingSessions !== null && selectedMember.ptRemainingSessions <= 3 ? (
-                  <View style={styles.warningBadge}>
-                    <Text style={styles.warningBadgeText}>재등록 체크</Text>
-                  </View>
-                ) : null}
+                <View style={styles.sessionTitleActions}>
+                  <Pressable
+                    style={styles.historyButton}
+                    onPress={() => void openSignatureHistory()}
+                  >
+                    <Text style={styles.historyButtonText}>서명 기록</Text>
+                  </Pressable>
+                  {selectedMember.ptRemainingSessions !== null && selectedMember.ptRemainingSessions <= 3 ? (
+                    <View style={styles.warningBadge}>
+                      <Text style={styles.warningBadgeText}>재등록 체크</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
 
               {latestSessionNote ? (
@@ -572,6 +601,16 @@ export default function EditScheduleScreen() {
       </KeyboardAvoidingView>
 
       {selectedMember ? (
+        <MemberSignatureHistoryModal
+          visible={signatureHistoryOpen}
+          memberName={selectedMember.name}
+          sessions={signedSessions}
+          loading={signatureHistoryLoading}
+          onClose={() => setSignatureHistoryOpen(false)}
+        />
+      ) : null}
+
+      {selectedMember ? (
         <SessionSignatureModal
           visible={signatureOpen}
           memberName={selectedMember.name}
@@ -721,6 +760,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
+  },
+  sessionTitleInfo: { flex: 1, minWidth: 0 },
+  sessionTitleActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  historyButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#EEF1FF',
+  },
+  historyButtonText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#4B68FF',
   },
   sessionTitle: { fontSize: 16, fontWeight: '900', color: '#20242C' },
   sessionSubText: { marginTop: 4, fontSize: 12, fontWeight: '700', color: '#7A818D' },
