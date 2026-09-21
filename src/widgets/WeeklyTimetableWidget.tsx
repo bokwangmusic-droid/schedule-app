@@ -27,7 +27,8 @@ const START_MINUTES = 6 * 60;
 const END_MINUTES = 24 * 60;
 const TOTAL_MINUTES = END_MINUTES - START_MINUTES;
 const COMPACT_TIME_LABELS = [6, 9, 12, 15, 18, 21];
-const LARGE_TIME_LABELS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
+const LARGE_TIME_LABELS = Array.from({ length: 18 }, (_, index) => index + 6);
+const NOW_COLOR = '#FF4D5A';
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -54,11 +55,15 @@ function ScheduleLayer({
   height,
   width,
   variant,
+  isToday,
+  currentMinutes,
 }: {
   schedules: ScheduleItem[];
   height: number;
   width: number;
   variant: WeeklyTimetableVariant;
+  isToday: boolean;
+  currentMinutes: number;
 }) {
   const timedSchedules = schedules.filter(
     (schedule) => !schedule.isAllDay && schedule.startTime && schedule.endTime,
@@ -138,6 +143,7 @@ function ScheduleLayer({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: scheduleColor(schedule),
+              opacity: schedule.isCompleted ? 0.58 : 1,
             }}
           >
             <TextWidget
@@ -174,6 +180,20 @@ function ScheduleLayer({
           </FlexWidget>
         );
       })}
+
+      {isToday &&
+      currentMinutes >= START_MINUTES &&
+      currentMinutes < END_MINUTES ? (
+        <FlexWidget
+          style={{
+            width,
+            height: 2,
+            marginTop:
+              ((currentMinutes - START_MINUTES) / TOTAL_MINUTES) * height,
+            backgroundColor: NOW_COLOR,
+          }}
+        />
+      ) : null}
     </OverlapWidget>
   );
 }
@@ -295,15 +315,38 @@ export function WeeklyTimetableWidget({
               }}
             >
               <TextWidget
-                text={large ? `${day.dayName} ${day.dateNumber}` : day.dayName}
+                text={day.dayName}
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
-                  fontSize: 8,
+                  fontSize: large ? 7 : 8,
                   fontWeight: today ? '700' : '500',
-                  color: today ? '#4B68FF' : '#616874',
+                  color: today ? '#4B68FF' : '#8A9099',
                 }}
               />
+              {large ? (
+                <FlexWidget
+                  style={{
+                    width: 18,
+                    height: 18,
+                    marginTop: 1,
+                    borderRadius: 9,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: today ? '#4B68FF' : '#FFFFFF',
+                  }}
+                >
+                  <TextWidget
+                    text={String(day.dateNumber)}
+                    allowFontScaling={false}
+                    style={{
+                      fontSize: 7,
+                      fontWeight: '700',
+                      color: today ? '#FFFFFF' : '#646B77',
+                    }}
+                  />
+                </FlexWidget>
+              ) : null}
             </FlexWidget>
           );
         })}
@@ -408,6 +451,8 @@ export function WeeklyTimetableWidget({
                 height={bodyHeight}
                 width={dayWidth}
                 variant={variant}
+                isToday={day.date === data.today}
+                currentMinutes={data.currentMinutes}
               />
             </FlexWidget>
           ))}
