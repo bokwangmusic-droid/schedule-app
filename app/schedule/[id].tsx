@@ -423,12 +423,29 @@ export default function EditScheduleScreen() {
                   </Text>
                 </View>
                 <View style={styles.sessionTitleActions}>
-                  <Pressable
-                    style={styles.historyButton}
-                    onPress={() => void openSignatureHistory()}
-                  >
-                    <Text style={styles.historyButtonText}>서명 기록</Text>
-                  </Pressable>
+                  <View style={styles.sessionActionRow}>
+                    <Pressable
+                      style={styles.memberRecordButton}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/member/[id]',
+                          params: {
+                            id: selectedMember.id,
+                            scheduleId: id,
+                            date,
+                          },
+                        })
+                      }
+                    >
+                      <Text style={styles.memberRecordButtonText}>회원 기록</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.historyButton}
+                      onPress={() => void openSignatureHistory()}
+                    >
+                      <Text style={styles.historyButtonText}>서명 기록</Text>
+                    </Pressable>
+                  </View>
                   {selectedMember.ptRemainingSessions !== null && selectedMember.ptRemainingSessions <= 3 ? (
                     <View style={styles.warningBadge}>
                       <Text style={styles.warningBadgeText}>재등록 체크</Text>
@@ -766,6 +783,21 @@ const styles = StyleSheet.create({
   sessionTitleActions: {
     alignItems: 'flex-end',
     gap: 6,
+  },
+  sessionActionRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  memberRecordButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#EAF6F0',
+  },
+  memberRecordButtonText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#2D7A57',
   },
   historyButton: {
     paddingHorizontal: 10,
