@@ -802,9 +802,6 @@ export default function HomeScreen() {
           ]}
         >
           <Text style={styles.trashIcon}>🗑️</Text>
-          <Text style={[styles.trashText, trashActive && styles.trashTextActive]}>
-            {trashActive ? '놓으면 삭제' : '여기로 끌어 삭제'}
-          </Text>
         </View>
       )}
 
@@ -1042,16 +1039,14 @@ const styles = StyleSheet.create({
   currentTimeLine: { flex: 1, height: 1.4, backgroundColor: NOW_COLOR },
   trashZone: {
     position: 'absolute',
-    left: 24,
-    right: 24,
+    width: 68,
+    alignSelf: 'center',
     zIndex: 50,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 9,
     borderWidth: 1.5,
     borderColor: '#F0B9BE',
-    borderRadius: 22,
+    borderRadius: 34,
     backgroundColor: '#FFF3F4',
     elevation: 12,
     shadowColor: '#000000',
@@ -1062,9 +1057,7 @@ const styles = StyleSheet.create({
   trashZoneActive: {
     borderColor: '#E73345',
     backgroundColor: '#E73345',
-    transform: [{ scale: 1.03 }],
+    transform: [{ scale: 1.08 }],
   },
-  trashIcon: { fontSize: 25 },
-  trashText: { fontSize: 14, fontWeight: '900', color: '#D83D4B' },
-  trashTextActive: { color: '#FFFFFF' },
+  trashIcon: { fontSize: 28 },
 });
