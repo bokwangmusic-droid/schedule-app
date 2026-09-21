@@ -399,7 +399,13 @@ export default function MembersScreen() {
                     onPress={() => setSelectedSignedSession(session)}
                   >
                     <Text style={styles.historyChipDate}>{shortDate(session.date)}</Text>
-                    <Text style={styles.historyChipAction}>[ 서명 ]</Text>
+                    <View style={styles.historyChipSignature}>
+                      <SignaturePreview
+                        signatureJson={session.signatureJson}
+                        height={18}
+                        compact
+                      />
+                    </View>
                   </Pressable>
                 ))}
                 {signedSessions.length > 50 ? (
@@ -634,8 +640,8 @@ const styles = StyleSheet.create({
   },
   historyChip: {
     width: '49%',
-    height: 21,
-    paddingHorizontal: 7,
+    height: 24,
+    paddingHorizontal: 6,
     borderRadius: 7,
     flexDirection: 'row',
     alignItems: 'center',
@@ -644,8 +650,17 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#E1E4EA',
   },
-  historyChipDate: { fontSize: 10, fontWeight: '900', color: '#303640' },
-  historyChipAction: { fontSize: 9, fontWeight: '900', color: '#5266C7' },
+  historyChipDate: {
+    width: 34,
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#303640',
+  },
+  historyChipSignature: {
+    flex: 1,
+    height: 18,
+    marginLeft: 4,
+  },
   historyMoreText: {
     width: '100%',
     marginTop: 4,
