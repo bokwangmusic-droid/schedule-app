@@ -55,6 +55,21 @@ function parseOptionalNumber(value: string) {
   return Number.isFinite(number) ? number : null;
 }
 
+function editableExerciseVolume(exercise: EditableExercise) {
+  return exercise.sets.reduce((total, set) => {
+    const weight = parseOptionalNumber(set.weight);
+    const reps = parseOptionalNumber(set.reps);
+    if (weight === null || reps === null) return total;
+    return total + weight * reps;
+  }, 0);
+}
+
+function formatVolume(value: number) {
+  return Number.isInteger(value)
+    ? value.toLocaleString('ko-KR')
+    : value.toLocaleString('ko-KR', { maximumFractionDigits: 1 });
+}
+
 export function TrainingLogModal({
   visible,
   memberId,
@@ -90,6 +105,10 @@ export function TrainingLogModal({
   const [summary, setSummary] = useState('');
   const [feedback, setFeedback] = useState('');
   const [exercises, setExercises] = useState<EditableExercise[]>([emptyExercise()]);
+  const totalVolume = exercises.reduce(
+    (total, exercise) => total + editableExerciseVolume(exercise),
+    0,
+  );
 
   useEffect(() => {
     if (!visible) return;
@@ -398,7 +417,12 @@ export function TrainingLogModal({
 
             <View style={[styles.card, isTablet && styles.cardTablet]}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>웨이트 트레이닝</Text>
+                <View>
+                  <Text style={styles.sectionTitle}>웨이트 트레이닝</Text>
+                  <Text style={styles.totalVolumeText}>
+                    오늘 총 볼륨 {formatVolume(totalVolume)}kg
+                  </Text>
+                </View>
                 <Pressable
                   onPress={() =>
                     exercises.length < 8 &&
@@ -451,6 +475,12 @@ export function TrainingLogModal({
                       />
                     </View>
                   ))}
+                  <View style={styles.exerciseVolumeRow}>
+                    <Text style={styles.exerciseVolumeLabel}>종목 총 볼륨</Text>
+                    <Text style={styles.exerciseVolumeValue}>
+                      {formatVolume(editableExerciseVolume(exercise))}kg
+                    </Text>
+                  </View>
                   {exercise.sets.length < 7 ? (
                     <Pressable
                       style={styles.addSetButton}
@@ -625,6 +655,12 @@ const styles = StyleSheet.create({
   },
   switchLabel: { fontSize: 13, fontWeight: '800', color: '#4F5661' },
   addText: { fontSize: 12, fontWeight: '900', color: '#4B68FF' },
+  totalVolumeText: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#2D7A57',
+  },
   exerciseCard: {
     marginTop: 10,
     padding: 10,
@@ -670,6 +706,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 11,
     fontSize: 14,
+  },
+  exerciseVolumeRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#DDE1E7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  exerciseVolumeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#747C88',
+  },
+  exerciseVolumeValue: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#2D7A57',
   },
   addSetButton: { marginTop: 8, alignSelf: 'flex-start' },
   addSetText: { fontSize: 11, fontWeight: '800', color: '#5968B5' },
