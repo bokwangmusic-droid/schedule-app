@@ -143,7 +143,6 @@ function ScheduleLayer({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: scheduleColor(schedule),
-              opacity: schedule.isCompleted ? 0.58 : 1,
             }}
           >
             <TextWidget
