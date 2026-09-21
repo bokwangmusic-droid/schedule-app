@@ -434,7 +434,7 @@ export default function EditScheduleScreen() {
                             scheduleId: id,
                             date,
                           },
-                        })
+                        } as never)
                       }
                     >
                       <Text style={styles.memberRecordButtonText}>회원 기록</Text>
