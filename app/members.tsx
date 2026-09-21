@@ -344,6 +344,14 @@ export default function MembersScreen() {
                 {member.memo ? <Text numberOfLines={3} style={styles.memberMemo}>{member.memo}</Text> : null}
               </View>
               <View style={styles.memberActions}>
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: '/member/[id]', params: { id: member.id } })
+                  }
+                  hitSlop={8}
+                >
+                  <Text style={styles.recordText}>운동기록</Text>
+                </Pressable>
                 <Pressable onPress={() => void openSignatureHistory(member)} hitSlop={8}>
                   <Text style={styles.historyText}>서명기록</Text>
                 </Pressable>
@@ -580,6 +588,7 @@ const styles = StyleSheet.create({
   ptMeta: { marginTop: 4, fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   memberMemo: { marginTop: 5, fontSize: 12, lineHeight: 17, color: '#9298A3' },
   memberActions: { marginLeft: 12, gap: 10, alignItems: 'flex-end' },
+  recordText: { fontSize: 13, fontWeight: '900', color: '#2D7A57' },
   historyText: { fontSize: 13, fontWeight: '900', color: '#5266C7' },
   editText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   deleteText: { fontSize: 13, fontWeight: '800', color: '#D9364F' },
