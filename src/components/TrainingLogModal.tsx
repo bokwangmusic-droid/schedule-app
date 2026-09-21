@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type {
@@ -64,6 +65,8 @@ export function TrainingLogModal({
   onClose,
   onSubmit,
 }: Props) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 700;
   const [logDate, setLogDate] = useState(date);
   const [bodyPart, setBodyPart] = useState('');
   const [sleepQuality, setSleepQuality] = useState<WellnessLevel>('중');
@@ -221,7 +224,11 @@ export function TrainingLogModal({
       {LEVELS.map((level) => (
         <Pressable
           key={level}
-          style={[styles.levelButton, value === level && styles.levelButtonActive]}
+          style={[
+            styles.levelButton,
+            isTablet && styles.levelButtonTablet,
+            value === level && styles.levelButtonActive,
+          ]}
           onPress={() => onChange(level)}
         >
           <Text style={[styles.levelText, value === level && styles.levelTextActive]}>
@@ -256,21 +263,21 @@ export function TrainingLogModal({
         onChangeText={onCarbs}
         placeholder="탄수화물"
         placeholderTextColor="#A2A8B2"
-        style={styles.smallInput}
+        style={[styles.smallInput, isTablet && styles.smallInputTablet]}
       />
       <TextInput
         value={protein}
         onChangeText={onProtein}
         placeholder="단백질"
         placeholderTextColor="#A2A8B2"
-        style={styles.smallInput}
+        style={[styles.smallInput, isTablet && styles.smallInputTablet]}
       />
       <TextInput
         value={fat}
         onChangeText={onFat}
         placeholder="지방"
         placeholderTextColor="#A2A8B2"
-        style={styles.smallInput}
+        style={[styles.smallInput, isTablet && styles.smallInputTablet]}
       />
     </View>
   );
@@ -282,7 +289,7 @@ export function TrainingLogModal({
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, isTablet && styles.headerTablet]}>
             <Pressable onPress={close} hitSlop={10}>
               <Text style={styles.headerAction}>취소</Text>
             </Pressable>
@@ -298,10 +305,13 @@ export function TrainingLogModal({
           </View>
 
           <ScrollView
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[
+              styles.content,
+              isTablet && styles.contentTablet,
+            ]}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.card}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>기본 정보</Text>
               <View style={styles.twoColumn}>
                 <TextInput
@@ -309,19 +319,27 @@ export function TrainingLogModal({
                   onChangeText={setLogDate}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor="#A2A8B2"
-                  style={[styles.input, styles.flexInput]}
+                  style={[
+                    styles.input,
+                    styles.flexInput,
+                    isTablet && styles.inputTablet,
+                  ]}
                 />
                 <TextInput
                   value={bodyPart}
                   onChangeText={setBodyPart}
                   placeholder="운동부위"
                   placeholderTextColor="#A2A8B2"
-                  style={[styles.input, styles.flexInput]}
+                  style={[
+                    styles.input,
+                    styles.flexInput,
+                    isTablet && styles.inputTablet,
+                  ]}
                 />
               </View>
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>오늘의 진단</Text>
               <Text style={styles.label}>숙면</Text>
               <LevelPicker value={sleepQuality} onChange={setSleepQuality} />
@@ -339,7 +357,7 @@ export function TrainingLogModal({
               </View>
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>유산소</Text>
               <View style={styles.threeColumn}>
                 <TextInput
@@ -347,26 +365,38 @@ export function TrainingLogModal({
                   onChangeText={setCardioTreadmill}
                   placeholder="트레드밀"
                   placeholderTextColor="#A2A8B2"
-                  style={[styles.input, styles.flexInput]}
+                  style={[
+                    styles.input,
+                    styles.flexInput,
+                    isTablet && styles.inputTablet,
+                  ]}
                 />
                 <TextInput
                   value={cardioBike}
                   onChangeText={setCardioBike}
                   placeholder="싸이클"
                   placeholderTextColor="#A2A8B2"
-                  style={[styles.input, styles.flexInput]}
+                  style={[
+                    styles.input,
+                    styles.flexInput,
+                    isTablet && styles.inputTablet,
+                  ]}
                 />
                 <TextInput
                   value={cardioStepmill}
                   onChangeText={setCardioStepmill}
                   placeholder="스텝밀"
                   placeholderTextColor="#A2A8B2"
-                  style={[styles.input, styles.flexInput]}
+                  style={[
+                    styles.input,
+                    styles.flexInput,
+                    isTablet && styles.inputTablet,
+                  ]}
                 />
               </View>
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>웨이트 트레이닝</Text>
                 <Pressable
@@ -387,7 +417,10 @@ export function TrainingLogModal({
                       onChangeText={(value) => updateExerciseName(exerciseIndex, value)}
                       placeholder={`운동 ${exerciseIndex + 1} 이름`}
                       placeholderTextColor="#A2A8B2"
-                      style={styles.exerciseName}
+                      style={[
+                        styles.exerciseName,
+                        isTablet && styles.exerciseNameTablet,
+                      ]}
                     />
                     <Pressable onPress={() => removeExercise(exerciseIndex)} hitSlop={8}>
                       <Text style={styles.removeText}>삭제</Text>
@@ -404,7 +437,7 @@ export function TrainingLogModal({
                         placeholder="무게"
                         placeholderTextColor="#A2A8B2"
                         keyboardType="decimal-pad"
-                        style={styles.setInput}
+                        style={[styles.setInput, isTablet && styles.setInputTablet]}
                       />
                       <TextInput
                         value={set.reps}
@@ -414,7 +447,7 @@ export function TrainingLogModal({
                         placeholder="횟수"
                         placeholderTextColor="#A2A8B2"
                         keyboardType="number-pad"
-                        style={styles.setInput}
+                        style={[styles.setInput, isTablet && styles.setInputTablet]}
                       />
                     </View>
                   ))}
@@ -430,7 +463,7 @@ export function TrainingLogModal({
               ))}
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>오늘의 식단</Text>
               <MealRow
                 title="아침"
@@ -464,11 +497,11 @@ export function TrainingLogModal({
                 onChangeText={setSnack}
                 placeholder="간식"
                 placeholderTextColor="#A2A8B2"
-                style={styles.input}
+                style={[styles.input, isTablet && styles.inputTablet]}
               />
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>트레이너 기록</Text>
               <TextInput
                 value={summary}
@@ -482,7 +515,10 @@ export function TrainingLogModal({
                 onChangeText={setFeedback}
                 placeholder="회원 피드백 / 다음 수업 참고사항"
                 placeholderTextColor="#A2A8B2"
-                style={styles.feedbackInput}
+                style={[
+                  styles.feedbackInput,
+                  isTablet && styles.feedbackInputTablet,
+                ]}
                 multiline
                 textAlignVertical="top"
               />
@@ -507,6 +543,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E2E5EA',
     backgroundColor: '#FFFFFF',
   },
+  headerTablet: {
+    height: 72,
+    paddingHorizontal: 28,
+  },
   headerAction: { width: 54, fontSize: 15, color: '#68707D' },
   headerCenter: { alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '900', color: '#20242B' },
@@ -520,7 +560,20 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.45 },
   content: { padding: 14, paddingBottom: 32, gap: 10 },
+  contentTablet: {
+    width: '100%',
+    maxWidth: 980,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 44,
+    gap: 14,
+  },
   card: { padding: 14, borderRadius: 18, backgroundColor: '#FFFFFF' },
+  cardTablet: {
+    padding: 20,
+    borderRadius: 22,
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -537,6 +590,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#252A32',
   },
+  inputTablet: {
+    minHeight: 54,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    fontSize: 16,
+  },
   flexInput: { flex: 1, minWidth: 0 },
   twoColumn: { flexDirection: 'row', gap: 8 },
   threeColumn: { flexDirection: 'row', gap: 7 },
@@ -548,6 +607,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#EEF0F3',
+  },
+  levelButtonTablet: {
+    height: 44,
+    borderRadius: 12,
   },
   levelButtonActive: { backgroundColor: '#E9EDFF' },
   levelText: { fontSize: 12, fontWeight: '800', color: '#7D8490' },
@@ -579,6 +642,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#252A32',
   },
+  exerciseNameTablet: {
+    height: 50,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    fontSize: 15,
+  },
   removeText: { fontSize: 11, fontWeight: '800', color: '#D64B5B' },
   setRow: {
     marginTop: 6,
@@ -595,6 +664,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     fontSize: 12,
     color: '#252A32',
+  },
+  setInputTablet: {
+    height: 46,
+    paddingHorizontal: 12,
+    borderRadius: 11,
+    fontSize: 14,
   },
   addSetButton: { marginTop: 8, alignSelf: 'flex-start' },
   addSetText: { fontSize: 11, fontWeight: '800', color: '#5968B5' },
@@ -614,6 +689,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#252A32',
   },
+  smallInputTablet: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    fontSize: 14,
+  },
   feedbackInput: {
     minHeight: 88,
     marginTop: 10,
@@ -622,5 +703,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F5F8',
     fontSize: 13,
     color: '#252A32',
+  },
+  feedbackInputTablet: {
+    minHeight: 124,
+    padding: 16,
+    borderRadius: 14,
+    fontSize: 15,
   },
 });
