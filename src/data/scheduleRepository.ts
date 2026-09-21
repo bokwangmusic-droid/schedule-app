@@ -382,6 +382,7 @@ export async function completeMemberSessionWithSignature(
 
 export type SignedMemberSession = {
   id: string;
+  sessionNumber: number;
   date: string;
   startTime: string | null;
   endTime: string | null;
@@ -394,40 +395,64 @@ export async function listSignedMemberSessions(
   db: SQLiteDatabase,
   memberId: string,
 ): Promise<SignedMemberSession[]> {
-  const rows = await db.getAllAsync<{
-    id: string;
-    date: string;
-    start_time: string | null;
-    end_time: string | null;
-    session_note: string | null;
-    signature_json: string;
-    signed_at: string;
-  }>(
-    `SELECT
-       id,
-       date,
-       start_time,
-       end_time,
-       session_note,
-       signature_json,
-       signed_at
-     FROM schedules
-     WHERE member_id = ?
-       AND attendance_status = 'completed'
-       AND pt_consumed = 1
-       AND signature_json IS NOT NULL
-       AND signed_at IS NOT NULL
-     ORDER BY date DESC, COALESCE(start_time, '00:00') DESC, signed_at DESC`,
-    [memberId],
-  );
+  const [rows, member] = await Promise.all([
+    db.getAllAsync<{
+      id: string;
+      date: string;
+      start_time: string | null;
+      end_time: string | null;
+      session_note: string | null;
+      signature_json: string;
+      signed_at: string;
+    }>(
+      `SELECT
+         id,
+         date,
+         start_time,
+         end_time,
+         session_note,
+         signature_json,
+         signed_at
+       FROM schedules
+       WHERE member_id = ?
+         AND attendance_status = 'completed'
+         AND pt_consumed = 1
+         AND signature_json IS NOT NULL
+         AND signed_at IS NOT NULL
+       ORDER BY date ASC, COALESCE(start_time, '00:00') ASC, signed_at ASC`,
+      [memberId],
+    ),
+    db.getFirstAsync<{
+      pt_total_sessions: number | null;
+      pt_remaining_sessions: number | null;
+    }>(
+      `SELECT pt_total_sessions, pt_remaining_sessions
+       FROM members
+       WHERE id = ?
+       LIMIT 1`,
+      [memberId],
+    ),
+  ]);
 
-  return rows.map((row) => ({
-    id: row.id,
-    date: row.date,
-    startTime: row.start_time,
-    endTime: row.end_time,
-    sessionNote: row.session_note,
-    signatureJson: row.signature_json,
-    signedAt: row.signed_at,
-  }));
+  const completedCount =
+    member?.pt_total_sessions !== null &&
+    member?.pt_total_sessions !== undefined &&
+    member?.pt_remaining_sessions !== null &&
+    member?.pt_remaining_sessions !== undefined
+      ? Math.max(member.pt_total_sessions - member.pt_remaining_sessions, rows.length)
+      : rows.length;
+  const firstSessionNumber = Math.max(completedCount - rows.length + 1, 1);
+
+  return rows
+    .map((row, index) => ({
+      id: row.id,
+      sessionNumber: firstSessionNumber + index,
+      date: row.date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      sessionNote: row.session_note,
+      signatureJson: row.signature_json,
+      signedAt: row.signed_at,
+    }))
+    .reverse();
 }
