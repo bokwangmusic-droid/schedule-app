@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
+import { getAppSession, memberHomeRoute } from '../src/auth/appSession';
 import { DraggableScheduleBlock } from '../src/components/DraggableScheduleBlock';
 import { ScheduleRangeSelector } from '../src/components/ScheduleRangeSelector';
 import { TimetableMoreMenu } from '../src/components/TimetableMoreMenu';
@@ -191,11 +192,36 @@ export default function HomeScreen() {
   const [overlapView, setOverlapView] = useState(false);
   const [widgetPrivacyMode, setWidgetPrivacyMode] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void getAppSession(db)
+      .then((session) => {
+        if (!active) return;
+        if (!session) {
+          router.replace('/login');
+          return;
+        }
+        if (session.role === 'member') {
+          router.replace(memberHomeRoute(session.memberId) as never);
+          return;
+        }
+        setAuthChecking(false);
+      })
+      .catch((error) => {
+        console.error(error);
+        if (active) router.replace('/login');
+      });
+    return () => {
+      active = false;
+    };
+  }, [db]);
 
   useEffect(() => {
     let active = true;
@@ -542,6 +568,17 @@ export default function HomeScreen() {
       .map((schedule) => schedule.memberId),
   ).size;
 
+  if (authChecking) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.authLoading}>
+          <ActivityIndicator color="#4B68FF" />
+          <Text style={styles.authLoadingText}>접속 정보를 확인하고 있어요.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.topBar}>
@@ -852,6 +889,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  authLoading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  authLoadingText: { marginTop: 10, fontSize: 12, color: '#858C98' },
   safeArea: { flex: 1, backgroundColor: '#F5F6F8' },
   topBar: {
     height: 58,
