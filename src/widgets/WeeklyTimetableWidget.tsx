@@ -36,6 +36,9 @@ const WIDGET_TEXT_COLORS = {
   sky: '#DDF4FF',
 } as const;
 
+type WidgetScheduleTextColor =
+  (typeof WIDGET_TEXT_COLORS)[keyof typeof WIDGET_TEXT_COLORS];
+
 function getWidgetTypography(data: WeeklyWidgetData) {
   const scale =
     data.widgetStyle.fontSize === 'xlarge'
@@ -101,7 +104,7 @@ function ScheduleLayer({
   fontScale: number;
   fontFamily?: string;
   strongFont: boolean;
-  scheduleTextColor: string;
+  scheduleTextColor: WidgetScheduleTextColor;
 }) {
   const timedSchedules = schedules.filter(
     (schedule) => !schedule.isAllDay && schedule.startTime && schedule.endTime,
