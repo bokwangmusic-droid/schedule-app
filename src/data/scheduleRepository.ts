@@ -146,6 +146,29 @@ export async function listSchedulesForRange(
   return rows.map(mapScheduleRow);
 }
 
+export async function listMemberUpcomingSchedules(
+  db: SQLiteDatabase,
+  memberId: string,
+  fromDate: string,
+  limit = 20,
+) {
+  const rows = await db.getAllAsync<ScheduleRow>(
+    `${scheduleSelect}
+     WHERE s.member_id = ?
+       AND s.date >= ?
+       AND s.is_completed = 0
+       AND COALESCE(s.attendance_status, '') NOT IN ('completed', 'canceled', 'no_show')
+     ORDER BY s.date ASC,
+              CASE WHEN s.is_all_day = 1 THEN 0 ELSE 1 END ASC,
+              COALESCE(s.start_time, '00:00') ASC,
+              s.created_at ASC
+     LIMIT ?`,
+    [memberId, fromDate, limit],
+  );
+
+  return rows.map(mapScheduleRow);
+}
+
 export async function getScheduleById(db: SQLiteDatabase, id: string) {
   const row = await db.getFirstAsync<ScheduleRow>(
     `${scheduleSelect} WHERE s.id = ? LIMIT 1`,

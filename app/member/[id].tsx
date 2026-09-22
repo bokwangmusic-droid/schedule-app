@@ -281,6 +281,17 @@ export default function MemberDetailScreen() {
             </View>
           </View>
 
+          <Pressable
+            style={styles.memberViewButton}
+            onPress={() => router.push(('/member-view/' + member.id) as never)}
+          >
+            <View>
+              <Text style={styles.memberViewButtonTitle}>회원용 화면</Text>
+              <Text style={styles.memberViewButtonSub}>회원에게 보여줄 읽기 전용 화면 미리보기</Text>
+            </View>
+            <Text style={styles.memberViewButtonArrow}>›</Text>
+          </Pressable>
+
           <View style={styles.quickActions}>
             <Pressable
               style={[styles.primaryAction, isTablet && styles.primaryActionTablet]}
@@ -571,7 +582,22 @@ const styles = StyleSheet.create({
   memberName: { fontSize: 20, fontWeight: '900', color: '#20242C' },
   memberMeta: { marginTop: 4, fontSize: 12, fontWeight: '800', color: '#646C78' },
   memberPhone: { marginTop: 3, fontSize: 11, color: '#8A919C' },
-  quickActions: { marginTop: 15, flexDirection: 'row', gap: 8 },
+  memberViewButton: {
+    minHeight: 58,
+    marginTop: 15,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#DCE2FF',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F6F8FF',
+  },
+  memberViewButtonTitle: { fontSize: 13, fontWeight: '900', color: '#4056C7' },
+  memberViewButtonSub: { marginTop: 3, fontSize: 10, color: '#7D87AF' },
+  memberViewButtonArrow: { marginTop: -2, fontSize: 26, fontWeight: '400', color: '#6A79CD' },
+  quickActions: { marginTop: 10, flexDirection: 'row', gap: 8 },
   primaryAction: {
     flex: 1.25,
     minHeight: 62,
