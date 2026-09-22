@@ -3,10 +3,12 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,12 +18,20 @@ import {
 } from '../src/auth/appSession';
 import { listMembers } from '../src/data/memberRepository';
 import type { MemberItem } from '../src/types/member';
+import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
+import { requestMemberOtp, verifyMemberOtp } from '../src/remote/supabaseAuth';
+import { syncMemberSnapshot } from '../src/remote/memberSync';
 
 export default function LoginScreen() {
   const db = useSQLiteContext();
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [signingInId, setSigningInId] = useState<string | null>(null);
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [remoteBusy, setRemoteBusy] = useState(false);
+  const remoteConfigured = isSupabaseConfigured();
 
   useEffect(() => {
     let active = true;
@@ -37,6 +47,44 @@ export default function LoginScreen() {
       active = false;
     };
   }, [db]);
+
+  const sendMemberOtp = async () => {
+    if (!remoteConfigured || remoteBusy) return;
+    setRemoteBusy(true);
+    try {
+      await requestMemberOtp(phone);
+      setOtpSent(true);
+      Alert.alert('인증번호 전송', '문자로 받은 인증번호를 입력해 주세요.');
+    } catch (error) {
+      console.error(error);
+      const message =
+        error instanceof Error && error.message !== 'SUPABASE_NOT_CONFIGURED'
+          ? error.message
+          : '회원 로그인 서버가 아직 연결되지 않았어요.';
+      Alert.alert('전송 실패', message);
+    } finally {
+      setRemoteBusy(false);
+    }
+  };
+
+  const verifyMemberLogin = async () => {
+    if (!remoteConfigured || remoteBusy) return;
+    setRemoteBusy(true);
+    try {
+      const login = await verifyMemberOtp(phone, otp);
+      await syncMemberSnapshot(db, login.accessToken, login.memberId);
+      await saveAppSession(db, { role: 'member', memberId: login.memberId });
+      router.replace(memberHomeRoute(login.memberId) as never);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        '로그인 실패',
+        error instanceof Error ? error.message : '회원 로그인을 완료하지 못했어요.',
+      );
+    } finally {
+      setRemoteBusy(false);
+    }
+  };
 
   const enterTrainerMode = async () => {
     setSigningInId('trainer');
@@ -87,6 +135,69 @@ export default function LoginScreen() {
               {signingInId === 'trainer' ? '접속 중...' : '강사로 시작하기'}
             </Text>
           </Pressable>
+        </View>
+
+        <View style={styles.memberLoginCard}>
+          <View style={styles.memberLoginTop}>
+            <View>
+              <Text style={styles.memberLoginEyebrow}>회원</Text>
+              <Text style={styles.memberLoginTitle}>회원 로그인</Text>
+            </View>
+            <View style={[styles.serverBadge, !remoteConfigured && styles.serverBadgeOff]}>
+              <Text style={[styles.serverBadgeText, !remoteConfigured && styles.serverBadgeTextOff]}>
+                {remoteConfigured ? '서버 연결됨' : '연결 준비'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.memberLoginText}>
+            등록된 휴대폰 번호로 인증하면 내 예약, 운동 기록, 인바디를 확인할 수 있어요.
+          </Text>
+
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            placeholder="휴대폰 번호 01012345678"
+            placeholderTextColor="#A7ADB6"
+            editable={!remoteBusy}
+            style={styles.input}
+          />
+
+          {otpSent ? (
+            <TextInput
+              value={otp}
+              onChangeText={setOtp}
+              keyboardType="number-pad"
+              placeholder="문자로 받은 인증번호"
+              placeholderTextColor="#A7ADB6"
+              editable={!remoteBusy}
+              style={[styles.input, styles.otpInput]}
+            />
+          ) : null}
+
+          <Pressable
+            style={[
+              styles.memberLoginButton,
+              (!remoteConfigured || remoteBusy) && styles.disabled,
+            ]}
+            disabled={!remoteConfigured || remoteBusy}
+            onPress={() => void (otpSent ? verifyMemberLogin() : sendMemberOtp())}
+          >
+            <Text style={styles.memberLoginButtonText}>
+              {remoteBusy
+                ? '확인 중...'
+                : otpSent
+                  ? '인증하고 로그인'
+                  : '인증번호 받기'}
+            </Text>
+          </Pressable>
+
+          {!remoteConfigured ? (
+            <Text style={styles.memberLoginHint}>
+              Supabase 프로젝트 연결 후 바로 사용할 수 있어요. 아래 로컬 회원 선택은 계속 테스트용으로 남겨둡니다.
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.sectionHeader}>
@@ -185,6 +296,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#4058D6',
   },
   primaryButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
+  memberLoginCard: {
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+  },
+  memberLoginTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  memberLoginEyebrow: { fontSize: 10, fontWeight: '900', color: '#3C8B68' },
+  memberLoginTitle: { marginTop: 4, fontSize: 19, fontWeight: '900', color: '#252A32' },
+  memberLoginText: { marginTop: 7, fontSize: 12, lineHeight: 18, color: '#7C8490' },
+  serverBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 9,
+    backgroundColor: '#EAF6F0',
+  },
+  serverBadgeOff: { backgroundColor: '#F1F2F5' },
+  serverBadgeText: { fontSize: 9, fontWeight: '900', color: '#2D7A57' },
+  serverBadgeTextOff: { color: '#8B919A' },
+  input: {
+    height: 48,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E2E5EA',
+    borderRadius: 14,
+    fontSize: 14,
+    color: '#2C3139',
+    backgroundColor: '#FAFBFC',
+  },
+  otpInput: { marginTop: 8 },
+  memberLoginButton: {
+    height: 50,
+    marginTop: 10,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2F7F5E',
+  },
+  memberLoginButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
+  memberLoginHint: { marginTop: 9, fontSize: 10, lineHeight: 15, color: '#9AA0AA' },
   sectionHeader: {
     marginTop: 24,
     marginBottom: 9,
