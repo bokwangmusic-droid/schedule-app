@@ -346,6 +346,14 @@ export default function MembersScreen() {
               <View style={styles.memberActions}>
                 <Pressable
                   onPress={() =>
+                    router.push({ pathname: '/member-view/[id]', params: { id: member.id } } as never)
+                  }
+                  hitSlop={8}
+                >
+                  <Text style={styles.memberViewText}>회원화면</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
                     router.push({ pathname: '/member/[id]', params: { id: member.id } } as never)
                   }
                   hitSlop={8}
@@ -588,6 +596,7 @@ const styles = StyleSheet.create({
   ptMeta: { marginTop: 4, fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   memberMemo: { marginTop: 5, fontSize: 12, lineHeight: 17, color: '#9298A3' },
   memberActions: { marginLeft: 12, gap: 10, alignItems: 'flex-end' },
+  memberViewText: { fontSize: 13, fontWeight: '900', color: '#7A4CC8' },
   recordText: { fontSize: 13, fontWeight: '900', color: '#2D7A57' },
   historyText: { fontSize: 13, fontWeight: '900', color: '#5266C7' },
   editText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
