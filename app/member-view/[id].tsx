@@ -231,7 +231,7 @@ export default function MemberViewScreen() {
                 {total > 0 ? completed + ' / ' + total + '회 진행' : 'PT 횟수 미등록'}
               </Text>
               <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: (progress * 100) + '%' }]} />
+                <View style={[styles.progressFill, { width: `${progress * 100}%` as `${number}%` }]} />
               </View>
             </View>
           </View>
