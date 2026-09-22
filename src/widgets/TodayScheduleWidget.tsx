@@ -25,6 +25,16 @@ function formatTime(startTime: string | null, endTime: string | null, isAllDay: 
 }
 
 export function TodayScheduleWidget({ data, widgetHeight }: Props) {
+  const fontScale =
+    data.widgetStyle.fontSize === 'xlarge'
+      ? 1.34
+      : data.widgetStyle.fontSize === 'large'
+        ? 1.17
+        : 1;
+  const fontFamily =
+    data.widgetStyle.fontStyle === 'condensed' ? 'sans-serif-condensed' : undefined;
+  const strongFont = data.widgetStyle.fontStyle === 'strong';
+  const scaled = (value: number) => Math.round(value * fontScale * 10) / 10;
   const today = data.days.find((day) => day.date === data.today);
   const schedules = sortSchedulesForWidget(today?.schedules ?? []);
   const maxRows = Math.max(2, Math.min(5, Math.floor((widgetHeight - 42) / 30)));
@@ -61,8 +71,9 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
           text="오늘 일정"
           allowFontScaling={false}
           style={{
-            fontSize: 12,
-            fontWeight: '700',
+            fontSize: scaled(12),
+            fontWeight: strongFont ? '900' : '700',
+            ...(fontFamily ? { fontFamily } : {}),
             color: '#1F232A',
           }}
         />
@@ -70,8 +81,9 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
           text={dateLabel}
           allowFontScaling={false}
           style={{
-            fontSize: 9,
+            fontSize: scaled(9),
             color: '#747B86',
+            ...(fontFamily ? { fontFamily } : {}),
           }}
         />
       </FlexWidget>
@@ -89,8 +101,9 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
             text="오늘은 등록된 일정이 없어요"
             allowFontScaling={false}
             style={{
-              fontSize: 10,
+              fontSize: scaled(10),
               color: '#8B929C',
+              ...(fontFamily ? { fontFamily } : {}),
             }}
           />
         </FlexWidget>
@@ -137,8 +150,9 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
                   width: 72,
                   paddingLeft: 7,
                   paddingRight: 4,
-                  fontSize: 8,
+                  fontSize: scaled(8),
                   color: '#747B86',
+                  ...(fontFamily ? { fontFamily } : {}),
                 }}
               />
               <FlexWidget
@@ -156,8 +170,9 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
                   style={{
                     width: 'match_parent',
                     paddingRight: 7,
-                    fontSize: 10,
-                    fontWeight: '700',
+                    fontSize: scaled(10),
+                    fontWeight: strongFont ? '900' : '700',
+                    ...(fontFamily ? { fontFamily } : {}),
                     color: '#252A31',
                   }}
                 />
@@ -175,8 +190,9 @@ export function TodayScheduleWidget({ data, widgetHeight }: Props) {
           style={{
             height: 16,
             paddingTop: 3,
-            fontSize: 7,
+            fontSize: scaled(7),
             color: '#8B929C',
+            ...(fontFamily ? { fontFamily } : {}),
             textAlign: 'right',
           }}
         />

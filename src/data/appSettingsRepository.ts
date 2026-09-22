@@ -1,6 +1,16 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export type TimetableSettings = {
+export type WidgetFontSize = 'normal' | 'large' | 'xlarge';
+export type WidgetFontStyle = 'default' | 'strong' | 'condensed';
+export type WidgetTextColor = 'white' | 'cream' | 'sky';
+
+export type WidgetStyleSettings = {
+  widgetFontSize: WidgetFontSize;
+  widgetFontStyle: WidgetFontStyle;
+  widgetTextColor: WidgetTextColor;
+};
+
+export type TimetableSettings = WidgetStyleSettings & {
   hourHeight: number;
   showPtRemaining: boolean;
   overlapView: boolean;
@@ -12,6 +22,9 @@ export const DEFAULT_TIMETABLE_SETTINGS: TimetableSettings = {
   showPtRemaining: true,
   overlapView: false,
   widgetPrivacyMode: false,
+  widgetFontSize: 'xlarge',
+  widgetFontStyle: 'strong',
+  widgetTextColor: 'white',
 };
 
 const KEYS = {
@@ -19,7 +32,14 @@ const KEYS = {
   showPtRemaining: 'timetable.showPtRemaining',
   overlapView: 'timetable.overlapView',
   widgetPrivacyMode: 'widget.privacyMode',
+  widgetFontSize: 'widget.fontSize',
+  widgetFontStyle: 'widget.fontStyle',
+  widgetTextColor: 'widget.textColor',
 } as const;
+
+const WIDGET_FONT_SIZES: WidgetFontSize[] = ['normal', 'large', 'xlarge'];
+const WIDGET_FONT_STYLES: WidgetFontStyle[] = ['default', 'strong', 'condensed'];
+const WIDGET_TEXT_COLORS: WidgetTextColor[] = ['white', 'cream', 'sky'];
 
 async function readValue(db: SQLiteDatabase, key: string) {
   const row = await db.getFirstAsync<{ value: string }>(
@@ -38,12 +58,27 @@ async function writeValue(db: SQLiteDatabase, key: string, value: string) {
   );
 }
 
+function validValue<T extends string>(value: string | null, values: T[], fallback: T): T {
+  return value !== null && values.includes(value as T) ? (value as T) : fallback;
+}
+
 export async function getTimetableSettings(db: SQLiteDatabase): Promise<TimetableSettings> {
-  const [hourHeightValue, showPtRemainingValue, overlapViewValue, widgetPrivacyModeValue] = await Promise.all([
+  const [
+    hourHeightValue,
+    showPtRemainingValue,
+    overlapViewValue,
+    widgetPrivacyModeValue,
+    widgetFontSizeValue,
+    widgetFontStyleValue,
+    widgetTextColorValue,
+  ] = await Promise.all([
     readValue(db, KEYS.hourHeight),
     readValue(db, KEYS.showPtRemaining),
     readValue(db, KEYS.overlapView),
     readValue(db, KEYS.widgetPrivacyMode),
+    readValue(db, KEYS.widgetFontSize),
+    readValue(db, KEYS.widgetFontStyle),
+    readValue(db, KEYS.widgetTextColor),
   ]);
 
   const parsedHourHeight = Number(hourHeightValue);
@@ -65,6 +100,21 @@ export async function getTimetableSettings(db: SQLiteDatabase): Promise<Timetabl
       widgetPrivacyModeValue === null
         ? DEFAULT_TIMETABLE_SETTINGS.widgetPrivacyMode
         : widgetPrivacyModeValue === '1',
+    widgetFontSize: validValue(
+      widgetFontSizeValue,
+      WIDGET_FONT_SIZES,
+      DEFAULT_TIMETABLE_SETTINGS.widgetFontSize,
+    ),
+    widgetFontStyle: validValue(
+      widgetFontStyleValue,
+      WIDGET_FONT_STYLES,
+      DEFAULT_TIMETABLE_SETTINGS.widgetFontStyle,
+    ),
+    widgetTextColor: validValue(
+      widgetTextColorValue,
+      WIDGET_TEXT_COLORS,
+      DEFAULT_TIMETABLE_SETTINGS.widgetTextColor,
+    ),
   };
 }
 
@@ -82,4 +132,16 @@ export async function saveOverlapView(db: SQLiteDatabase, value: boolean) {
 
 export async function saveWidgetPrivacyMode(db: SQLiteDatabase, value: boolean) {
   await writeValue(db, KEYS.widgetPrivacyMode, value ? '1' : '0');
+}
+
+export async function saveWidgetFontSize(db: SQLiteDatabase, value: WidgetFontSize) {
+  await writeValue(db, KEYS.widgetFontSize, value);
+}
+
+export async function saveWidgetFontStyle(db: SQLiteDatabase, value: WidgetFontStyle) {
+  await writeValue(db, KEYS.widgetFontStyle, value);
+}
+
+export async function saveWidgetTextColor(db: SQLiteDatabase, value: WidgetTextColor) {
+  await writeValue(db, KEYS.widgetTextColor, value);
 }

@@ -7,6 +7,11 @@ import type { ScheduleItem } from '../types/schedule';
 
 export type WeeklyWidgetData = {
   weekLabel: string;
+  widgetStyle: {
+    fontSize: 'normal' | 'large' | 'xlarge';
+    fontStyle: 'default' | 'strong' | 'condensed';
+    textColor: 'white' | 'cream' | 'sky';
+  };
   weekStart: string;
   weekEnd: string;
   today: string;
@@ -94,6 +99,11 @@ export async function loadWeeklyWidgetData(): Promise<WeeklyWidgetData> {
 
     return {
       weekLabel: getWeekLabel(weekStartDate),
+      widgetStyle: {
+        fontSize: settings.widgetFontSize,
+        fontStyle: settings.widgetFontStyle,
+        textColor: settings.widgetTextColor,
+      },
       weekStart,
       weekEnd,
       today,

@@ -30,6 +30,34 @@ const COMPACT_TIME_LABELS = [6, 9, 12, 15, 18, 21];
 const LARGE_TIME_LABELS = Array.from({ length: 18 }, (_, index) => index + 6);
 const NOW_COLOR = '#FF4D5A';
 
+const WIDGET_TEXT_COLORS = {
+  white: '#FFFFFF',
+  cream: '#FFF1B8',
+  sky: '#DDF4FF',
+} as const;
+
+function getWidgetTypography(data: WeeklyWidgetData) {
+  const scale =
+    data.widgetStyle.fontSize === 'xlarge'
+      ? 1.34
+      : data.widgetStyle.fontSize === 'large'
+        ? 1.17
+        : 1;
+  const fontFamily =
+    data.widgetStyle.fontStyle === 'condensed' ? 'sans-serif-condensed' : undefined;
+  const strong = data.widgetStyle.fontStyle === 'strong';
+  return {
+    scale,
+    fontFamily,
+    strong,
+    scheduleTextColor: WIDGET_TEXT_COLORS[data.widgetStyle.textColor],
+  };
+}
+
+function scaled(value: number, scale: number) {
+  return Math.round(value * scale * 10) / 10;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -59,6 +87,10 @@ function ScheduleLayer({
   variant,
   isToday,
   currentMinutes,
+  fontScale,
+  fontFamily,
+  strongFont,
+  scheduleTextColor,
 }: {
   schedules: ScheduleItem[];
   height: number;
@@ -66,6 +98,10 @@ function ScheduleLayer({
   variant: WeeklyTimetableVariant;
   isToday: boolean;
   currentMinutes: number;
+  fontScale: number;
+  fontFamily?: string;
+  strongFont: boolean;
+  scheduleTextColor: string;
 }) {
   const timedSchedules = schedules.filter(
     (schedule) => !schedule.isAllDay && schedule.startTime && schedule.endTime,
@@ -101,9 +137,10 @@ function ScheduleLayer({
             truncate="END"
             allowFontScaling={false}
             style={{
-              fontSize: variant === 'large' ? 7 : 6,
-              fontWeight: '700',
-              color: '#FFFFFF',
+              fontSize: scaled(variant === 'large' ? 9 : 8, fontScale),
+              fontWeight: strongFont ? '900' : '700',
+              color: scheduleTextColor,
+              ...(fontFamily ? { fontFamily } : {}),
             }}
           />
         </FlexWidget>
@@ -159,18 +196,21 @@ function ScheduleLayer({
               truncate="END"
               allowFontScaling={false}
               style={{
-                fontSize:
+                fontSize: scaled(
                   variant === 'large'
                     ? narrowColumn
-                      ? 9
+                      ? 10
                       : blockHeight >= 28
-                        ? 10
-                        : 9
+                        ? 11
+                        : 10
                     : blockHeight >= 18
-                      ? 8
-                      : 7,
-                fontWeight: '700',
-                color: '#FFFFFF',
+                      ? 9
+                      : 8,
+                  fontScale,
+                ),
+                fontWeight: strongFont ? '900' : '700',
+                color: scheduleTextColor,
+                ...(fontFamily ? { fontFamily } : {}),
               }}
             />
             {showPtRemaining ? (
@@ -180,9 +220,10 @@ function ScheduleLayer({
                 allowFontScaling={false}
                 style={{
                   marginTop: 1,
-                  fontSize: narrowColumn ? 7 : 7,
-                  fontWeight: '600',
-                  color: '#FFFFFF',
+                  fontSize: scaled(narrowColumn ? 8 : 8.5, fontScale),
+                  fontWeight: strongFont ? '800' : '600',
+                  color: scheduleTextColor,
+                  ...(fontFamily ? { fontFamily } : {}),
                 }}
               />
             ) : null}
@@ -214,6 +255,7 @@ export function WeeklyTimetableWidget({
   variant = 'large',
 }: Props) {
   const large = variant === 'large';
+  const typography = getWidgetTypography(data);
   const bodyHeight = getBodyHeight(variant, widgetHeight, widgetWidth);
   const timeLabels = large ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
   const titleHeight = large ? 28 : 24;
@@ -267,17 +309,19 @@ export function WeeklyTimetableWidget({
           text={large ? '주간 시간표' : '이번 주'}
           allowFontScaling={false}
           style={{
-            fontSize: large ? 12 : 11,
-            fontWeight: '700',
+            fontSize: scaled(large ? 12 : 11, typography.scale),
+            fontWeight: typography.strong ? '900' : '700',
             color: '#1F232A',
+            ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
           }}
         />
         <TextWidget
           text={data.weekLabel}
           allowFontScaling={false}
           style={{
-            fontSize: large ? 9 : 8,
+            fontSize: scaled(large ? 9 : 8, typography.scale),
             color: '#747B86',
+            ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
           }}
         />
       </FlexWidget>
@@ -302,9 +346,10 @@ export function WeeklyTimetableWidget({
             allowFontScaling={false}
             style={{
               width: 'match_parent',
-              fontSize: 8,
-              fontWeight: '600',
+              fontSize: scaled(8, typography.scale),
+              fontWeight: typography.strong ? '800' : '600',
               color: '#5968A8',
+              ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
               textAlign: 'center',
             }}
           />
@@ -342,9 +387,10 @@ export function WeeklyTimetableWidget({
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
-                  fontSize: large ? 10 : 9,
-                  fontWeight: today ? '900' : '700',
+                  fontSize: scaled(large ? 10.5 : 9.5, typography.scale),
+                  fontWeight: today || typography.strong ? '900' : '700',
                   color: today ? '#4B68FF' : '#646B77',
+                  ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
                 }}
               />
             </FlexWidget>
@@ -429,9 +475,10 @@ export function WeeklyTimetableWidget({
                     width: gutterWidth - 3,
                     height: 14,
                     marginTop: Math.max(0, top - 6),
-                    fontSize: 9,
-                    color: '#8A909A',
+                    fontSize: scaled(9.5, typography.scale),
+                    color: '#717884',
                     textAlign: 'right',
+                    ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
                   }}
                 />
               );
@@ -455,6 +502,10 @@ export function WeeklyTimetableWidget({
                 variant={variant}
                 isToday={day.date === data.today}
                 currentMinutes={data.currentMinutes}
+                fontScale={typography.scale}
+                fontFamily={typography.fontFamily}
+                strongFont={typography.strong}
+                scheduleTextColor={typography.scheduleTextColor}
               />
             </FlexWidget>
             );

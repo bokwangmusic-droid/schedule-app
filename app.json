@@ -48,7 +48,8 @@
               "maxResizeWidth": "1400dp",
               "maxResizeHeight": "520dp",
               "resizeMode": "horizontal|vertical",
-              "updatePeriodMillis": 1800000
+              "updatePeriodMillis": 1800000,
+              "previewImage": "./assets/widget-preview/schedule.png"
             },
             {
               "name": "WeeklyTimetable",
@@ -61,7 +62,8 @@
               "maxResizeWidth": "1400dp",
               "maxResizeHeight": "850dp",
               "resizeMode": "horizontal|vertical",
-              "updatePeriodMillis": 1800000
+              "updatePeriodMillis": 1800000,
+              "previewImage": "./assets/widget-preview/schedule.png"
             }
           ]
         }
