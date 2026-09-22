@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { memberHomeRoute } from '../src/auth/appSession';
 import { SignaturePreview } from '../src/components/SignaturePreview';
 import { SimpleDatePickerModal } from '../src/components/SimpleDatePickerModal';
 import {
@@ -346,7 +347,7 @@ export default function MembersScreen() {
               <View style={styles.memberActions}>
                 <Pressable
                   onPress={() =>
-                    router.push({ pathname: '/member-view/[id]', params: { id: member.id } } as never)
+                    router.push(memberHomeRoute(member.id) as never)
                   }
                   hitSlop={8}
                 >

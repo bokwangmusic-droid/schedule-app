@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { memberHomeRoute } from '../../src/auth/appSession';
 import { BodyRecordModal } from '../../src/components/BodyRecordModal';
 import { MemberSignatureHistoryModal } from '../../src/components/MemberSignatureHistoryModal';
 import { TrainingLogModal } from '../../src/components/TrainingLogModal';
@@ -283,7 +284,7 @@ export default function MemberDetailScreen() {
 
           <Pressable
             style={styles.memberViewButton}
-            onPress={() => router.push(('/member-view/' + member.id) as never)}
+            onPress={() => router.push(memberHomeRoute(member.id) as never)}
           >
             <View>
               <Text style={styles.memberViewButtonTitle}>회원용 화면</Text>
