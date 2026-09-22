@@ -39,7 +39,7 @@ function shortDate(value: string) {
 }
 
 function membershipLabel(endDate: string | null) {
-  if (!endDate) return '회원권 기간 미등록';
+  if (!endDate) return '이용 중인 회원권 정보가 없어요';
   const end = parseDate(endDate);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
@@ -228,7 +228,7 @@ export default function MemberViewScreen() {
             </View>
             <View style={styles.ptRight}>
               <Text style={styles.ptProgressText}>
-                {total > 0 ? completed + ' / ' + total + '회 진행' : 'PT 횟수 미등록'}
+                {total > 0 ? completed + ' / ' + total + '회 완료' : 'PT 횟수 미등록'}
               </Text>
               <View style={styles.progressTrack}>
                 <View style={[styles.progressFill, { width: `${progress * 100}%` as `${number}%` }]} />
@@ -399,16 +399,10 @@ export default function MemberViewScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📈</Text>
             <Text style={styles.emptyTitle}>아직 인바디 기록이 없어요.</Text>
-            <Text style={styles.emptySub}>측정값이 등록되면 변화 내용을 확인할 수 있어요.</Text>
+            <Text style={styles.emptySub}>측정값이 등록되면 변화 추이를 확인할 수 있어요.</Text>
           </View>
         )}
 
-        <View style={styles.previewNotice}>
-          <Text style={styles.previewNoticeTitle}>현재는 회원용 화면 미리보기예요.</Text>
-          <Text style={styles.previewNoticeText}>
-            지금은 이 휴대폰에 저장된 회원 데이터를 읽기 전용으로 보여줘요. 회원 본인 휴대폰 로그인과 실시간 동기화는 다음 단계에서 연결할 수 있어요.
-          </Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -600,16 +594,8 @@ const styles = StyleSheet.create({
   bodyHistoryRow: { minHeight: 34, flexDirection: 'row', alignItems: 'center' },
   bodyHistoryDate: { width: 42, fontSize: 10, fontWeight: '900', color: '#59616D' },
   bodyHistoryValue: { flex: 1, fontSize: 9, color: '#7F8792' },
-  emptyCard: { padding: 24, borderRadius: 20, alignItems: 'center', backgroundColor: '#FFFFFF' },
+  emptyCard: { paddingVertical: 18, paddingHorizontal: 20, borderRadius: 20, alignItems: 'center', backgroundColor: '#FFFFFF' },
   emptyEmoji: { fontSize: 25 },
   emptyTitle: { marginTop: 8, fontSize: 13, fontWeight: '900', color: '#4A515B' },
   emptySub: { marginTop: 4, fontSize: 10, textAlign: 'center', color: '#959CA7' },
-  previewNotice: {
-    marginTop: 24,
-    padding: 15,
-    borderRadius: 16,
-    backgroundColor: '#EAEDF4',
-  },
-  previewNoticeTitle: { fontSize: 11, fontWeight: '900', color: '#59616D' },
-  previewNoticeText: { marginTop: 5, fontSize: 10, lineHeight: 16, color: '#7D8591' },
 });
