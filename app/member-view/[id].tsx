@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,6 +11,12 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  clearAppSession,
+  getAppSession,
+  memberHomeRoute,
+  type AppSession,
+} from '../../src/auth/appSession';
 import {
   listBodyRecords,
   listTrainingLogs,
@@ -104,6 +110,23 @@ export default function MemberViewScreen() {
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [appSession, setAppSession] = useState<AppSession | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void getAppSession(db)
+      .then((session) => {
+        if (!active) return;
+        setAppSession(session);
+        if (session?.role === 'member' && session.memberId !== id) {
+          router.replace(memberHomeRoute(session.memberId) as never);
+        }
+      })
+      .catch(console.error);
+    return () => {
+      active = false;
+    };
+  }, [db, id]);
 
   const loadAll = useCallback(async () => {
     if (!id) {
@@ -188,18 +211,35 @@ export default function MemberViewScreen() {
   const completed = Math.max(total - remaining, 0);
   const progress = total > 0 ? Math.min(completed / total, 1) : 0;
   const nextSchedule = upcomingSchedules[0] ?? null;
+  const isMemberMode =
+    appSession?.role === 'member' && appSession.memberId === member.id;
+
+  const logoutMember = async () => {
+    await clearAppSession(db);
+    router.replace('/login');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.backText}>‹ 관리자</Text>
-        </Pressable>
+        {isMemberMode ? (
+          <View style={styles.headerSpacer} />
+        ) : (
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Text style={styles.backText}>‹ 관리자</Text>
+          </Pressable>
+        )}
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>회원용 화면</Text>
-          <Text style={styles.previewBadge}>미리보기</Text>
+          <Text style={styles.headerTitle}>{isMemberMode ? '내 운동' : '회원용 화면'}</Text>
+          {!isMemberMode ? <Text style={styles.previewBadge}>미리보기</Text> : null}
         </View>
-        <View style={styles.headerSpacer} />
+        {isMemberMode ? (
+          <Pressable onPress={() => void logoutMember()} hitSlop={12}>
+            <Text style={styles.logoutText}>로그아웃</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       <ScrollView
@@ -434,6 +474,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF1FF',
   },
   headerSpacer: { width: 76 },
+  logoutText: { width: 76, textAlign: 'right', fontSize: 12, fontWeight: '800', color: '#6F7784' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
   loadingText: { marginTop: 10, fontSize: 12, color: '#858C98' },
   errorTitle: { fontSize: 14, fontWeight: '900', color: '#4A505A' },
