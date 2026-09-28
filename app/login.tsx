@@ -16,14 +16,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   authorizeCurrentLaunch,
-  memberHomeRoute,
   saveAppSession,
 } from '../src/auth/appSession';
 import { listMembers } from '../src/data/memberRepository';
 import type { MemberItem } from '../src/types/member';
 import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
-import { requestMemberOtp, verifyMemberOtp } from '../src/remote/supabaseAuth';
-import { syncMemberSnapshot } from '../src/remote/memberSync';
+import { requestMemberMagicLink } from '../src/remote/supabaseAuth';
 
 export default function LoginScreen() {
   const db = useSQLiteContext();
@@ -31,8 +29,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(true);
   const [signingInId, setSigningInId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
   const [remoteBusy, setRemoteBusy] = useState(false);
   const remoteConfigured = isSupabaseConfigured();
 
@@ -51,13 +47,15 @@ export default function LoginScreen() {
     };
   }, [db]);
 
-  const sendMemberOtp = async () => {
+  const sendMemberMagicLink = async () => {
     if (!remoteConfigured || remoteBusy) return;
     setRemoteBusy(true);
     try {
-      await requestMemberOtp(email);
-      setOtpSent(true);
-      Alert.alert('인증번호 전송', '이메일로 받은 인증번호를 입력해 주세요.');
+      await requestMemberMagicLink(email);
+      Alert.alert(
+        '로그인 메일 전송',
+        '이메일로 보낸 로그인 링크를 눌러 주세요. 링크를 누르면 비케이짐 스케줄 앱으로 돌아와 로그인돼요.',
+      );
     } catch (error) {
       console.error(error);
       const message =
@@ -65,26 +63,6 @@ export default function LoginScreen() {
           ? error.message
           : '회원 로그인 서버가 아직 연결되지 않았어요.';
       Alert.alert('전송 실패', message);
-    } finally {
-      setRemoteBusy(false);
-    }
-  };
-
-  const verifyMemberLogin = async () => {
-    if (!remoteConfigured || remoteBusy) return;
-    setRemoteBusy(true);
-    try {
-      const login = await verifyMemberOtp(email, otp);
-      await syncMemberSnapshot(db, login.accessToken, login.memberId);
-      await saveAppSession(db, { role: 'member', memberId: login.memberId });
-      authorizeCurrentLaunch();
-      router.replace(memberHomeRoute(login.memberId) as never);
-    } catch (error) {
-      console.error(error);
-      Alert.alert(
-        '로그인 실패',
-        error instanceof Error ? error.message : '회원 로그인을 완료하지 못했어요.',
-      );
     } finally {
       setRemoteBusy(false);
     }
@@ -165,7 +143,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.memberLoginText}>
-            등록된 이메일로 인증하면 내 예약, 운동 기록, 인바디를 확인할 수 있어요.
+            등록된 이메일로 로그인 링크를 받으면 내 예약, 운동 기록, 인바디를 확인할 수 있어요.
           </Text>
 
           <TextInput
@@ -180,34 +158,16 @@ export default function LoginScreen() {
             style={styles.input}
           />
 
-          {otpSent ? (
-            <TextInput
-              value={otp}
-              onChangeText={setOtp}
-              keyboardType="number-pad"
-              placeholder="이메일로 받은 인증번호"
-              placeholderTextColor="#A7ADB6"
-              editable={!remoteBusy}
-              returnKeyType="done"
-              onSubmitEditing={Keyboard.dismiss}
-              style={[styles.input, styles.otpInput]}
-            />
-          ) : null}
-
           <Pressable
             style={[
               styles.memberLoginButton,
               (!remoteConfigured || remoteBusy) && styles.disabled,
             ]}
             disabled={!remoteConfigured || remoteBusy}
-            onPress={() => void (otpSent ? verifyMemberLogin() : sendMemberOtp())}
+            onPress={() => void sendMemberMagicLink()}
           >
             <Text style={styles.memberLoginButtonText}>
-              {remoteBusy
-                ? '확인 중...'
-                : otpSent
-                  ? '인증하고 로그인'
-                  : '인증번호 받기'}
+              {remoteBusy ? '전송 중...' : '이메일 로그인 링크 받기'}
             </Text>
           </Pressable>
 
@@ -273,7 +233,7 @@ export default function LoginScreen() {
         <View style={styles.notice}>
           <Text style={styles.noticeTitle}>지금 단계는 로그인 흐름 확인용이에요.</Text>
           <Text style={styles.noticeText}>
-            실제 회원 휴대폰 로그인과 실시간 데이터 동기화는 서버 연결 단계에서 붙입니다.
+            실제 회원 이메일 로그인과 서버 데이터 동기화를 테스트 중입니다.
             현재 회원 모드는 이 기기에 저장된 데이터만 사용합니다.
           </Text>
         </View>
@@ -350,7 +310,6 @@ const styles = StyleSheet.create({
     color: '#2C3139',
     backgroundColor: '#FAFBFC',
   },
-  otpInput: { marginTop: 8 },
   memberLoginButton: {
     height: 50,
     marginTop: 10,
