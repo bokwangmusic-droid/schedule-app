@@ -77,3 +77,14 @@ export async function saveAppSession(db: SQLiteDatabase, session: AppSession) {
 export async function clearAppSession(db: SQLiteDatabase) {
   await db.runAsync('DELETE FROM app_settings WHERE key = ?', [APP_SESSION_KEY]);
 }
+
+
+let launchAuthenticated = false;
+
+export function authorizeCurrentLaunch() {
+  launchAuthenticated = true;
+}
+
+export function isCurrentLaunchAuthorized() {
+  return launchAuthenticated;
+}
