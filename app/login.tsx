@@ -93,7 +93,7 @@ export default function LoginScreen() {
     try {
       await saveAppSession(db, { role: 'trainer', trainerId: 'local-trainer' });
       authorizeCurrentLaunch();
-      router.replace('/');
+      router.replace('/trainer');
     } finally {
       setSigningInId(null);
     }
