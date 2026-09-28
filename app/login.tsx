@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   authorizeCurrentLaunch,
+  memberHomeRoute,
   saveAppSession,
 } from '../src/auth/appSession';
 import { listMembers } from '../src/data/memberRepository';
