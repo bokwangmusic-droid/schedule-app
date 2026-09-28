@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
+  authorizeCurrentLaunch,
   memberHomeRoute,
   saveAppSession,
 } from '../src/auth/appSession';
@@ -74,6 +75,7 @@ export default function LoginScreen() {
       const login = await verifyMemberOtp(phone, otp);
       await syncMemberSnapshot(db, login.accessToken, login.memberId);
       await saveAppSession(db, { role: 'member', memberId: login.memberId });
+      authorizeCurrentLaunch();
       router.replace(memberHomeRoute(login.memberId) as never);
     } catch (error) {
       console.error(error);
@@ -90,6 +92,7 @@ export default function LoginScreen() {
     setSigningInId('trainer');
     try {
       await saveAppSession(db, { role: 'trainer', trainerId: 'local-trainer' });
+      authorizeCurrentLaunch();
       router.replace('/');
     } finally {
       setSigningInId(null);
@@ -100,6 +103,7 @@ export default function LoginScreen() {
     setSigningInId(member.id);
     try {
       await saveAppSession(db, { role: 'member', memberId: member.id });
+      authorizeCurrentLaunch();
       router.replace(memberHomeRoute(member.id) as never);
     } finally {
       setSigningInId(null);
