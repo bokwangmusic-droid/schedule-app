@@ -2,7 +2,7 @@ import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   authorizeCurrentLaunch,
@@ -28,6 +28,7 @@ export default function AuthCallbackScreen() {
   const db = useSQLiteContext();
   const [message, setMessage] = useState('로그인을 확인하고 있어요.');
   const [detail, setDetail] = useState('링크 정보를 읽는 중이에요.');
+  const [busy, setBusy] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -57,6 +58,7 @@ export default function AuthCallbackScreen() {
         if (!accessToken) {
           setMessage('로그인 링크를 확인하지 못했어요.');
           setDetail('앱에서 새 로그인 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
+          setBusy(false);
           return;
         }
 
@@ -84,6 +86,7 @@ export default function AuthCallbackScreen() {
         if (active) {
           setMessage('로그인을 완료하지 못했어요.');
           setDetail(error instanceof Error ? error.message : '회원 로그인을 완료하지 못했어요.');
+          setBusy(false);
         }
       }
     };
@@ -102,10 +105,15 @@ export default function AuthCallbackScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.center}>
-        <ActivityIndicator color="#4058D6" />
+        {busy ? <ActivityIndicator color="#4058D6" /> : null}
         <Text style={styles.title}>비케이짐 회원 로그인</Text>
         <Text style={styles.message}>{message}</Text>
         <Text style={styles.detail}>{detail}</Text>
+        {!busy ? (
+          <Pressable style={styles.backButton} onPress={() => router.replace('/login')}>
+            <Text style={styles.backButtonText}>로그인 화면으로 돌아가기</Text>
+          </Pressable>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -117,4 +125,6 @@ const styles = StyleSheet.create({
   title: { marginTop: 16, fontSize: 19, fontWeight: '900', color: '#252A32' },
   message: { marginTop: 9, fontSize: 12, lineHeight: 18, textAlign: 'center', color: '#7C8490' },
   detail: { marginTop: 6, fontSize: 11, lineHeight: 17, textAlign: 'center', color: '#9AA1AC' },
+  backButton: { marginTop: 18, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12, backgroundColor: '#4058D6' },
+  backButtonText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
 });
