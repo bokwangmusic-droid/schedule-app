@@ -80,6 +80,7 @@ export default function NewScheduleScreen() {
   const [endTime, setEndTime] = useState(initialEndTime);
   const [memo, setMemo] = useState('');
   const [color, setColor] = useState(COLORS[0]);
+  const [batchWeekdays, setBatchWeekdays] = useState<number[]>([]);
   const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [repeatWeekdays, setRepeatWeekdays] = useState<number[]>([
     parseLocalDate(initialDate).getDay(),
@@ -116,6 +117,14 @@ export default function NewScheduleScreen() {
   const changeStartTime = (value: string) => {
     setStartTime(value);
     if (endTime <= value) setEndTime(addOneHour(value));
+  };
+
+  const toggleBatchWeekday = (weekday: number) => {
+    setBatchWeekdays((current) =>
+      current.includes(weekday)
+        ? current.filter((item) => item !== weekday)
+        : [...current, weekday],
+    );
   };
 
   const toggleRepeat = (enabled: boolean) => {
@@ -175,6 +184,13 @@ export default function NewScheduleScreen() {
         for (let offset = 0; offset < repeatWeeks * 7; offset += 1) {
           const candidate = addDays(firstDate, offset);
           if (repeatWeekdays.includes(candidate.getDay())) {
+            dates.push(toLocalDateString(candidate));
+          }
+        }
+      } else if (scheduleKind === 'member' && batchWeekdays.length > 0) {
+        for (let offset = 0; offset < 7; offset += 1) {
+          const candidate = addDays(firstDate, offset);
+          if (batchWeekdays.includes(candidate.getDay())) {
             dates.push(toLocalDateString(candidate));
           }
         }
@@ -332,6 +348,41 @@ export default function NewScheduleScreen() {
               autoCapitalize="none"
             />
           </View>
+
+          {scheduleKind === 'member' ? (
+            <View style={styles.section}>
+              <Text style={styles.label}>요일 한 번에 등록</Text>
+              <Text style={styles.batchHint}>선택한 날짜부터 7일 안에서 원하는 요일을 여러 개 체크할 수 있어요. 예: 화·목, 화·토</Text>
+              <View style={styles.weekdayRow}>
+                {WEEKDAYS.map((weekday) => {
+                  const selected = batchWeekdays.includes(weekday.value);
+                  return (
+                    <Pressable
+                      key={'batch-' + weekday.label}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      style={[styles.weekdayButton, selected && styles.weekdayButtonActive]}
+                      onPress={() => toggleBatchWeekday(weekday.value)}
+                    >
+                      <View style={[styles.weekdayCheckbox, selected && styles.weekdayCheckboxActive]}>
+                        {selected ? <Text style={styles.weekdayCheck}>✓</Text> : null}
+                      </View>
+                      <Text style={[styles.weekdayText, selected && styles.weekdayTextActive]}>
+                        {weekday.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {batchWeekdays.length > 0 ? (
+                <Text style={styles.batchSelectedText}>
+                  {WEEKDAYS.filter((weekday) => batchWeekdays.includes(weekday.value))
+                    .map((weekday) => weekday.label)
+                    .join('·')}요일을 한 번에 등록해요.
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={styles.section}>
             <View style={styles.switchRow}>
@@ -575,6 +626,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timeRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  batchHint: { marginTop: -4, marginBottom: 10, fontSize: 11, lineHeight: 16, color: '#8D949F' },
+  batchSelectedText: { marginTop: -7, fontSize: 11, fontWeight: '800', color: '#4B68FF' },
   repeatSwitchRow: {
     minHeight: 62,
     paddingHorizontal: 16,
