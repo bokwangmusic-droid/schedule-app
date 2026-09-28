@@ -65,6 +65,22 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function fittedScheduleFontSize(
+  label: string,
+  availableWidth: number,
+  preferredSize: number,
+) {
+  const compactLabel = label.replace(/\s/g, '');
+  const characterCount = Math.max(compactLabel.length, 1);
+  const horizontalPadding = 6;
+  const usableWidth = Math.max(availableWidth - horizontalPadding, 8);
+
+  // Korean names are often 3–5 characters. Prefer shrinking the text over
+  // showing an ellipsis when the day column is narrow.
+  const estimatedFit = usableWidth / (characterCount * 0.92);
+  return Math.round(clamp(Math.min(preferredSize, estimatedFit), 5.5, preferredSize) * 10) / 10;
+}
+
 function getBodyHeight(
   variant: WeeklyTimetableVariant,
   widgetHeight: number,
@@ -175,6 +191,23 @@ function ScheduleLayer({
           hasPtRemaining &&
           blockHeight >= 26;
         const primaryLabel = scheduleLabel(schedule);
+        const preferredPrimaryFontSize = scaled(
+          variant === 'large'
+            ? narrowColumn
+              ? 10
+              : blockHeight >= 28
+                ? 11
+                : 10
+            : blockHeight >= 18
+              ? 9
+              : 8,
+          fontScale,
+        );
+        const primaryFontSize = fittedScheduleFontSize(
+          primaryLabel,
+          Math.max(width - 4, 20),
+          preferredPrimaryFontSize,
+        );
         const ptRemainingLabel =
           narrowColumn ? `${ptRemaining}회` : `PT 잔여 ${ptRemaining}회`;
 
@@ -199,18 +232,7 @@ function ScheduleLayer({
               truncate="END"
               allowFontScaling={false}
               style={{
-                fontSize: scaled(
-                  variant === 'large'
-                    ? narrowColumn
-                      ? 10
-                      : blockHeight >= 28
-                        ? 11
-                        : 10
-                    : blockHeight >= 18
-                      ? 9
-                      : 8,
-                  fontScale,
-                ),
+                fontSize: primaryFontSize,
                 fontWeight: strongFont ? '900' : '700',
                 color: scheduleTextColor,
                 ...(fontFamily ? { fontFamily } : {}),
