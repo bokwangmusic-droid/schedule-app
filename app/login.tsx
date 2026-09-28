@@ -30,7 +30,7 @@ export default function LoginScreen() {
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [signingInId, setSigningInId] = useState<string | null>(null);
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [remoteBusy, setRemoteBusy] = useState(false);
@@ -55,9 +55,9 @@ export default function LoginScreen() {
     if (!remoteConfigured || remoteBusy) return;
     setRemoteBusy(true);
     try {
-      await requestMemberOtp(phone);
+      await requestMemberOtp(email);
       setOtpSent(true);
-      Alert.alert('인증번호 전송', '문자로 받은 인증번호를 입력해 주세요.');
+      Alert.alert('인증번호 전송', '이메일로 받은 인증번호를 입력해 주세요.');
     } catch (error) {
       console.error(error);
       const message =
@@ -74,7 +74,7 @@ export default function LoginScreen() {
     if (!remoteConfigured || remoteBusy) return;
     setRemoteBusy(true);
     try {
-      const login = await verifyMemberOtp(phone, otp);
+      const login = await verifyMemberOtp(email, otp);
       await syncMemberSnapshot(db, login.accessToken, login.memberId);
       await saveAppSession(db, { role: 'member', memberId: login.memberId });
       authorizeCurrentLaunch();
@@ -165,14 +165,14 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.memberLoginText}>
-            등록된 휴대폰 번호로 인증하면 내 예약, 운동 기록, 인바디를 확인할 수 있어요.
+            등록된 이메일로 인증하면 내 예약, 운동 기록, 인바디를 확인할 수 있어요.
           </Text>
 
           <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="휴대폰 번호 01012345678"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            placeholder="이메일 주소"
             placeholderTextColor="#A7ADB6"
             editable={!remoteBusy}
             returnKeyType="done"
@@ -185,7 +185,7 @@ export default function LoginScreen() {
               value={otp}
               onChangeText={setOtp}
               keyboardType="number-pad"
-              placeholder="문자로 받은 인증번호"
+              placeholder="이메일로 받은 인증번호"
               placeholderTextColor="#A7ADB6"
               editable={!remoteBusy}
               returnKeyType="done"
