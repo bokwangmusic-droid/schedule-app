@@ -33,7 +33,7 @@ export function roleHomeRoute(session: AppSession) {
     return memberHomeRoute(session.memberId);
   }
 
-  return { pathname: '/' as const };
+  return { pathname: '/trainer' as const };
 }
 
 export async function getAppSession(db: SQLiteDatabase): Promise<AppSession | null> {
