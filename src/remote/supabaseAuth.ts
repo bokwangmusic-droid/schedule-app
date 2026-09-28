@@ -48,7 +48,7 @@ export async function requestMemberOtp(phoneInput: string) {
     headers: supabaseHeaders(),
     body: JSON.stringify({
       phone,
-      create_user: false,
+      create_user: true,
     }),
   });
 
