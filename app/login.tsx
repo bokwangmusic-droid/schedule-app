@@ -175,6 +175,8 @@ export default function LoginScreen() {
             placeholder="휴대폰 번호 01012345678"
             placeholderTextColor="#A7ADB6"
             editable={!remoteBusy}
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
             style={styles.input}
           />
 
@@ -186,6 +188,8 @@ export default function LoginScreen() {
               placeholder="문자로 받은 인증번호"
               placeholderTextColor="#A7ADB6"
               editable={!remoteBusy}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
               style={[styles.input, styles.otpInput]}
             />
           ) : null}
