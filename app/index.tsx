@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
-import { getAppSession, memberHomeRoute } from '../src/auth/appSession';
+import { getAppSession, isCurrentLaunchAuthorized, memberHomeRoute } from '../src/auth/appSession';
 import { DraggableScheduleBlock } from '../src/components/DraggableScheduleBlock';
 import { ScheduleRangeSelector } from '../src/components/ScheduleRangeSelector';
 import { TimetableMoreMenu } from '../src/components/TimetableMoreMenu';
@@ -204,7 +204,7 @@ export default function HomeScreen() {
     void getAppSession(db)
       .then((session) => {
         if (!active) return;
-        if (!session) {
+        if (!session || !isCurrentLaunchAuthorized()) {
           router.replace('/login');
           return;
         }
