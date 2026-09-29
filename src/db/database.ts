@@ -96,6 +96,8 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       skeletal_muscle REAL,
       body_fat REAL,
       body_fat_percentage REAL,
+      bmi REAL,
+      visceral_fat_level INTEGER,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -151,6 +153,14 @@ export async function migrateDatabase(db: SQLiteDatabase) {
   }
   if (!scheduleColumns.some((column) => column.name === 'pt_consumed')) {
     await db.execAsync('ALTER TABLE schedules ADD COLUMN pt_consumed INTEGER NOT NULL DEFAULT 0;');
+  }
+
+  const bodyRecordColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(member_body_records)');
+  if (!bodyRecordColumns.some((column) => column.name === 'bmi')) {
+    await db.execAsync('ALTER TABLE member_body_records ADD COLUMN bmi REAL;');
+  }
+  if (!bodyRecordColumns.some((column) => column.name === 'visceral_fat_level')) {
+    await db.execAsync('ALTER TABLE member_body_records ADD COLUMN visceral_fat_level INTEGER;');
   }
 
   const memberColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(members)');
