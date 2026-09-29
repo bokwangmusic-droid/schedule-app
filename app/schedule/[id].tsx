@@ -22,8 +22,10 @@ import { TimePickerField } from '../../src/components/TimePickerField';
 import { getTrainingLogForSchedule } from '../../src/data/memberFitnessRepository';
 import { listMembers } from '../../src/data/memberRepository';
 import {
+  addManualMemberSignature,
   completeMemberSessionWithSignature,
   deleteSchedule,
+  deleteSignedMemberSession,
   getLatestMemberSessionNote,
   getScheduleById,
   listSignedMemberSessions,
@@ -71,6 +73,7 @@ export default function EditScheduleScreen() {
     startTime: string | null;
   } | null>(null);
   const [signatureOpen, setSignatureOpen] = useState(false);
+  const [manualSignatureOpen, setManualSignatureOpen] = useState(false);
   const [signatureHistoryOpen, setSignatureHistoryOpen] = useState(false);
   const [signatureHistoryLoading, setSignatureHistoryLoading] = useState(false);
   const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
@@ -305,6 +308,67 @@ export default function EditScheduleScreen() {
     }
   };
 
+  const addManualSignature = async (signatureJson: string, sessionNote: string) => {
+    if (!selectedMember) return;
+    try {
+      setAttendanceBusy(true);
+      await addManualMemberSignature(
+        db,
+        selectedMember.id,
+        date,
+        signatureJson,
+        sessionNote,
+      );
+      setManualSignatureOpen(false);
+      await reloadSessionState();
+      setSignedSessions(await listSignedMemberSessions(db, selectedMember.id));
+      void refreshWeeklyTimetableWidget().catch(console.error);
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('PT_BALANCE_NOT_SET')) {
+        Alert.alert('PT 횟수를 먼저 등록해 주세요.');
+      } else if (message.includes('NO_PT_REMAINING')) {
+        Alert.alert('남은 PT가 없어요.');
+      } else {
+        Alert.alert('서명을 추가하지 못했어요.');
+      }
+    } finally {
+      setAttendanceBusy(false);
+    }
+  };
+
+  const confirmDeleteSignature = (session: SignedMemberSession) => {
+    if (!selectedMember) return;
+    Alert.alert(
+      'PT 서명 삭제',
+      '이 서명을 삭제하면 소진된 PT 1회가 다시 잔여 횟수로 복원됩니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                setAttendanceBusy(true);
+                await deleteSignedMemberSession(db, selectedMember.id, session);
+                await reloadSessionState();
+                setSignedSessions(await listSignedMemberSessions(db, selectedMember.id));
+                void refreshWeeklyTimetableWidget().catch(console.error);
+              } catch (error) {
+                console.error(error);
+                Alert.alert('서명을 삭제하지 못했어요.');
+              } finally {
+                setAttendanceBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
   const shareSchedule = async () => {
     const who = selectedMember?.name ?? (title.trim() || '일정');
     const timeText = isAllDay ? '종일' : `${startTime}~${endTime}`;
@@ -423,7 +487,12 @@ export default function EditScheduleScreen() {
                 <View style={styles.sessionTitleInfo}>
                   <Text style={styles.sessionTitle}>수업 관리</Text>
                   <Text style={styles.sessionSubText}>
-                    PT 잔여 {selectedMember.ptRemainingSessions ?? '-'}회
+                    PT 총 {selectedMember.ptTotalSessions ?? '-'} · 소진 {
+                      selectedMember.ptTotalSessions !== null &&
+                      selectedMember.ptRemainingSessions !== null
+                        ? Math.max(selectedMember.ptTotalSessions - selectedMember.ptRemainingSessions, 0)
+                        : '-'
+                    } · 잔여 {selectedMember.ptRemainingSessions ?? '-'}회
                     {dday ? ` · 회원권 ${dday}` : ''}
                   </Text>
                 </View>
@@ -443,6 +512,17 @@ export default function EditScheduleScreen() {
                       }
                     >
                       <Text style={styles.memberRecordButtonText}>회원 기록</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.memberManageButton}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/members',
+                          params: { editMemberId: selectedMember.id },
+                        } as never)
+                      }
+                    >
+                      <Text style={styles.memberManageButtonText}>회원 관리</Text>
                     </Pressable>
                     <Pressable
                       style={styles.historyButton}
