@@ -144,6 +144,7 @@ export async function deleteMember(db: SQLiteDatabase, id: string) {
     );
     await db.runAsync('DELETE FROM member_training_logs WHERE member_id = ?', [id]);
     await db.runAsync('DELETE FROM member_body_records WHERE member_id = ?', [id]);
+    await db.runAsync('DELETE FROM member_manual_signatures WHERE member_id = ?', [id]);
     await db.runAsync('DELETE FROM members WHERE id = ?', [id]);
   });
 }
