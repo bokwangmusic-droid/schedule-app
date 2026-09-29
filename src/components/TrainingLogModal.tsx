@@ -21,7 +21,6 @@ import {
 } from '../data/trainingLogDraftRepository';
 import type {
   CreateTrainingLogInput,
-  TrainingExerciseInput,
   TrainingLogItem,
   WellnessLevel,
 } from '../types/memberFitness';
