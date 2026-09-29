@@ -203,7 +203,9 @@ function ScheduleLayer({
         const primaryFontSize = fittedScheduleFontSize(
           primaryLabel,
           Math.max(width - 4, 20),
-          preferredPrimaryFontSize,
+          primaryLabel.replace(/\s/g, '').length >= 4
+            ? Math.max(preferredPrimaryFontSize - 0.8, 5.5)
+            : preferredPrimaryFontSize,
         );
         const ptRemainingLabel =
           narrowColumn ? `${ptRemaining}회` : `PT 잔여 ${ptRemaining}회`;
@@ -217,7 +219,7 @@ function ScheduleLayer({
               marginTop: top,
               marginLeft: 2,
               marginRight: 2,
-              borderRadius: variant === 'large' ? 5 : 4,
+              borderRadius: variant === 'large' ? 3 : 3,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: scheduleColor(schedule),
@@ -252,20 +254,6 @@ function ScheduleLayer({
           </FlexWidget>
         );
       })}
-
-      {isToday &&
-      currentMinutes >= START_MINUTES &&
-      currentMinutes < END_MINUTES ? (
-        <FlexWidget
-          style={{
-            width,
-            height: 2,
-            marginTop:
-              ((currentMinutes - START_MINUTES) / TOTAL_MINUTES) * height,
-            backgroundColor: NOW_COLOR,
-          }}
-        />
-      ) : null}
     </OverlapWidget>
   );
 }
@@ -347,7 +335,7 @@ export function WeeklyTimetableWidget({
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
-                  fontSize: scaled(large ? 10 : 9, typography.scale),
+                  fontSize: scaled(large ? 9.2 : 8.5, typography.scale),
                   fontWeight: typography.strong ? '900' : '700',
                   color: '#646B77',
                   ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
@@ -470,6 +458,20 @@ export function WeeklyTimetableWidget({
             );
           })}
         </FlexWidget>
+
+        {data.currentMinutes >= START_MINUTES &&
+        data.currentMinutes < END_MINUTES ? (
+          <FlexWidget
+            style={{
+              width: usableDaysWidth,
+              height: 1.5,
+              marginLeft: gutterWidth,
+              marginTop:
+                ((data.currentMinutes - START_MINUTES) / TOTAL_MINUTES) * bodyHeight,
+              backgroundColor: NOW_COLOR,
+            }}
+          />
+        ) : null}
       </OverlapWidget>
     </FlexWidget>
   );
