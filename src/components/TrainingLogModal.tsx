@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type {
   CreateTrainingLogInput,
   TrainingExerciseInput,
+  TrainingLogItem,
   WellnessLevel,
 } from '../types/memberFitness';
 
@@ -35,6 +36,7 @@ type Props = {
   memberName: string;
   date: string;
   scheduleId?: string | null;
+  initialLog?: TrainingLogItem | null;
   saving?: boolean;
   onClose: () => void;
   onSubmit: (input: CreateTrainingLogInput) => void;
@@ -76,6 +78,7 @@ export function TrainingLogModal({
   memberName,
   date,
   scheduleId = null,
+  initialLog = null,
   saving = false,
   onClose,
   onSubmit,
@@ -112,8 +115,49 @@ export function TrainingLogModal({
 
   useEffect(() => {
     if (!visible) return;
-    setLogDate(date);
-  }, [date, visible]);
+
+    if (initialLog) {
+      setLogDate(initialLog.date);
+      setBodyPart(initialLog.bodyPart ?? '');
+      setSleepQuality(initialLog.sleepQuality ?? '중');
+      setConditionLevel(initialLog.conditionLevel ?? '중');
+      setActivityLevel(initialLog.activityLevel ?? '중');
+      setDietControl(initialLog.dietControl);
+      setHydration(initialLog.hydration);
+      setCardioTreadmill(initialLog.cardioTreadmill ?? '');
+      setCardioBike(initialLog.cardioBike ?? '');
+      setCardioStepmill(initialLog.cardioStepmill ?? '');
+      setBreakfastCarbs(initialLog.breakfastCarbs ?? '');
+      setBreakfastProtein(initialLog.breakfastProtein ?? '');
+      setBreakfastFat(initialLog.breakfastFat ?? '');
+      setLunchCarbs(initialLog.lunchCarbs ?? '');
+      setLunchProtein(initialLog.lunchProtein ?? '');
+      setLunchFat(initialLog.lunchFat ?? '');
+      setDinnerCarbs(initialLog.dinnerCarbs ?? '');
+      setDinnerProtein(initialLog.dinnerProtein ?? '');
+      setDinnerFat(initialLog.dinnerFat ?? '');
+      setSnack(initialLog.snack ?? '');
+      setSummary(initialLog.summary ?? '');
+      setFeedback(initialLog.feedback ?? '');
+      setExercises(
+        initialLog.exercises.length > 0
+          ? initialLog.exercises.map((exercise) => ({
+              name: exercise.name,
+              sets:
+                exercise.sets.length > 0
+                  ? exercise.sets.map((set) => ({
+                      weight: set.weight === null ? '' : String(set.weight),
+                      reps: set.reps === null ? '' : String(set.reps),
+                    }))
+                  : [{ weight: '', reps: '' }],
+            }))
+          : [emptyExercise()],
+      );
+      return;
+    }
+
+    reset();
+  }, [date, initialLog, visible]);
 
   const reset = () => {
     setLogDate(date);
@@ -328,12 +372,12 @@ export function TrainingLogModal({
               <Text style={styles.headerAction}>취소</Text>
             </Pressable>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>운동일지</Text>
+              <Text style={styles.headerTitle}>{initialLog ? '운동일지 수정' : '운동일지'}</Text>
               <Text style={styles.headerSub}>{memberName}</Text>
             </View>
             <Pressable onPress={submit} disabled={saving} hitSlop={10}>
               <Text style={[styles.headerSave, saving && styles.disabled]}>
-                {saving ? '저장중' : '저장'}
+                {saving ? '저장중' : initialLog ? '수정완료' : '저장'}
               </Text>
             </Pressable>
           </View>
