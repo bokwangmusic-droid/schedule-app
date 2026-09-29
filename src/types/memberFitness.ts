@@ -90,6 +90,8 @@ export type CreateBodyRecordInput = {
   skeletalMuscle?: number | null;
   bodyFat?: number | null;
   bodyFatPercentage?: number | null;
+  bmi?: number | null;
+  visceralFatLevel?: number | null;
 };
 
 export type BodyRecordItem = {
@@ -100,6 +102,8 @@ export type BodyRecordItem = {
   skeletalMuscle: number | null;
   bodyFat: number | null;
   bodyFatPercentage: number | null;
+  bmi: number | null;
+  visceralFatLevel: number | null;
   createdAt: string;
   updatedAt: string;
 };
