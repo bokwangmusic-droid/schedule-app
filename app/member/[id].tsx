@@ -620,6 +620,7 @@ export default function MemberDetailScreen() {
         date={routeDate}
         scheduleId={editingLog?.scheduleId ?? scheduleId}
         initialLog={editingLog}
+        recentLogs={trainingLogs}
         saving={savingLog}
         onClose={() => {
           setEditingLog(null);
