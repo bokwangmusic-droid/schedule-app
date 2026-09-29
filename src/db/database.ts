@@ -102,6 +102,19 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS member_manual_signatures (
+      id TEXT PRIMARY KEY NOT NULL,
+      member_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      signature_json TEXT NOT NULL,
+      session_note TEXT,
+      signed_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_manual_signatures_member_date
+      ON member_manual_signatures(member_id, date, signed_at);
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
