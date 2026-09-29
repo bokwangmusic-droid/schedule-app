@@ -186,10 +186,7 @@ function ScheduleLayer({
           schedule.memberId !== null &&
           ptRemaining !== null;
         const narrowColumn = width < 52;
-        const showPtRemaining =
-          variant === 'large' &&
-          hasPtRemaining &&
-          blockHeight >= 26;
+        const showPtRemaining = false;
         const primaryLabel = scheduleLabel(schedule);
         const preferredPrimaryFontSize = scaled(
           variant === 'large'
@@ -283,19 +280,17 @@ export function WeeklyTimetableWidget({
   const typography = getWidgetTypography(data);
   const bodyHeight = getBodyHeight(variant, widgetHeight, widgetWidth);
   const timeLabels = large ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
-  const titleHeight = large ? 28 : 24;
-  const encouragementHeight = large ? 22 : 0;
-  const dayHeaderHeight = large ? 30 : 24;
+  const dayHeaderHeight = large ? 24 : 22;
   const gutterWidth = large ? 32 : 27;
   const resolvedWidgetWidth = widgetWidth > 0 ? widgetWidth : large ? 360 : 340;
   const wideWidget = resolvedWidgetWidth >= 560;
   const outerPadding = large
     ? wideWidget
-      ? 2
-      : 6
+      ? 1
+      : 3
     : wideWidget
-      ? 3
-      : 7;
+      ? 2
+      : 4;
   const innerWidth = Math.max(Math.floor(resolvedWidgetWidth - outerPadding * 2), 280);
   const usableDaysWidth = Math.max(innerWidth - gutterWidth, 196);
   const baseDayWidth = Math.max(Math.floor(usableDaysWidth / 7), 28);
@@ -323,66 +318,6 @@ export function WeeklyTimetableWidget({
     >
       <FlexWidget
         style={{
-          height: titleHeight,
-          width: 'match_parent',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <TextWidget
-          text={large ? '주간 시간표' : '이번 주'}
-          allowFontScaling={false}
-          style={{
-            fontSize: scaled(large ? 12 : 11, typography.scale),
-            fontWeight: typography.strong ? '900' : '700',
-            color: '#1F232A',
-            ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
-          }}
-        />
-        <TextWidget
-          text={data.weekLabel}
-          allowFontScaling={false}
-          style={{
-            fontSize: scaled(large ? 9 : 8, typography.scale),
-            color: '#747B86',
-            ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
-          }}
-        />
-      </FlexWidget>
-
-      {large ? (
-        <FlexWidget
-          style={{
-            width: 'match_parent',
-            height: encouragementHeight,
-            paddingLeft: 8,
-            paddingRight: 8,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 8,
-            backgroundColor: '#F4F6FF',
-          }}
-        >
-          <TextWidget
-            text={data.encouragement}
-            maxLines={1}
-            truncate="END"
-            allowFontScaling={false}
-            style={{
-              width: 'match_parent',
-              fontSize: scaled(8, typography.scale),
-              fontWeight: typography.strong ? '800' : '600',
-              color: '#5968A8',
-              ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
-              textAlign: 'center',
-            }}
-          />
-        </FlexWidget>
-      ) : null}
-
-      <FlexWidget
-        style={{
           width: 'match_parent',
           height: dayHeaderHeight,
           flexDirection: 'row',
@@ -404,17 +339,17 @@ export function WeeklyTimetableWidget({
                 justifyContent: 'center',
                 borderLeftWidth: 1,
                 borderLeftColor: '#F0F1F4',
-                backgroundColor: today ? '#F0F3FF' : '#FFFFFF',
+                backgroundColor: '#FFFFFF',
               }}
             >
               <TextWidget
-                text={`${day.dayName} ${day.dateNumber}`}
+                text={day.dayName}
                 maxLines={1}
                 allowFontScaling={false}
                 style={{
-                  fontSize: scaled(large ? 10.5 : 9.5, typography.scale),
-                  fontWeight: today || typography.strong ? '900' : '700',
-                  color: today ? '#4B68FF' : '#646B77',
+                  fontSize: scaled(large ? 10 : 9, typography.scale),
+                  fontWeight: typography.strong ? '900' : '700',
+                  color: '#646B77',
                   ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
                 }}
               />
@@ -453,8 +388,7 @@ export function WeeklyTimetableWidget({
                 height: bodyHeight,
                 borderLeftWidth: 1,
                 borderLeftColor: '#F0F1F4',
-                backgroundColor:
-                  day.date === data.today ? '#F7F8FF' : '#FFFFFF',
+                backgroundColor: '#FFFFFF',
               }}
             />
           ))}
