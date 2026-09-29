@@ -58,9 +58,7 @@ function membershipLabel(endDate: string | null) {
 function scheduleTimeLabel(schedule: ScheduleItem) {
   if (schedule.isAllDay) return '종일';
   if (!schedule.startTime) return '시간 미정';
-  const start = schedule.startTime.slice(0, 5);
-  const end = schedule.endTime ? schedule.endTime.slice(0, 5) : '';
-  return end ? start + ' - ' + end : start;
+  return schedule.startTime.slice(0, 5);
 }
 
 function exerciseVolume(exercise: TrainingLogItem['exercises'][number]) {
