@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -32,6 +32,8 @@ type DatePickerTarget = 'start' | 'end' | null;
 
 export default function MembersScreen() {
   const db = useSQLiteContext();
+  const params = useLocalSearchParams<{ editMemberId?: string }>();
+  const editMemberId = typeof params.editMemberId === 'string' ? params.editMemberId : null;
   const scrollRef = useRef<ScrollView>(null);
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -48,6 +50,7 @@ export default function MembersScreen() {
   const [selectedSignedSession, setSelectedSignedSession] = useState<SignedMemberSession | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [didOpenRequestedMember, setDidOpenRequestedMember] = useState(false);
 
   const loadMembers = useCallback(async () => {
     const rows = await listMembers(db);
@@ -58,6 +61,16 @@ export default function MembersScreen() {
     useCallback(() => {
       void loadMembers();
     }, [loadMembers]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!editMemberId || didOpenRequestedMember || members.length === 0) return;
+      const target = members.find((member) => member.id === editMemberId);
+      if (!target) return;
+      setDidOpenRequestedMember(true);
+      beginEdit(target);
+    }, [didOpenRequestedMember, editMemberId, members]),
   );
 
   const resetForm = () => {
