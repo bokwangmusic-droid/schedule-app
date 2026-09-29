@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { memberHomeRoute } from '../../src/auth/appSession';
 import { BodyRecordModal } from '../../src/components/BodyRecordModal';
 import { MemberSignatureHistoryModal } from '../../src/components/MemberSignatureHistoryModal';
+import { SessionSignatureModal } from '../../src/components/SessionSignatureModal';
 import { TrainingLogModal } from '../../src/components/TrainingLogModal';
 import {
   createBodyRecord,
@@ -24,6 +25,8 @@ import {
 } from '../../src/data/memberFitnessRepository';
 import { getMemberById } from '../../src/data/memberRepository';
 import {
+  addManualMemberSignature,
+  deleteSignedMemberSession,
   listSignedMemberSessions,
   type SignedMemberSession,
 } from '../../src/data/scheduleRepository';
@@ -105,6 +108,8 @@ export default function MemberDetailScreen() {
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [bodyModalOpen, setBodyModalOpen] = useState(false);
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [manualSignatureOpen, setManualSignatureOpen] = useState(false);
+  const [signatureBusy, setSignatureBusy] = useState(false);
   const [savingLog, setSavingLog] = useState(false);
   const [savingBody, setSavingBody] = useState(false);
   const [didAutoOpen, setDidAutoOpen] = useState(false);
@@ -222,6 +227,63 @@ export default function MemberDetailScreen() {
     } finally {
       setSavingBody(false);
     }
+  };
+
+  const addManualSignature = async (signatureJson: string, sessionNote: string) => {
+    if (!member) return;
+    try {
+      setSignatureBusy(true);
+      await addManualMemberSignature(
+        db,
+        member.id,
+        toLocalDateString(new Date()),
+        signatureJson,
+        sessionNote,
+      );
+      setManualSignatureOpen(false);
+      await loadAll();
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('PT_BALANCE_NOT_SET')) {
+        Alert.alert('PT 횟수를 먼저 등록해 주세요.');
+      } else if (message.includes('NO_PT_REMAINING')) {
+        Alert.alert('남은 PT가 없어요.');
+      } else {
+        Alert.alert('서명을 추가하지 못했어요.');
+      }
+    } finally {
+      setSignatureBusy(false);
+    }
+  };
+
+  const confirmDeleteSignature = (session: SignedMemberSession) => {
+    if (!member) return;
+    Alert.alert(
+      'PT 서명 삭제',
+      '이 서명을 삭제하면 소진된 PT 1회가 다시 잔여 횟수로 복원됩니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                setSignatureBusy(true);
+                await deleteSignedMemberSession(db, member.id, session);
+                await loadAll();
+              } catch (error) {
+                console.error(error);
+                Alert.alert('서명을 삭제하지 못했어요.');
+              } finally {
+                setSignatureBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   if (loading && !member) {
@@ -549,6 +611,22 @@ export default function MemberDetailScreen() {
         memberName={member.name}
         sessions={signedSessions}
         onClose={() => setSignatureModalOpen(false)}
+        onAdd={() => {
+          setSignatureModalOpen(false);
+          setManualSignatureOpen(true);
+        }}
+        onDelete={confirmDeleteSignature}
+      />
+
+      <SessionSignatureModal
+        visible={manualSignatureOpen}
+        memberName={member.name}
+        remainingSessions={member.ptRemainingSessions}
+        submitting={signatureBusy}
+        onClose={() => setManualSignatureOpen(false)}
+        onSubmit={(signatureJson, sessionNote) =>
+          void addManualSignature(signatureJson, sessionNote)
+        }
       />
     </SafeAreaView>
   );
