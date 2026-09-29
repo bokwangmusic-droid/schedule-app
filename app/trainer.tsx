@@ -849,8 +849,7 @@ export default function HomeScreen() {
                     startHour={START_HOUR}
                     endHour={END_HOUR}
                     hourHeight={hourHeight}
-                    disabled={movingScheduleId !== null}
-                    dragDisabled={selectionMode}
+                    disabled={movingScheduleId !== null || selectionMode}
                     onRangeSelected={(startTime, endTime) =>
                       openNewSchedule(dateString, startTime, endTime)
                     }
@@ -908,7 +907,8 @@ export default function HomeScreen() {
                     showMeta={showPtLabel}
                     dayWidth={dayWidth}
                     hourHeight={hourHeight}
-                    disabled={movingScheduleId !== null || selectionMode}
+                    disabled={movingScheduleId !== null}
+                    dragDisabled={selectionMode}
                     deleteDropY={deleteDropY}
                     onPress={() =>
                       selectionMode
