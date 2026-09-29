@@ -115,6 +115,16 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_manual_signatures_member_date
       ON member_manual_signatures(member_id, date, signed_at);
 
+    CREATE TABLE IF NOT EXISTS member_training_log_drafts (
+      draft_key TEXT PRIMARY KEY NOT NULL,
+      member_id TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_training_log_drafts_member
+      ON member_training_log_drafts(member_id, updated_at);
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
