@@ -362,6 +362,21 @@ export default function MemberDetailScreen() {
               </View>
             </View>
 
+            <View style={styles.secondaryMetricRow}>
+              <View style={styles.secondaryMetric}>
+                <Text style={styles.secondaryMetricLabel}>BMI</Text>
+                <Text style={styles.secondaryMetricValue}>{formatMetric(latestBody.bmi)}</Text>
+              </View>
+              <View style={styles.secondaryMetric}>
+                <Text style={styles.secondaryMetricLabel}>체지방량</Text>
+                <Text style={styles.secondaryMetricValue}>{formatMetric(latestBody.bodyFat, 'kg')}</Text>
+              </View>
+              <View style={styles.secondaryMetric}>
+                <Text style={styles.secondaryMetricLabel}>내장지방레벨</Text>
+                <Text style={styles.secondaryMetricValue}>{formatMetric(latestBody.visceralFatLevel)}</Text>
+              </View>
+            </View>
+
             {bodyRecords.slice(0, 6).map((record) => (
               <View key={record.id} style={styles.bodyHistoryRow}>
                 <Text style={styles.bodyHistoryDate}>{shortDate(record.measuredDate)}</Text>
@@ -658,6 +673,17 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 10, fontWeight: '800', color: '#858C98' },
   metricValue: { marginTop: 6, fontSize: 16, fontWeight: '900', color: '#252A32' },
   metricDelta: { marginTop: 3, fontSize: 10, fontWeight: '800', color: '#5968B5' },
+  secondaryMetricRow: { marginTop: 8, flexDirection: 'row', gap: 8 },
+  secondaryMetric: {
+    flex: 1,
+    minHeight: 52,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 11,
+    backgroundColor: '#F8F9FB',
+  },
+  secondaryMetricLabel: { fontSize: 9, fontWeight: '800', color: '#8A919C' },
+  secondaryMetricValue: { marginTop: 4, fontSize: 13, fontWeight: '900', color: '#3A4049' },
   bodyHistoryRow: {
     minHeight: 30,
     marginTop: 6,
