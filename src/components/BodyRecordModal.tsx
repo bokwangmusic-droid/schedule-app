@@ -1,5 +1,7 @@
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { parseInBodyQr } from '../lib/inbodyQr';
 import type { CreateBodyRecordInput } from '../types/memberFitness';
 
 type Props = {
@@ -46,6 +49,12 @@ export function BodyRecordModal({
   const [skeletalMuscle, setSkeletalMuscle] = useState('');
   const [bodyFat, setBodyFat] = useState('');
   const [bodyFatPercentage, setBodyFatPercentage] = useState('');
+  const [bmi, setBmi] = useState('');
+  const [visceralFatLevel, setVisceralFatLevel] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerLocked, setScannerLocked] = useState(false);
+  const [qrSummary, setQrSummary] = useState<string | null>(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   useEffect(() => {
     if (!visible) return;
@@ -58,6 +67,11 @@ export function BodyRecordModal({
     setSkeletalMuscle('');
     setBodyFat('');
     setBodyFatPercentage('');
+    setBmi('');
+    setVisceralFatLevel('');
+    setScannerOpen(false);
+    setScannerLocked(false);
+    setQrSummary(null);
   };
 
   const close = () => {
@@ -74,7 +88,46 @@ export function BodyRecordModal({
       skeletalMuscle: parseOptionalNumber(skeletalMuscle),
       bodyFat: parseOptionalNumber(bodyFat),
       bodyFatPercentage: parseOptionalNumber(bodyFatPercentage),
+      bmi: parseOptionalNumber(bmi),
+      visceralFatLevel: parseOptionalNumber(visceralFatLevel),
     });
+  };
+
+  const openScanner = async () => {
+    let granted = cameraPermission?.granted ?? false;
+    if (!granted) {
+      const result = await requestCameraPermission();
+      granted = result.granted;
+    }
+    if (!granted) {
+      Alert.alert('카메라 권한이 필요해요.', '인바디 QR 자동입력을 사용하려면 카메라 권한을 허용해 주세요.');
+      return;
+    }
+    setScannerLocked(false);
+    setScannerOpen(true);
+  };
+
+  const applyQr = (data: string) => {
+    if (scannerLocked) return;
+    setScannerLocked(true);
+    try {
+      const parsed = parseInBodyQr(data);
+      setMeasuredDate(parsed.measuredDate);
+      setWeight(parsed.weight === null ? '' : String(parsed.weight));
+      setSkeletalMuscle(parsed.skeletalMuscle === null ? '' : String(parsed.skeletalMuscle));
+      setBodyFat(parsed.bodyFat === null ? '' : String(parsed.bodyFat));
+      setBodyFatPercentage(parsed.bodyFatPercentage === null ? '' : String(parsed.bodyFatPercentage));
+      setBmi(parsed.bmi === null ? '' : String(parsed.bmi));
+      if (parsed.visceralFatLevel !== null) setVisceralFatLevel(String(parsed.visceralFatLevel));
+      setQrSummary(`${parsed.measuredDate}${parsed.measuredTime ? ' ' + parsed.measuredTime : ''} · QR 자동입력 완료`);
+      setScannerOpen(false);
+    } catch (error) {
+      setScannerLocked(false);
+      Alert.alert(
+        'QR을 자동입력하지 못했어요.',
+        error instanceof Error ? error.message : '인바디 QR 코드인지 확인해 주세요.',
+      );
+    }
   };
 
   return (
@@ -105,6 +158,40 @@ export function BodyRecordModal({
               isTablet && styles.contentTablet,
             ]}
           >
+            <View style={[styles.qrCard, isTablet && styles.cardTablet]}>
+              <View style={styles.qrTextWrap}>
+                <Text style={styles.qrTitle}>인바디 QR 자동입력</Text>
+                <Text style={styles.qrText}>결과지 오른쪽 아래 QR을 스캔하면 주요 수치가 자동으로 채워져요.</Text>
+                {qrSummary ? <Text style={styles.qrSuccess}>{qrSummary}</Text> : null}
+              </View>
+              <Pressable style={styles.qrButton} onPress={() => void openScanner()}>
+                <Text style={styles.qrButtonText}>QR 스캔</Text>
+              </Pressable>
+            </View>
+
+            {scannerOpen ? (
+              <View style={styles.scannerCard}>
+                <CameraView
+                  style={styles.camera}
+                  facing="back"
+                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                  onBarcodeScanned={({ data }) => applyQr(data)}
+                />
+                <View style={styles.scannerFooter}>
+                  <Text style={styles.scannerHint}>인바디 결과지 QR을 사각형 안에 맞춰주세요.</Text>
+                  <Pressable
+                    style={styles.scannerCloseButton}
+                    onPress={() => {
+                      setScannerOpen(false);
+                      setScannerLocked(false);
+                    }}
+                  >
+                    <Text style={styles.scannerCloseText}>스캔 닫기</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+
             <View style={[styles.card, isTablet && styles.cardTablet]}>
               <Text style={styles.sectionTitle}>측정 정보</Text>
               <TextInput
@@ -150,12 +237,28 @@ export function BodyRecordModal({
                 keyboardType="decimal-pad"
                 style={[styles.input, isTablet && styles.inputTablet]}
               />
+              <TextInput
+                value={bmi}
+                onChangeText={setBmi}
+                placeholder="BMI"
+                placeholderTextColor="#A2A8B2"
+                keyboardType="decimal-pad"
+                style={[styles.input, isTablet && styles.inputTablet]}
+              />
+              <TextInput
+                value={visceralFatLevel}
+                onChangeText={setVisceralFatLevel}
+                placeholder="내장지방레벨"
+                placeholderTextColor="#A2A8B2"
+                keyboardType="number-pad"
+                style={[styles.input, isTablet && styles.inputTablet]}
+              />
             </View>
 
             <View style={styles.guideCard}>
               <Text style={styles.guideTitle}>구글시트의 인바디 기록을 그대로 옮긴 구조예요.</Text>
               <Text style={styles.guideText}>
-                측정일 · 몸무게 · 골격근 · 체지방 · 체지방률이 회원별로 누적됩니다.
+                측정일 · 몸무게 · 골격근 · 체지방 · 체지방률 · BMI · 내장지방레벨이 회원별로 누적됩니다.
               </Text>
             </View>
           </ScrollView>
@@ -203,6 +306,41 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     gap: 14,
   },
+  qrCard: {
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#EEF2FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  qrTextWrap: { flex: 1 },
+  qrTitle: { fontSize: 14, fontWeight: '900', color: '#344AB3' },
+  qrText: { marginTop: 4, fontSize: 10, lineHeight: 15, color: '#6976A8' },
+  qrSuccess: { marginTop: 6, fontSize: 10, fontWeight: '900', color: '#2D7A57' },
+  qrButton: {
+    minWidth: 82,
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4B68FF',
+  },
+  qrButtonText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
+  scannerCard: { overflow: 'hidden', borderRadius: 18, backgroundColor: '#101114' },
+  camera: { width: '100%', height: 300 },
+  scannerFooter: { padding: 12, backgroundColor: '#17191D' },
+  scannerHint: { fontSize: 11, textAlign: 'center', color: '#E4E7ED' },
+  scannerCloseButton: {
+    height: 38,
+    marginTop: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2B2F36',
+  },
+  scannerCloseText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
   card: { padding: 16, borderRadius: 18, backgroundColor: '#FFFFFF' },
   cardTablet: {
     padding: 22,
