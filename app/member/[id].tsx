@@ -20,6 +20,7 @@ import { TrainingLogModal } from '../../src/components/TrainingLogModal';
 import {
   createBodyRecord,
   createTrainingLog,
+  updateTrainingLog,
   listBodyRecords,
   listTrainingLogs,
 } from '../../src/data/memberFitnessRepository';
@@ -106,6 +107,7 @@ export default function MemberDetailScreen() {
   const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [logModalOpen, setLogModalOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<TrainingLogItem | null>(null);
   const [bodyModalOpen, setBodyModalOpen] = useState(false);
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [manualSignatureOpen, setManualSignatureOpen] = useState(false);
@@ -199,7 +201,12 @@ export default function MemberDetailScreen() {
   const saveTrainingLog = async (input: CreateTrainingLogInput) => {
     try {
       setSavingLog(true);
-      await createTrainingLog(db, input);
+      if (editingLog) {
+        await updateTrainingLog(db, editingLog.id, input);
+      } else {
+        await createTrainingLog(db, input);
+      }
+      setEditingLog(null);
       setLogModalOpen(false);
       await loadAll();
     } catch (error) {
@@ -208,7 +215,7 @@ export default function MemberDetailScreen() {
       if (message.includes('TRAINING_LOG_ALREADY_EXISTS')) {
         Alert.alert('이미 작성된 수업일지예요.', '이 시간표 수업에는 이미 운동일지가 저장되어 있어요.');
       } else {
-        Alert.alert('운동일지를 저장하지 못했어요.');
+        Alert.alert(editingLog ? '운동일지를 수정하지 못했어요.' : '운동일지를 저장하지 못했어요.');
       }
     } finally {
       setSavingLog(false);
@@ -358,7 +365,10 @@ export default function MemberDetailScreen() {
           <View style={styles.quickActions}>
             <Pressable
               style={[styles.primaryAction, isTablet && styles.primaryActionTablet]}
-              onPress={() => setLogModalOpen(true)}
+              onPress={() => {
+                setEditingLog(null);
+                setLogModalOpen(true);
+              }}
             >
               <Text style={styles.primaryActionTitle}>+ 운동일지</Text>
               <Text style={styles.primaryActionSub}>오늘 수업 기록</Text>
@@ -505,7 +515,13 @@ export default function MemberDetailScreen() {
         </View>
 
         {trainingLogs.length === 0 ? (
-          <Pressable style={styles.emptyCard} onPress={() => setLogModalOpen(true)}>
+          <Pressable
+            style={styles.emptyCard}
+            onPress={() => {
+              setEditingLog(null);
+              setLogModalOpen(true);
+            }}
+          >
             <Text style={styles.emptyTitle}>아직 운동일지가 없어요.</Text>
             <Text style={styles.emptyText}>구글시트 대신 첫 수업 기록을 남겨보세요.</Text>
           </Pressable>
@@ -524,10 +540,22 @@ export default function MemberDetailScreen() {
                     </Text>
                     <Text style={styles.logPart}>{log.bodyPart || '운동부위 미입력'}</Text>
                   </View>
-                  <View style={styles.conditionBadge}>
-                    <Text style={styles.conditionText}>
-                      컨디션 {log.conditionLevel ?? '-'}
-                    </Text>
+                  <View style={styles.logHeaderActions}>
+                    <Pressable
+                      style={styles.editLogButton}
+                      onPress={() => {
+                        setEditingLog(log);
+                        setLogModalOpen(true);
+                      }}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.editLogButtonText}>수정</Text>
+                    </Pressable>
+                    <View style={styles.conditionBadge}>
+                      <Text style={styles.conditionText}>
+                        컨디션 {log.conditionLevel ?? '-'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
@@ -590,9 +618,13 @@ export default function MemberDetailScreen() {
         memberId={member.id}
         memberName={member.name}
         date={routeDate}
-        scheduleId={scheduleId}
+        scheduleId={editingLog?.scheduleId ?? scheduleId}
+        initialLog={editingLog}
         saving={savingLog}
-        onClose={() => setLogModalOpen(false)}
+        onClose={() => {
+          setEditingLog(null);
+          setLogModalOpen(false);
+        }}
         onSubmit={(input) => void saveTrainingLog(input)}
       />
 
@@ -851,6 +883,20 @@ const styles = StyleSheet.create({
   logHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   logDate: { fontSize: 14, fontWeight: '900', color: '#252A32' },
   logPart: { marginTop: 3, fontSize: 11, fontWeight: '800', color: '#5968B5' },
+  logHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  editLogButton: {
+    minHeight: 30,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF1FF',
+  },
+  editLogButtonText: { fontSize: 10, fontWeight: '900', color: '#4B68FF' },
   conditionBadge: {
     paddingHorizontal: 8,
     paddingVertical: 5,
