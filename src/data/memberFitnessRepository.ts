@@ -242,6 +242,118 @@ export async function createTrainingLog(
   return logId;
 }
 
+export async function updateTrainingLog(
+  db: SQLiteDatabase,
+  logId: string,
+  input: CreateTrainingLogInput,
+) {
+  const now = new Date().toISOString();
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const existing = await txn.getFirstAsync<{ id: string; member_id: string }>(
+      'SELECT id, member_id FROM member_training_logs WHERE id = ? LIMIT 1',
+      [logId],
+    );
+    if (!existing) throw new Error('TRAINING_LOG_NOT_FOUND');
+    if (existing.member_id !== input.memberId) throw new Error('TRAINING_LOG_MEMBER_MISMATCH');
+
+    await txn.runAsync(
+      `UPDATE member_training_logs
+       SET schedule_id = ?,
+           date = ?,
+           body_part = ?,
+           sleep_quality = ?,
+           condition_level = ?,
+           activity_level = ?,
+           diet_control = ?,
+           hydration = ?,
+           cardio_treadmill = ?,
+           cardio_bike = ?,
+           cardio_stepmill = ?,
+           breakfast_carbs = ?,
+           breakfast_protein = ?,
+           breakfast_fat = ?,
+           lunch_carbs = ?,
+           lunch_protein = ?,
+           lunch_fat = ?,
+           dinner_carbs = ?,
+           dinner_protein = ?,
+           dinner_fat = ?,
+           snack = ?,
+           summary = ?,
+           feedback = ?,
+           updated_at = ?
+       WHERE id = ?`,
+      [
+        input.scheduleId ?? null,
+        input.date,
+        clean(input.bodyPart),
+        input.sleepQuality ?? null,
+        input.conditionLevel ?? null,
+        input.activityLevel ?? null,
+        input.dietControl ? 1 : 0,
+        input.hydration ? 1 : 0,
+        clean(input.cardioTreadmill),
+        clean(input.cardioBike),
+        clean(input.cardioStepmill),
+        clean(input.breakfastCarbs),
+        clean(input.breakfastProtein),
+        clean(input.breakfastFat),
+        clean(input.lunchCarbs),
+        clean(input.lunchProtein),
+        clean(input.lunchFat),
+        clean(input.dinnerCarbs),
+        clean(input.dinnerProtein),
+        clean(input.dinnerFat),
+        clean(input.snack),
+        clean(input.summary),
+        clean(input.feedback),
+        now,
+        logId,
+      ],
+    );
+
+    const exerciseRows = await txn.getAllAsync<{ id: string }>(
+      'SELECT id FROM member_training_exercises WHERE log_id = ?',
+      [logId],
+    );
+    for (const exercise of exerciseRows) {
+      await txn.runAsync('DELETE FROM member_training_sets WHERE exercise_id = ?', [exercise.id]);
+    }
+    await txn.runAsync('DELETE FROM member_training_exercises WHERE log_id = ?', [logId]);
+
+    const exercises = (input.exercises ?? []).filter((item) => item.name.trim());
+    for (let exerciseIndex = 0; exerciseIndex < exercises.length; exerciseIndex += 1) {
+      const exercise = exercises[exerciseIndex];
+      const exerciseId = createId();
+      await txn.runAsync(
+        `INSERT INTO member_training_exercises (
+          id, log_id, exercise_order, name, created_at
+        ) VALUES (?, ?, ?, ?, ?)`,
+        [exerciseId, logId, exerciseIndex, exercise.name.trim(), now],
+      );
+
+      for (let setIndex = 0; setIndex < exercise.sets.length; setIndex += 1) {
+        const set = exercise.sets[setIndex];
+        if (set.weight === null && set.reps === null) continue;
+        await txn.runAsync(
+          `INSERT INTO member_training_sets (
+            id, exercise_id, set_number, weight, reps, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            createId(),
+            exerciseId,
+            setIndex + 1,
+            set.weight,
+            set.reps,
+            now,
+          ],
+        );
+      }
+    }
+  });
+}
+
 export async function listTrainingLogs(
   db: SQLiteDatabase,
   memberId: string,
