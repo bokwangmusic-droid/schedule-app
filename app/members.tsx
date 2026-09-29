@@ -68,16 +68,6 @@ export default function MembersScreen() {
     }, [loadMembers]),
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!editMemberId || didOpenRequestedMember || members.length === 0) return;
-      const target = members.find((member) => member.id === editMemberId);
-      if (!target) return;
-      setDidOpenRequestedMember(true);
-      beginEdit(target);
-    }, [didOpenRequestedMember, editMemberId, members]),
-  );
-
   const resetForm = () => {
     setEditingMemberId(null);
     setName('');
@@ -105,6 +95,17 @@ export default function MembersScreen() {
     setMemo(member.memo ?? '');
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!editMemberId || didOpenRequestedMember || members.length === 0) return;
+      const target = members.find((member) => member.id === editMemberId);
+      if (!target) return;
+      setDidOpenRequestedMember(true);
+      beginEdit(target);
+    }, [didOpenRequestedMember, editMemberId, members]),
+  );
+
 
   const saveMember = async () => {
     if (!name.trim()) {
