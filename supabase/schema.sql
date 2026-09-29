@@ -107,6 +107,8 @@ create table if not exists public.member_body_records (
   skeletal_muscle numeric,
   body_fat numeric,
   body_fat_percentage numeric,
+  bmi numeric,
+  visceral_fat_level integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
