@@ -62,6 +62,8 @@ type BodyRow = {
   skeletal_muscle: number | null;
   body_fat: number | null;
   body_fat_percentage: number | null;
+  bmi: number | null;
+  visceral_fat_level: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -284,8 +286,8 @@ export async function createBodyRecord(
   await db.runAsync(
     `INSERT INTO member_body_records (
       id, member_id, measured_date, weight, skeletal_muscle,
-      body_fat, body_fat_percentage, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      body_fat, body_fat_percentage, bmi, visceral_fat_level, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.memberId,
@@ -294,6 +296,8 @@ export async function createBodyRecord(
       input.skeletalMuscle ?? null,
       input.bodyFat ?? null,
       input.bodyFatPercentage ?? null,
+      input.bmi ?? null,
+      input.visceralFatLevel ?? null,
       now,
       now,
     ],
@@ -323,6 +327,8 @@ export async function listBodyRecords(
     skeletalMuscle: row.skeletal_muscle,
     bodyFat: row.body_fat,
     bodyFatPercentage: row.body_fat_percentage,
+    bmi: row.bmi,
+    visceralFatLevel: row.visceral_fat_level,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
