@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { memberHomeRoute } from '../src/auth/appSession';
+import { SessionSignatureModal } from '../src/components/SessionSignatureModal';
 import { SignaturePreview } from '../src/components/SignaturePreview';
 import { SimpleDatePickerModal } from '../src/components/SimpleDatePickerModal';
 import {
@@ -23,6 +24,8 @@ import {
   updateMember,
 } from '../src/data/memberRepository';
 import {
+  addManualMemberSignature,
+  deleteSignedMemberSession,
   listSignedMemberSessions,
   type SignedMemberSession,
 } from '../src/data/scheduleRepository';
@@ -49,6 +52,8 @@ export default function MembersScreen() {
   const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
   const [selectedSignedSession, setSelectedSignedSession] = useState<SignedMemberSession | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [manualSignatureOpen, setManualSignatureOpen] = useState(false);
+  const [signatureBusy, setSignatureBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [didOpenRequestedMember, setDidOpenRequestedMember] = useState(false);
 
@@ -202,6 +207,66 @@ export default function MembersScreen() {
     setSignedSessions([]);
     setSelectedSignedSession(null);
     setHistoryLoading(false);
+  };
+
+  const addManualSignature = async (signatureJson: string, sessionNote: string) => {
+    if (!historyMember) return;
+    try {
+      setSignatureBusy(true);
+      await addManualMemberSignature(
+        db,
+        historyMember.id,
+        new Date().toISOString().slice(0, 10),
+        signatureJson,
+        sessionNote,
+      );
+      setManualSignatureOpen(false);
+      setSignedSessions(await listSignedMemberSessions(db, historyMember.id));
+      await loadMembers();
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('PT_BALANCE_NOT_SET')) {
+        Alert.alert('PT 횟수를 먼저 등록해 주세요.');
+      } else if (message.includes('NO_PT_REMAINING')) {
+        Alert.alert('남은 PT가 없어요.');
+      } else {
+        Alert.alert('서명을 추가하지 못했어요.');
+      }
+    } finally {
+      setSignatureBusy(false);
+    }
+  };
+
+  const confirmDeleteSignature = (session: SignedMemberSession) => {
+    if (!historyMember) return;
+    Alert.alert(
+      'PT 서명 삭제',
+      '이 서명을 삭제하면 소진된 PT 1회가 다시 잔여 횟수로 복원됩니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                setSignatureBusy(true);
+                await deleteSignedMemberSession(db, historyMember.id, session);
+                setSelectedSignedSession(null);
+                setSignedSessions(await listSignedMemberSessions(db, historyMember.id));
+                await loadMembers();
+              } catch (error) {
+                console.error(error);
+                Alert.alert('서명을 삭제하지 못했어요.');
+              } finally {
+                setSignatureBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const shortDate = (value: string) => {
@@ -407,9 +472,20 @@ export default function MembersScreen() {
                   회원이 직접 서명하고 소진된 수업을 날짜별로 확인합니다.
                 </Text>
               </View>
-              <Pressable onPress={closeSignatureHistory} hitSlop={10}>
-                <Text style={styles.historyClose}>닫기</Text>
-              </Pressable>
+              <View style={styles.historyHeaderActions}>
+                <Pressable
+                  onPress={() => {
+                    setSelectedSignedSession(null);
+                    setManualSignatureOpen(true);
+                  }}
+                  hitSlop={10}
+                >
+                  <Text style={styles.historyAdd}>+ 서명 추가</Text>
+                </Pressable>
+                <Pressable onPress={closeSignatureHistory} hitSlop={10}>
+                  <Text style={styles.historyClose}>닫기</Text>
+                </Pressable>
+              </View>
             </View>
 
             {historyLoading ? (
@@ -489,14 +565,35 @@ export default function MembersScreen() {
                     <Text style={styles.historyNoteText}>{selectedSignedSession.sessionNote}</Text>
                   </View>
                 ) : null}
-                <Text style={styles.historySignedAt}>
-                  서명 저장 {new Date(selectedSignedSession.signedAt).toLocaleString('ko-KR')}
-                </Text>
+                <View style={styles.historyDetailFooter}>
+                  <Pressable
+                    style={styles.historyDeleteButton}
+                    onPress={() => confirmDeleteSignature(selectedSignedSession)}
+                  >
+                    <Text style={styles.historyDeleteButtonText}>이 서명 삭제</Text>
+                  </Pressable>
+                  <Text style={styles.historySignedAt}>
+                    서명 저장 {new Date(selectedSignedSession.signedAt).toLocaleString('ko-KR')}
+                  </Text>
+                </View>
               </>
             ) : null}
           </View>
         </View>
       </Modal>
+
+      {historyMember ? (
+        <SessionSignatureModal
+          visible={manualSignatureOpen}
+          memberName={historyMember.name}
+          remainingSessions={historyMember.ptRemainingSessions}
+          submitting={signatureBusy}
+          onClose={() => setManualSignatureOpen(false)}
+          onSubmit={(signatureJson, sessionNote) =>
+            void addManualSignature(signatureJson, sessionNote)
+          }
+        />
+      ) : null}
 
       <SimpleDatePickerModal
         visible={datePickerTarget !== null}
@@ -650,6 +747,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#858C98',
   },
+  historyHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  historyAdd: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   historyClose: { fontSize: 13, fontWeight: '900', color: '#5968B5' },
   historyLoading: {
     height: 180,
@@ -739,8 +838,24 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#424852',
   },
+  historyDetailFooter: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  historyDeleteButton: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0F2',
+  },
+  historyDeleteButtonText: { fontSize: 11, fontWeight: '900', color: '#D9364F' },
   historySignedAt: {
-    marginTop: 8,
+    flex: 1,
     fontSize: 10,
     color: '#9AA0AA',
     textAlign: 'right',
