@@ -26,6 +26,10 @@ import {
 } from '../../src/data/memberFitnessRepository';
 import { getMemberById } from '../../src/data/memberRepository';
 import {
+  deleteTrainingLogDraft,
+  trainingLogDraftKey,
+} from '../../src/data/trainingLogDraftRepository';
+import {
   addManualMemberSignature,
   deleteSignedMemberSession,
   listSignedMemberSessions,
@@ -201,11 +205,17 @@ export default function MemberDetailScreen() {
   const saveTrainingLog = async (input: CreateTrainingLogInput) => {
     try {
       setSavingLog(true);
+      const draftKey = trainingLogDraftKey(
+        input.memberId,
+        input.scheduleId ?? null,
+        editingLog?.id ?? null,
+      );
       if (editingLog) {
         await updateTrainingLog(db, editingLog.id, input);
       } else {
         await createTrainingLog(db, input);
       }
+      await deleteTrainingLogDraft(db, draftKey);
       setEditingLog(null);
       setLogModalOpen(false);
       await loadAll();
