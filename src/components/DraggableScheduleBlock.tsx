@@ -16,6 +16,7 @@ type Props = {
   dayWidth: number;
   hourHeight: number;
   disabled?: boolean;
+  dragDisabled?: boolean;
   deleteDropY?: number;
   onPress: () => void;
   onMove: (dayDelta: number, minuteDelta: number) => void | Promise<void>;
@@ -34,6 +35,7 @@ export function DraggableScheduleBlock({
   dayWidth,
   hourHeight,
   disabled = false,
+  dragDisabled = false,
   deleteDropY,
   onPress,
   onMove,
@@ -69,6 +71,7 @@ export function DraggableScheduleBlock({
         onMoveShouldSetPanResponder: () => false,
         onPanResponderGrant: () => {
           clearLongPressTimer();
+          if (dragDisabled) return;
           timerRef.current = setTimeout(() => {
             draggingRef.current = true;
             setDragging(true);
@@ -118,6 +121,7 @@ export function DraggableScheduleBlock({
       dayWidth,
       deleteDropY,
       disabled,
+      dragDisabled,
       hourHeight,
       onDelete,
       onDragMoveY,
