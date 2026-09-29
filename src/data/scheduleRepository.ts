@@ -405,6 +405,7 @@ export async function completeMemberSessionWithSignature(
 
 export type SignedMemberSession = {
   id: string;
+  source: 'schedule' | 'manual';
   sessionNumber: number;
   date: string;
   startTime: string | null;
@@ -418,7 +419,7 @@ export async function listSignedMemberSessions(
   db: SQLiteDatabase,
   memberId: string,
 ): Promise<SignedMemberSession[]> {
-  const [rows, member] = await Promise.all([
+  const [scheduleRows, manualRows, member] = await Promise.all([
     db.getAllAsync<{
       id: string;
       date: string;
@@ -428,34 +429,64 @@ export async function listSignedMemberSessions(
       signature_json: string;
       signed_at: string;
     }>(
-      `SELECT
-         id,
-         date,
-         start_time,
-         end_time,
-         session_note,
-         signature_json,
-         signed_at
+      `SELECT id, date, start_time, end_time, session_note, signature_json, signed_at
        FROM schedules
        WHERE member_id = ?
          AND attendance_status = 'completed'
          AND pt_consumed = 1
          AND signature_json IS NOT NULL
-         AND signed_at IS NOT NULL
-       ORDER BY date ASC, COALESCE(start_time, '00:00') ASC, signed_at ASC`,
+         AND signed_at IS NOT NULL`,
+      [memberId],
+    ),
+    db.getAllAsync<{
+      id: string;
+      date: string;
+      session_note: string | null;
+      signature_json: string;
+      signed_at: string;
+    }>(
+      `SELECT id, date, session_note, signature_json, signed_at
+       FROM member_manual_signatures
+       WHERE member_id = ?`,
       [memberId],
     ),
     db.getFirstAsync<{
       pt_total_sessions: number | null;
       pt_remaining_sessions: number | null;
     }>(
-      `SELECT pt_total_sessions, pt_remaining_sessions
-       FROM members
-       WHERE id = ?
-       LIMIT 1`,
+      'SELECT pt_total_sessions, pt_remaining_sessions FROM members WHERE id = ? LIMIT 1',
       [memberId],
     ),
   ]);
+
+  const rows = [
+    ...scheduleRows.map((row) => ({
+      id: row.id,
+      source: 'schedule' as const,
+      date: row.date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      sessionNote: row.session_note,
+      signatureJson: row.signature_json,
+      signedAt: row.signed_at,
+    })),
+    ...manualRows.map((row) => ({
+      id: `manual:${row.id}`,
+      source: 'manual' as const,
+      date: row.date,
+      startTime: null,
+      endTime: null,
+      sessionNote: row.session_note,
+      signatureJson: row.signature_json,
+      signedAt: row.signed_at,
+    })),
+  ].sort((a, b) => {
+    const dateCompare = a.date.localeCompare(b.date);
+    if (dateCompare !== 0) return dateCompare;
+    const timeCompare = (a.startTime ?? '23:59').localeCompare(b.startTime ?? '23:59');
+    if (timeCompare !== 0) return timeCompare;
+    return a.signedAt.localeCompare(b.signedAt);
+  });
 
   const completedCount =
     member?.pt_total_sessions !== null &&
@@ -468,14 +499,98 @@ export async function listSignedMemberSessions(
 
   return rows
     .map((row, index) => ({
-      id: row.id,
+      ...row,
       sessionNumber: firstSessionNumber + index,
-      date: row.date,
-      startTime: row.start_time,
-      endTime: row.end_time,
-      sessionNote: row.session_note,
-      signatureJson: row.signature_json,
-      signedAt: row.signed_at,
     }))
     .reverse();
+}
+
+export async function addManualMemberSignature(
+  db: SQLiteDatabase,
+  memberId: string,
+  date: string,
+  signatureJson: string,
+  sessionNote?: string | null,
+) {
+  const now = new Date().toISOString();
+  const id = createId();
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const member = await txn.getFirstAsync<{ pt_remaining_sessions: number | null }>(
+      'SELECT pt_remaining_sessions FROM members WHERE id = ? LIMIT 1',
+      [memberId],
+    );
+    if (!member) throw new Error('MEMBER_NOT_FOUND');
+    if (member.pt_remaining_sessions === null) throw new Error('PT_BALANCE_NOT_SET');
+    if (member.pt_remaining_sessions <= 0) throw new Error('NO_PT_REMAINING');
+
+    await txn.runAsync(
+      `INSERT INTO member_manual_signatures (
+        id, member_id, date, signature_json, session_note, signed_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, memberId, date, signatureJson, sessionNote?.trim() || null, now, now],
+    );
+    await txn.runAsync(
+      'UPDATE members SET pt_remaining_sessions = ?, updated_at = ? WHERE id = ?',
+      [member.pt_remaining_sessions - 1, now, memberId],
+    );
+  });
+
+  return id;
+}
+
+export async function deleteSignedMemberSession(
+  db: SQLiteDatabase,
+  memberId: string,
+  session: SignedMemberSession,
+) {
+  const now = new Date().toISOString();
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const member = await txn.getFirstAsync<{
+      pt_total_sessions: number | null;
+      pt_remaining_sessions: number | null;
+    }>(
+      'SELECT pt_total_sessions, pt_remaining_sessions FROM members WHERE id = ? LIMIT 1',
+      [memberId],
+    );
+    if (!member) throw new Error('MEMBER_NOT_FOUND');
+
+    if (session.source === 'manual') {
+      const manualId = session.id.replace(/^manual:/, '');
+      await txn.runAsync(
+        'DELETE FROM member_manual_signatures WHERE id = ? AND member_id = ?',
+        [manualId, memberId],
+      );
+    } else {
+      const schedule = await txn.getFirstAsync<{ pt_consumed: number }>(
+        'SELECT pt_consumed FROM schedules WHERE id = ? AND member_id = ? LIMIT 1',
+        [session.id, memberId],
+      );
+      if (!schedule || schedule.pt_consumed !== 1) throw new Error('SIGNED_SESSION_NOT_FOUND');
+      await txn.runAsync(
+        `UPDATE schedules
+         SET attendance_status = NULL,
+             is_completed = 0,
+             session_note = NULL,
+             signature_json = NULL,
+             signed_at = NULL,
+             pt_consumed = 0,
+             updated_at = ?
+         WHERE id = ?`,
+        [now, session.id],
+      );
+    }
+
+    if (member.pt_remaining_sessions !== null) {
+      const restored =
+        member.pt_total_sessions === null
+          ? member.pt_remaining_sessions + 1
+          : Math.min(member.pt_remaining_sessions + 1, member.pt_total_sessions);
+      await txn.runAsync(
+        'UPDATE members SET pt_remaining_sessions = ?, updated_at = ? WHERE id = ?',
+        [restored, now, memberId],
+      );
+    }
+  });
 }
