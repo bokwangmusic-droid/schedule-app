@@ -731,6 +731,11 @@ export default function EditScheduleScreen() {
           sessions={signedSessions}
           loading={signatureHistoryLoading}
           onClose={() => setSignatureHistoryOpen(false)}
+          onAdd={() => {
+            setSignatureHistoryOpen(false);
+            setManualSignatureOpen(true);
+          }}
+          onDelete={confirmDeleteSignature}
         />
       ) : null}
 
@@ -743,6 +748,19 @@ export default function EditScheduleScreen() {
           onClose={() => setSignatureOpen(false)}
           onSubmit={(signatureJson, sessionNote) =>
             void completeWithSignature(signatureJson, sessionNote)
+          }
+        />
+      ) : null}
+
+      {selectedMember ? (
+        <SessionSignatureModal
+          visible={manualSignatureOpen}
+          memberName={selectedMember.name}
+          remainingSessions={selectedMember.ptRemainingSessions}
+          submitting={attendanceBusy}
+          onClose={() => setManualSignatureOpen(false)}
+          onSubmit={(signatureJson, sessionNote) =>
+            void addManualSignature(signatureJson, sessionNote)
           }
         />
       ) : null}
