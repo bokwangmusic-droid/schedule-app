@@ -184,6 +184,8 @@ export default function HomeScreen() {
   const [now, setNow] = useState(() => new Date());
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedScheduleIds, setSelectedScheduleIds] = useState<string[]>([]);
   const [movingScheduleId, setMovingScheduleId] = useState<string | null>(null);
   const [trashVisible, setTrashVisible] = useState(false);
   const [trashActive, setTrashActive] = useState(false);
@@ -289,6 +291,62 @@ export default function HomeScreen() {
 
   const openSchedule = (id: string) => {
     router.push({ pathname: '/schedule/[id]', params: { id } });
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((current) => {
+      const next = !current;
+      if (!next) setSelectedScheduleIds([]);
+      return next;
+    });
+  };
+
+  const toggleScheduleSelection = (id: string) => {
+    setSelectedScheduleIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  };
+
+  const deleteSelectedSchedules = () => {
+    if (selectedScheduleIds.length === 0) return;
+    const selected = schedules.filter((schedule) =>
+      selectedScheduleIds.includes(schedule.id),
+    );
+    const protectedCount = selected.filter((schedule) => schedule.ptConsumed).length;
+    const deletable = selected.filter((schedule) => !schedule.ptConsumed);
+
+    Alert.alert(
+      '선택 일정 삭제',
+      protectedCount > 0
+        ? `${deletable.length}개를 삭제할까요? 서명 완료된 ${protectedCount}개 수업은 보호되어 제외됩니다.`
+        : `${deletable.length}개의 일정을 한꺼번에 삭제할까요?`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                for (const schedule of deletable) {
+                  await deleteSchedule(db, schedule.id);
+                }
+                setSelectedScheduleIds([]);
+                setSelectionMode(false);
+                await loadSchedules();
+                void refreshWeeklyTimetableWidget().catch(console.error);
+              } catch (error) {
+                console.error(error);
+                Alert.alert('일괄 삭제 실패', '일정을 모두 삭제하지 못했어요.');
+                await loadSchedules();
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const moveTimedSchedule = async (
@@ -613,6 +671,22 @@ export default function HomeScreen() {
           <Pressable style={styles.smallHeaderButton} onPress={() => router.push('./calendar')}>
             <Text style={styles.smallHeaderButtonText}>달력</Text>
           </Pressable>
+          <Pressable
+            style={[
+              styles.smallHeaderButton,
+              selectionMode && styles.smallHeaderButtonActive,
+            ]}
+            onPress={toggleSelectionMode}
+          >
+            <Text
+              style={[
+                styles.smallHeaderButtonText,
+                selectionMode && styles.smallHeaderButtonTextActive,
+              ]}
+            >
+              {selectionMode ? '완료' : '선택'}
+            </Text>
+          </Pressable>
           <Pressable style={styles.addButton} onPress={() => openNewSchedule(todayString)}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
@@ -644,6 +718,31 @@ export default function HomeScreen() {
                 : '오늘 등록된 수업이 없어요.'}
             {lowPtMembers > 0 ? `  ·  PT 3회 이하 회원 ${lowPtMembers}명` : ''}
           </Text>
+        </View>
+      ) : null}
+
+      {selectionMode ? (
+        <View style={styles.selectionBar}>
+          <View style={styles.selectionBarTextWrap}>
+            <Text style={styles.selectionBarTitle}>
+              {selectedScheduleIds.length > 0
+                ? `${selectedScheduleIds.length}개 일정 선택됨`
+                : '지울 일정을 여러 개 선택하세요'}
+            </Text>
+            <Text style={styles.selectionBarHint}>
+              빈 시간은 세로로 드래그하면 19시~22시처럼 한 번에 범위를 잡을 수 있어요.
+            </Text>
+          </View>
+          <Pressable
+            style={[
+              styles.selectionDeleteButton,
+              selectedScheduleIds.length === 0 && styles.selectionDeleteButtonDisabled,
+            ]}
+            onPress={deleteSelectedSchedules}
+            disabled={selectedScheduleIds.length === 0}
+          >
+            <Text style={styles.selectionDeleteButtonText}>선택 삭제</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -679,8 +778,16 @@ export default function HomeScreen() {
               {allDaySchedules.map((schedule) => (
                 <Pressable
                   key={schedule.id}
-                  style={[styles.allDayChip, { backgroundColor: scheduleColor(schedule) }]}
-                  onPress={() => openSchedule(schedule.id)}
+                  style={[
+                    styles.allDayChip,
+                    { backgroundColor: scheduleColor(schedule) },
+                    selectedScheduleIds.includes(schedule.id) && styles.selectedScheduleBlock,
+                  ]}
+                  onPress={() =>
+                    selectionMode
+                      ? toggleScheduleSelection(schedule.id)
+                      : openSchedule(schedule.id)
+                  }
                 >
                   <Text numberOfLines={1} style={styles.allDayChipText}>{scheduleLabel(schedule)}</Text>
                 </Pressable>
@@ -743,6 +850,7 @@ export default function HomeScreen() {
                     endHour={END_HOUR}
                     hourHeight={hourHeight}
                     disabled={movingScheduleId !== null}
+                    dragDisabled={selectionMode}
                     onRangeSelected={(startTime, endTime) =>
                       openNewSchedule(dateString, startTime, endTime)
                     }
@@ -800,9 +908,13 @@ export default function HomeScreen() {
                     showMeta={showPtLabel}
                     dayWidth={dayWidth}
                     hourHeight={hourHeight}
-                    disabled={movingScheduleId !== null}
+                    disabled={movingScheduleId !== null || selectionMode}
                     deleteDropY={deleteDropY}
-                    onPress={() => openSchedule(schedule.id)}
+                    onPress={() =>
+                      selectionMode
+                        ? toggleScheduleSelection(schedule.id)
+                        : openSchedule(schedule.id)
+                    }
                     onMove={(dayDelta, minuteDelta) =>
                       moveTimedSchedule(schedule, dayDelta, minuteDelta)
                     }
@@ -820,6 +932,12 @@ export default function HomeScreen() {
                       height: Math.max(blockHeight - 4, 14),
                       backgroundColor: scheduleColor(schedule),
                       opacity: schedule.isCompleted ? 0.55 : 1,
+                      ...(selectedScheduleIds.includes(schedule.id)
+                        ? {
+                            borderWidth: 2,
+                            borderColor: '#1F2937',
+                          }
+                        : {}),
                     }}
                   />
                 );
@@ -936,6 +1054,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   smallHeaderButtonText: { fontSize: 10, fontWeight: '900', color: '#5B6270' },
+  smallHeaderButtonActive: { backgroundColor: '#E9EDFF' },
+  smallHeaderButtonTextActive: { color: '#4B68FF' },
+  selectionBar: {
+    minHeight: 58,
+    marginTop: 8,
+    marginHorizontal: SCREEN_MARGIN,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#EEF1FF',
+  },
+  selectionBarTextWrap: { flex: 1, minWidth: 0 },
+  selectionBarTitle: { fontSize: 12, fontWeight: '900', color: '#35459A' },
+  selectionBarHint: { marginTop: 3, fontSize: 9, lineHeight: 13, color: '#727DAD' },
+  selectionDeleteButton: {
+    minWidth: 76,
+    height: 38,
+    paddingHorizontal: 10,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E3475A',
+  },
+  selectionDeleteButtonDisabled: { opacity: 0.35 },
+  selectionDeleteButtonText: { fontSize: 11, fontWeight: '900', color: '#FFFFFF' },
+  selectedScheduleBlock: {
+    borderWidth: 2,
+    borderColor: '#1F2937',
+  },
   addButton: {
     width: 32,
     height: 32,
