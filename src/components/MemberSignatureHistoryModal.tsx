@@ -16,6 +16,8 @@ type Props = {
   sessions: SignedMemberSession[];
   loading?: boolean;
   onClose: () => void;
+  onAdd?: () => void;
+  onDelete?: (session: SignedMemberSession) => void;
 };
 
 function shortDate(value: string) {
@@ -29,6 +31,8 @@ export function MemberSignatureHistoryModal({
   sessions,
   loading = false,
   onClose,
+  onAdd,
+  onDelete,
 }: Props) {
   const [selected, setSelected] = useState<SignedMemberSession | null>(null);
 
@@ -55,9 +59,16 @@ export function MemberSignatureHistoryModal({
                   회차 · 날짜 · 실제 서명을 한 화면에서 확인합니다.
                 </Text>
               </View>
-              <Pressable onPress={close} hitSlop={10}>
-                <Text style={styles.closeText}>닫기</Text>
-              </Pressable>
+              <View style={styles.headerActions}>
+                {onAdd ? (
+                  <Pressable onPress={onAdd} hitSlop={10}>
+                    <Text style={styles.addText}>+ 서명 추가</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable onPress={close} hitSlop={10}>
+                  <Text style={styles.closeText}>닫기</Text>
+                </Pressable>
+              </View>
             </View>
 
             {loading ? (
@@ -135,9 +146,23 @@ export function MemberSignatureHistoryModal({
                     <Text style={styles.noteText}>{selected.sessionNote}</Text>
                   </View>
                 ) : null}
-                <Text style={styles.signedAt}>
-                  서명 저장 {new Date(selected.signedAt).toLocaleString('ko-KR')}
-                </Text>
+                <View style={styles.detailFooter}>
+                  {onDelete ? (
+                    <Pressable
+                      style={styles.deleteButton}
+                      onPress={() => {
+                        const target = selected;
+                        setSelected(null);
+                        if (target) onDelete(target);
+                      }}
+                    >
+                      <Text style={styles.deleteButtonText}>이 서명 삭제</Text>
+                    </Pressable>
+                  ) : null}
+                  <Text style={styles.signedAt}>
+                    서명 저장 {new Date(selected.signedAt).toLocaleString('ko-KR')}
+                  </Text>
+                </View>
               </>
             ) : null}
           </View>
@@ -184,6 +209,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#858C98',
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  addText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   closeText: { fontSize: 13, fontWeight: '900', color: '#5968B5' },
   loading: {
     height: 180,
@@ -277,8 +304,24 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#424852',
   },
+  detailFooter: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  deleteButton: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0F2',
+  },
+  deleteButtonText: { fontSize: 11, fontWeight: '900', color: '#D9364F' },
   signedAt: {
-    marginTop: 8,
+    flex: 1,
     fontSize: 10,
     color: '#9AA0AA',
     textAlign: 'right',
