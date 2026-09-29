@@ -184,6 +184,21 @@ export function TrainingLogModal({
     );
   };
 
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    setExercises((current) =>
+      current.map((exercise, index) => {
+        if (index !== exerciseIndex) return exercise;
+        if (exercise.sets.length <= 1) {
+          return { ...exercise, sets: [{ weight: '', reps: '' }] };
+        }
+        return {
+          ...exercise,
+          sets: exercise.sets.filter((_, currentSetIndex) => currentSetIndex !== setIndex),
+        };
+      }),
+    );
+  };
+
   const removeExercise = (exerciseIndex: number) => {
     setExercises((current) =>
       current.length === 1
@@ -473,6 +488,25 @@ export function TrainingLogModal({
                         keyboardType="number-pad"
                         style={[styles.setInput, isTablet && styles.setInputTablet]}
                       />
+                      <Pressable
+                        accessibilityLabel={`${setIndex + 1}세트 삭제`}
+                        style={[
+                          styles.removeSetButton,
+                          exercise.sets.length <= 1 && styles.removeSetButtonDisabled,
+                        ]}
+                        onPress={() => removeSet(exerciseIndex, setIndex)}
+                        disabled={exercise.sets.length <= 1}
+                        hitSlop={6}
+                      >
+                        <Text
+                          style={[
+                            styles.removeSetText,
+                            exercise.sets.length <= 1 && styles.removeSetTextDisabled,
+                          ]}
+                        >
+                          삭제
+                        </Text>
+                      </Pressable>
                     </View>
                   ))}
                   <View style={styles.exerciseVolumeRow}>
@@ -706,6 +740,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 11,
     fontSize: 14,
+  },
+  removeSetButton: {
+    minWidth: 42,
+    height: 36,
+    paddingHorizontal: 6,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0F2',
+  },
+  removeSetButtonDisabled: {
+    backgroundColor: '#ECEFF3',
+  },
+  removeSetText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#D64B5B',
+  },
+  removeSetTextDisabled: {
+    color: '#B2B8C2',
   },
   exerciseVolumeRow: {
     marginTop: 8,
