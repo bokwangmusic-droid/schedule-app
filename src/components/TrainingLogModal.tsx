@@ -37,6 +37,7 @@ type Props = {
   date: string;
   scheduleId?: string | null;
   initialLog?: TrainingLogItem | null;
+  recentLogs?: TrainingLogItem[];
   saving?: boolean;
   onClose: () => void;
   onSubmit: (input: CreateTrainingLogInput) => void;
@@ -72,6 +73,50 @@ function formatVolume(value: number) {
     : value.toLocaleString('ko-KR', { maximumFractionDigits: 1 });
 }
 
+function trainingLogVolume(log: TrainingLogItem) {
+  return log.exercises.reduce(
+    (total, exercise) =>
+      total +
+      exercise.sets.reduce((exerciseTotal, set) => {
+        if (set.weight === null || set.reps === null) return exerciseTotal;
+        return exerciseTotal + set.weight * set.reps;
+      }, 0),
+    0,
+  );
+}
+
+function volumePlanText(logs: TrainingLogItem[]) {
+  const usable = logs.filter((log) => trainingLogVolume(log) > 0).slice(0, 4);
+  if (usable.length === 0) {
+    return '아직 비교할 운동 기록이 부족해요. 오늘 수행량을 저장하면 다음 수업부터 볼륨 방향을 제안할게요.';
+  }
+
+  const latest = usable[0];
+  const latestVolume = trainingLogVolume(latest);
+  const prior = usable.slice(1);
+  const priorAverage =
+    prior.length > 0
+      ? prior.reduce((total, log) => total + trainingLogVolume(log), 0) / prior.length
+      : 0;
+
+  if (latest.conditionLevel === '하' || latest.sleepQuality === '하') {
+    return `최근 컨디션을 고려하면 오늘은 볼륨을 무리하게 올리기보다 최근 ${formatVolume(latestVolume)}kg 안팎 또는 10~15% 낮게 시작하는 편이 좋아요.`;
+  }
+
+  if (priorAverage <= 0) {
+    return `최근 총 볼륨은 ${formatVolume(latestVolume)}kg이에요. 컨디션이 좋다면 동일 볼륨을 안정적으로 재현한 뒤 소폭 증가를 검토해보세요.`;
+  }
+
+  const change = ((latestVolume - priorAverage) / priorAverage) * 100;
+  if (change >= 10) {
+    return `최근 볼륨이 이전 평균보다 약 ${change.toFixed(0)}% 높아요. 오늘은 추가 증량보다 현재 수준을 유지하거나 세트 품질을 확인하는 편이 좋아요.`;
+  }
+  if (change <= -10 && latest.conditionLevel !== '하') {
+    return `최근 볼륨이 이전 평균보다 약 ${Math.abs(change).toFixed(0)}% 낮아요. 컨디션이 괜찮다면 5~10% 정도 점진적으로 올려볼 수 있어요.`;
+  }
+  return '최근 볼륨 변화가 크지 않아요. 수행이 안정적이고 컨디션이 좋다면 총 볼륨을 약 5% 정도만 올리는 식으로 진행해보세요.';
+}
+
 export function TrainingLogModal({
   visible,
   memberId,
@@ -79,6 +124,7 @@ export function TrainingLogModal({
   date,
   scheduleId = null,
   initialLog = null,
+  recentLogs = [],
   saving = false,
   onClose,
   onSubmit,
@@ -108,6 +154,9 @@ export function TrainingLogModal({
   const [summary, setSummary] = useState('');
   const [feedback, setFeedback] = useState('');
   const [exercises, setExercises] = useState<EditableExercise[]>([emptyExercise()]);
+  const historyLogs = recentLogs.filter((log) => log.id !== initialLog?.id);
+  const latestHistoryLog = historyLogs[0] ?? null;
+  const planText = volumePlanText(historyLogs);
   const totalVolume = exercises.reduce(
     (total, exercise) => total + editableExerciseVolume(exercise),
     0,
@@ -248,6 +297,25 @@ export function TrainingLogModal({
       current.length === 1
         ? [emptyExercise()]
         : current.filter((_, index) => index !== exerciseIndex),
+    );
+  };
+
+  const applyLatestRoutine = () => {
+    if (!latestHistoryLog) return;
+    setBodyPart(latestHistoryLog.bodyPart ?? '');
+    setExercises(
+      latestHistoryLog.exercises.length > 0
+        ? latestHistoryLog.exercises.map((exercise) => ({
+            name: exercise.name,
+            sets:
+              exercise.sets.length > 0
+                ? exercise.sets.map((set) => ({
+                    weight: set.weight === null ? '' : String(set.weight),
+                    reps: set.reps === null ? '' : String(set.reps),
+                  }))
+                : [{ weight: '', reps: '' }],
+          }))
+        : [emptyExercise()],
     );
   };
 
@@ -475,6 +543,29 @@ export function TrainingLogModal({
             </View>
 
             <View style={[styles.card, isTablet && styles.cardTablet]}>
+              <View style={styles.planHeaderRow}>
+                <View style={styles.planHeaderText}>
+                  <Text style={styles.sectionTitle}>수업 계획 도우미</Text>
+                  <Text style={styles.planSubText}>최근 운동기록과 컨디션을 바탕으로 참고용 제안을 보여줘요.</Text>
+                </View>
+                {latestHistoryLog ? (
+                  <Pressable style={styles.loadRoutineButton} onPress={applyLatestRoutine}>
+                    <Text style={styles.loadRoutineButtonText}>최근 루틴 불러오기</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <View style={styles.planCard}>
+                <Text style={styles.planLabel}>오늘 볼륨 제안</Text>
+                <Text style={styles.planText}>{planText}</Text>
+                {latestHistoryLog ? (
+                  <Text style={styles.planHistory}>
+                    최근 {latestHistoryLog.date.replaceAll('-', '.')} · {latestHistoryLog.bodyPart || '부위 미입력'} · 총 {formatVolume(trainingLogVolume(latestHistoryLog))}kg
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
               <View style={styles.sectionHeaderRow}>
                 <View>
                   <Text style={styles.sectionTitle}>웨이트 트레이닝</Text>
@@ -688,6 +779,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionTitle: { fontSize: 15, fontWeight: '900', color: '#252A32' },
+  planHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  planHeaderText: { flex: 1, minWidth: 0 },
+  planSubText: { marginTop: 4, fontSize: 10, lineHeight: 14, color: '#8A919C' },
+  loadRoutineButton: {
+    minHeight: 38,
+    paddingHorizontal: 11,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF1FF',
+  },
+  loadRoutineButtonText: { fontSize: 10, fontWeight: '900', color: '#4B68FF' },
+  planCard: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 13,
+    backgroundColor: '#F6F8FF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DCE2FF',
+  },
+  planLabel: { fontSize: 10, fontWeight: '900', color: '#5968B5' },
+  planText: { marginTop: 5, fontSize: 12, lineHeight: 18, color: '#3E4652' },
+  planHistory: { marginTop: 7, fontSize: 10, fontWeight: '700', color: '#858C98' },
   label: { marginTop: 12, marginBottom: 6, fontSize: 11, fontWeight: '800', color: '#737B87' },
   input: {
     minHeight: 44,
