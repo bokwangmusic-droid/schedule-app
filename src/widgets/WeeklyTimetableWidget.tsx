@@ -28,7 +28,7 @@ const END_MINUTES = 24 * 60;
 const TOTAL_MINUTES = END_MINUTES - START_MINUTES;
 const COMPACT_TIME_LABELS = [6, 9, 12, 15, 18, 21];
 const LARGE_TIME_LABELS = Array.from({ length: 18 }, (_, index) => index + 6);
-const NOW_COLOR = '#FF4D5A';
+const NOW_COLOR = '#F06A73';
 
 const WIDGET_TEXT_COLORS = {
   white: '#FFFFFF',
@@ -78,7 +78,7 @@ function fittedScheduleFontSize(
   // Korean names are often 3–5 characters. Prefer shrinking the text over
   // showing an ellipsis when the day column is narrow.
   const estimatedFit = usableWidth / (characterCount * 0.92);
-  return Math.round(clamp(Math.min(preferredSize, estimatedFit), 5.5, preferredSize) * 10) / 10;
+  return Math.round(clamp(Math.min(preferredSize, estimatedFit), 5.2, preferredSize) * 10) / 10;
 }
 
 function getBodyHeight(
@@ -177,7 +177,7 @@ function ScheduleLayer({
         const rawHeight = ((visibleEnd - visibleStart) / TOTAL_MINUTES) * height;
         const blockHeight = Math.max(
           rawHeight,
-          variant === 'large' ? 20 : 12,
+          variant === 'large' ? 18 : 11,
         );
         const ptRemaining =
           schedule.memberPtProjectedRemainingSessions ??
@@ -191,13 +191,13 @@ function ScheduleLayer({
         const preferredPrimaryFontSize = scaled(
           variant === 'large'
             ? narrowColumn
-              ? 10
-              : blockHeight >= 28
-                ? 11
-                : 10
-            : blockHeight >= 18
               ? 9
-              : 8,
+              : blockHeight >= 26
+                ? 10
+                : 9
+            : blockHeight >= 18
+              ? 8
+              : 7,
           fontScale,
         );
         const primaryFontSize = fittedScheduleFontSize(
@@ -268,8 +268,8 @@ export function WeeklyTimetableWidget({
   const typography = getWidgetTypography(data);
   const bodyHeight = getBodyHeight(variant, widgetHeight, widgetWidth);
   const timeLabels = large ? LARGE_TIME_LABELS : COMPACT_TIME_LABELS;
-  const dayHeaderHeight = large ? 24 : 22;
-  const gutterWidth = large ? 32 : 27;
+  const dayHeaderHeight = large ? 22 : 21;
+  const gutterWidth = large ? 28 : 25;
   const resolvedWidgetWidth = widgetWidth > 0 ? widgetWidth : large ? 360 : 340;
   const wideWidget = resolvedWidgetWidth >= 560;
   const outerPadding = large
@@ -422,7 +422,7 @@ export function WeeklyTimetableWidget({
                     width: gutterWidth - 3,
                     height: 14,
                     marginTop: Math.max(0, top - 6),
-                    fontSize: scaled(9.5, typography.scale),
+                    fontSize: scaled(8.5, typography.scale),
                     color: '#717884',
                     textAlign: 'right',
                     ...(typography.fontFamily ? { fontFamily: typography.fontFamily } : {}),
