@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSQLiteContext } from 'expo-sqlite';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -13,6 +14,11 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  loadTrainingLogDraft,
+  saveTrainingLogDraft,
+  trainingLogDraftKey,
+} from '../data/trainingLogDraftRepository';
 import type {
   CreateTrainingLogInput,
   TrainingExerciseInput,
@@ -129,8 +135,10 @@ export function TrainingLogModal({
   onClose,
   onSubmit,
 }: Props) {
+  const db = useSQLiteContext();
   const { width } = useWindowDimensions();
   const isTablet = width >= 700;
+  const draftKey = trainingLogDraftKey(memberId, scheduleId, initialLog?.id ?? null);
   const [logDate, setLogDate] = useState(date);
   const [bodyPart, setBodyPart] = useState('');
   const [sleepQuality, setSleepQuality] = useState<WellnessLevel>('중');
@@ -154,6 +162,8 @@ export function TrainingLogModal({
   const [summary, setSummary] = useState('');
   const [feedback, setFeedback] = useState('');
   const [exercises, setExercises] = useState<EditableExercise[]>([emptyExercise()]);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('자동 저장 준비');
   const historyLogs = recentLogs.filter((log) => log.id !== initialLog?.id);
   const latestHistoryLog = historyLogs[0] ?? null;
   const planText = volumePlanText(historyLogs);
@@ -161,52 +171,6 @@ export function TrainingLogModal({
     (total, exercise) => total + editableExerciseVolume(exercise),
     0,
   );
-
-  useEffect(() => {
-    if (!visible) return;
-
-    if (initialLog) {
-      setLogDate(initialLog.date);
-      setBodyPart(initialLog.bodyPart ?? '');
-      setSleepQuality(initialLog.sleepQuality ?? '중');
-      setConditionLevel(initialLog.conditionLevel ?? '중');
-      setActivityLevel(initialLog.activityLevel ?? '중');
-      setDietControl(initialLog.dietControl);
-      setHydration(initialLog.hydration);
-      setCardioTreadmill(initialLog.cardioTreadmill ?? '');
-      setCardioBike(initialLog.cardioBike ?? '');
-      setCardioStepmill(initialLog.cardioStepmill ?? '');
-      setBreakfastCarbs(initialLog.breakfastCarbs ?? '');
-      setBreakfastProtein(initialLog.breakfastProtein ?? '');
-      setBreakfastFat(initialLog.breakfastFat ?? '');
-      setLunchCarbs(initialLog.lunchCarbs ?? '');
-      setLunchProtein(initialLog.lunchProtein ?? '');
-      setLunchFat(initialLog.lunchFat ?? '');
-      setDinnerCarbs(initialLog.dinnerCarbs ?? '');
-      setDinnerProtein(initialLog.dinnerProtein ?? '');
-      setDinnerFat(initialLog.dinnerFat ?? '');
-      setSnack(initialLog.snack ?? '');
-      setSummary(initialLog.summary ?? '');
-      setFeedback(initialLog.feedback ?? '');
-      setExercises(
-        initialLog.exercises.length > 0
-          ? initialLog.exercises.map((exercise) => ({
-              name: exercise.name,
-              sets:
-                exercise.sets.length > 0
-                  ? exercise.sets.map((set) => ({
-                      weight: set.weight === null ? '' : String(set.weight),
-                      reps: set.reps === null ? '' : String(set.reps),
-                    }))
-                  : [{ weight: '', reps: '' }],
-            }))
-          : [emptyExercise()],
-      );
-      return;
-    }
-
-    reset();
-  }, [date, initialLog, visible]);
 
   const reset = () => {
     setLogDate(date);
@@ -234,9 +198,244 @@ export function TrainingLogModal({
     setExercises([emptyExercise()]);
   };
 
+  const applyInput = (input: CreateTrainingLogInput) => {
+    setLogDate(input.date || date);
+    setBodyPart(input.bodyPart ?? '');
+    setSleepQuality(input.sleepQuality ?? '중');
+    setConditionLevel(input.conditionLevel ?? '중');
+    setActivityLevel(input.activityLevel ?? '중');
+    setDietControl(Boolean(input.dietControl));
+    setHydration(Boolean(input.hydration));
+    setCardioTreadmill(input.cardioTreadmill ?? '');
+    setCardioBike(input.cardioBike ?? '');
+    setCardioStepmill(input.cardioStepmill ?? '');
+    setBreakfastCarbs(input.breakfastCarbs ?? '');
+    setBreakfastProtein(input.breakfastProtein ?? '');
+    setBreakfastFat(input.breakfastFat ?? '');
+    setLunchCarbs(input.lunchCarbs ?? '');
+    setLunchProtein(input.lunchProtein ?? '');
+    setLunchFat(input.lunchFat ?? '');
+    setDinnerCarbs(input.dinnerCarbs ?? '');
+    setDinnerProtein(input.dinnerProtein ?? '');
+    setDinnerFat(input.dinnerFat ?? '');
+    setSnack(input.snack ?? '');
+    setSummary(input.summary ?? '');
+    setFeedback(input.feedback ?? '');
+    setExercises(
+      input.exercises && input.exercises.length > 0
+        ? input.exercises.map((exercise) => ({
+            name: exercise.name,
+            sets:
+              exercise.sets.length > 0
+                ? exercise.sets.map((set) => ({
+                    weight: set.weight === null ? '' : String(set.weight),
+                    reps: set.reps === null ? '' : String(set.reps),
+                  }))
+                : [{ weight: '', reps: '' }],
+          }))
+        : [emptyExercise()],
+    );
+  };
+
+  const buildInput = (): CreateTrainingLogInput => ({
+    memberId,
+    scheduleId,
+    date: logDate,
+    bodyPart,
+    sleepQuality,
+    conditionLevel,
+    activityLevel,
+    dietControl,
+    hydration,
+    cardioTreadmill,
+    cardioBike,
+    cardioStepmill,
+    breakfastCarbs,
+    breakfastProtein,
+    breakfastFat,
+    lunchCarbs,
+    lunchProtein,
+    lunchFat,
+    dinnerCarbs,
+    dinnerProtein,
+    dinnerFat,
+    snack,
+    summary,
+    feedback,
+    exercises: exercises
+      .filter((exercise) => exercise.name.trim())
+      .map((exercise) => ({
+        name: exercise.name.trim(),
+        sets: exercise.sets.map((set) => ({
+          weight: parseOptionalNumber(set.weight),
+          reps: parseOptionalNumber(set.reps),
+        })),
+      })),
+  });
+
+  useEffect(() => {
+    if (!visible) {
+      setDraftReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDraftReady(false);
+    setDraftStatus('임시저장 확인 중');
+
+    void (async () => {
+      try {
+        const draft = await loadTrainingLogDraft(db, draftKey);
+        if (cancelled) return;
+
+        if (draft) {
+          applyInput(draft.input);
+          setDraftStatus('임시저장 복원됨');
+        } else if (initialLog) {
+          applyInput({
+            memberId,
+            scheduleId: initialLog.scheduleId,
+            date: initialLog.date,
+            bodyPart: initialLog.bodyPart,
+            sleepQuality: initialLog.sleepQuality,
+            conditionLevel: initialLog.conditionLevel,
+            activityLevel: initialLog.activityLevel,
+            dietControl: initialLog.dietControl,
+            hydration: initialLog.hydration,
+            cardioTreadmill: initialLog.cardioTreadmill,
+            cardioBike: initialLog.cardioBike,
+            cardioStepmill: initialLog.cardioStepmill,
+            breakfastCarbs: initialLog.breakfastCarbs,
+            breakfastProtein: initialLog.breakfastProtein,
+            breakfastFat: initialLog.breakfastFat,
+            lunchCarbs: initialLog.lunchCarbs,
+            lunchProtein: initialLog.lunchProtein,
+            lunchFat: initialLog.lunchFat,
+            dinnerCarbs: initialLog.dinnerCarbs,
+            dinnerProtein: initialLog.dinnerProtein,
+            dinnerFat: initialLog.dinnerFat,
+            snack: initialLog.snack,
+            summary: initialLog.summary,
+            feedback: initialLog.feedback,
+            exercises: initialLog.exercises.map((exercise) => ({
+              name: exercise.name,
+              sets: exercise.sets.map((set) => ({
+                weight: set.weight,
+                reps: set.reps,
+              })),
+            })),
+          });
+          setDraftStatus('자동 저장 켜짐');
+        } else {
+          reset();
+          setDraftStatus('자동 저장 켜짐');
+        }
+        setDraftReady(true);
+      } catch (error) {
+        console.error('운동일지 임시저장 불러오기 실패', error);
+        if (!cancelled) {
+          if (initialLog) {
+            applyInput({
+              memberId,
+              scheduleId: initialLog.scheduleId,
+              date: initialLog.date,
+              bodyPart: initialLog.bodyPart,
+              sleepQuality: initialLog.sleepQuality,
+              conditionLevel: initialLog.conditionLevel,
+              activityLevel: initialLog.activityLevel,
+              dietControl: initialLog.dietControl,
+              hydration: initialLog.hydration,
+              cardioTreadmill: initialLog.cardioTreadmill,
+              cardioBike: initialLog.cardioBike,
+              cardioStepmill: initialLog.cardioStepmill,
+              breakfastCarbs: initialLog.breakfastCarbs,
+              breakfastProtein: initialLog.breakfastProtein,
+              breakfastFat: initialLog.breakfastFat,
+              lunchCarbs: initialLog.lunchCarbs,
+              lunchProtein: initialLog.lunchProtein,
+              lunchFat: initialLog.lunchFat,
+              dinnerCarbs: initialLog.dinnerCarbs,
+              dinnerProtein: initialLog.dinnerProtein,
+              dinnerFat: initialLog.dinnerFat,
+              snack: initialLog.snack,
+              summary: initialLog.summary,
+              feedback: initialLog.feedback,
+              exercises: initialLog.exercises.map((exercise) => ({
+                name: exercise.name,
+                sets: exercise.sets.map((set) => ({
+                  weight: set.weight,
+                  reps: set.reps,
+                })),
+              })),
+            });
+          } else {
+            reset();
+          }
+          setDraftStatus('자동 저장 다시 시도');
+          setDraftReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [db, draftKey, visible]);
+
+  useEffect(() => {
+    if (!visible || !draftReady || saving) return;
+
+    setDraftStatus('입력 중');
+    const timer = setTimeout(() => {
+      const input = buildInput();
+      void saveTrainingLogDraft(db, draftKey, memberId, input)
+        .then(() => setDraftStatus('자동 저장됨'))
+        .catch((error) => {
+          console.error('운동일지 자동저장 실패', error);
+          setDraftStatus('자동 저장 실패');
+        });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [
+    activityLevel,
+    bodyPart,
+    breakfastCarbs,
+    breakfastFat,
+    breakfastProtein,
+    cardioBike,
+    cardioStepmill,
+    cardioTreadmill,
+    conditionLevel,
+    db,
+    dietControl,
+    dinnerCarbs,
+    dinnerFat,
+    dinnerProtein,
+    draftKey,
+    draftReady,
+    exercises,
+    feedback,
+    hydration,
+    logDate,
+    lunchCarbs,
+    lunchFat,
+    lunchProtein,
+    memberId,
+    saving,
+    sleepQuality,
+    snack,
+    summary,
+    visible,
+  ]);
+
   const close = () => {
     if (saving) return;
-    reset();
+    if (draftReady) {
+      void saveTrainingLogDraft(db, draftKey, memberId, buildInput()).catch((error) => {
+        console.error('운동일지 닫기 전 임시저장 실패', error);
+      });
+    }
     onClose();
   };
 
@@ -320,43 +519,7 @@ export function TrainingLogModal({
   };
 
   const submit = () => {
-    const exerciseInputs: TrainingExerciseInput[] = exercises
-      .filter((exercise) => exercise.name.trim())
-      .map((exercise) => ({
-        name: exercise.name.trim(),
-        sets: exercise.sets.map((set) => ({
-          weight: parseOptionalNumber(set.weight),
-          reps: parseOptionalNumber(set.reps),
-        })),
-      }));
-
-    onSubmit({
-      memberId,
-      scheduleId,
-      date: logDate,
-      bodyPart,
-      sleepQuality,
-      conditionLevel,
-      activityLevel,
-      dietControl,
-      hydration,
-      cardioTreadmill,
-      cardioBike,
-      cardioStepmill,
-      breakfastCarbs,
-      breakfastProtein,
-      breakfastFat,
-      lunchCarbs,
-      lunchProtein,
-      lunchFat,
-      dinnerCarbs,
-      dinnerProtein,
-      dinnerFat,
-      snack,
-      summary,
-      feedback,
-      exercises: exerciseInputs,
-    });
+    onSubmit(buildInput());
   };
 
   const LevelPicker = ({
@@ -441,7 +604,7 @@ export function TrainingLogModal({
             </Pressable>
             <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>{initialLog ? '운동일지 수정' : '운동일지'}</Text>
-              <Text style={styles.headerSub}>{memberName}</Text>
+              <Text style={styles.headerSub}>{memberName} · {draftStatus}</Text>
             </View>
             <Pressable onPress={submit} disabled={saving} hitSlop={10}>
               <Text style={[styles.headerSave, saving && styles.disabled]}>
