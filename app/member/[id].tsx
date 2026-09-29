@@ -382,6 +382,16 @@ export default function MemberDetailScreen() {
               <Text style={styles.quickActionSub}>{signedSessions.length}개 기록</Text>
             </Pressable>
           </View>
+          <Pressable
+            style={styles.mskGuideButton}
+            onPress={() => router.push('/msk-guide' as never)}
+          >
+            <View>
+              <Text style={styles.mskGuideTitle}>근골격 체크 가이드</Text>
+              <Text style={styles.mskGuideSub}>통증별 현장 체크 · 운동 케어 · 의료진 의뢰 기준</Text>
+            </View>
+            <Text style={styles.mskGuideArrow}>›</Text>
+          </Pressable>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -755,6 +765,21 @@ const styles = StyleSheet.create({
   },
   quickActionTitle: { fontSize: 13, fontWeight: '900', color: '#383F49' },
   quickActionSub: { marginTop: 3, fontSize: 10, color: '#858C98' },
+  mskGuideButton: {
+    minHeight: 58,
+    marginTop: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4D9B5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF9EA',
+  },
+  mskGuideTitle: { fontSize: 13, fontWeight: '900', color: '#6A5618' },
+  mskGuideSub: { marginTop: 3, fontSize: 10, color: '#93825A' },
+  mskGuideArrow: { marginTop: -2, fontSize: 26, fontWeight: '400', color: '#8D7944' },
   sectionHeader: {
     marginTop: 22,
     marginBottom: 8,
