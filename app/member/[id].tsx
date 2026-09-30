@@ -25,6 +25,7 @@ import {
   listTrainingLogs,
 } from '../../src/data/memberFitnessRepository';
 import { getMemberById } from '../../src/data/memberRepository';
+import { listMemberPrograms, type MemberProgram } from '../../src/data/programRepository';
 import {
   deleteTrainingLogDraft,
   trainingLogDraftKey,
@@ -110,6 +111,7 @@ export default function MemberDetailScreen() {
   const [trainingLogs, setTrainingLogs] = useState<TrainingLogItem[]>([]);
   const [bodyRecords, setBodyRecords] = useState<BodyRecordItem[]>([]);
   const [signedSessions, setSignedSessions] = useState<SignedMemberSession[]>([]);
+  const [memberPrograms, setMemberPrograms] = useState<MemberProgram[]>([]);
   const [loading, setLoading] = useState(true);
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<TrainingLogItem | null>(null);
@@ -124,16 +126,18 @@ export default function MemberDetailScreen() {
   const loadAll = useCallback(async () => {
     if (!id) return;
     try {
-      const [memberRow, logs, body, signatures] = await Promise.all([
+      const [memberRow, logs, body, signatures, programs] = await Promise.all([
         getMemberById(db, id),
         listTrainingLogs(db, id, 50),
         listBodyRecords(db, id, 50),
         listSignedMemberSessions(db, id),
+        listMemberPrograms(db, id),
       ]);
       setMember(memberRow);
       setTrainingLogs(logs);
       setBodyRecords(body);
       setSignedSessions(signatures);
+      setMemberPrograms(programs);
     } catch (error) {
       console.error(error);
       Alert.alert('회원 기록을 불러오지 못했어요.');
@@ -421,6 +425,35 @@ export default function MemberDetailScreen() {
             <Text style={styles.mskGuideArrow}>›</Text>
           </Pressable>
         </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>이용 프로그램</Text>
+          <Pressable onPress={() => router.push({ pathname: '/member-programs', params: { memberId: member.id } } as never)}>
+            <Text style={styles.programManageText}>관리 ›</Text>
+          </Pressable>
+        </View>
+        {memberPrograms.length > 0 ? (
+          <View style={styles.programListCard}>
+            {memberPrograms.map((program) => (
+              <View key={program.id} style={styles.programRow}>
+                <View style={styles.programBadge}><Text style={styles.programBadgeText}>{program.category}</Text></View>
+                <View style={styles.programInfo}>
+                  <Text style={styles.programName}>{program.programName}</Text>
+                  <Text style={styles.programMeta}>
+                    {program.trackingMode === 'duration'
+                      ? `${program.startDate ?? '-'} ~ ${program.endDate ?? '-'}`
+                      : `잔여 ${program.remainingSessions ?? '-'} / ${program.totalSessions ?? '-'}회`}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Pressable style={styles.emptyProgramCard} onPress={() => router.push({ pathname: '/member-programs', params: { memberId: member.id } } as never)}>
+            <Text style={styles.emptyProgramTitle}>등록된 프로그램이 없어요</Text>
+            <Text style={styles.emptyProgramSub}>헬스 · PT · GX 프로그램 추가 ›</Text>
+          </Pressable>
+        )}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>인바디 변화</Text>
@@ -814,6 +847,17 @@ const styles = StyleSheet.create({
   mskGuideTitle: { fontSize: 13, fontWeight: '900', color: '#6A5618' },
   mskGuideSub: { marginTop: 3, fontSize: 10, color: '#93825A' },
   mskGuideArrow: { marginTop: -2, fontSize: 26, fontWeight: '400', color: '#8D7944' },
+  programManageText: { fontSize: 12, fontWeight: '900', color: '#4B68FF' },
+  programListCard: { paddingHorizontal: 14, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  programRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ECEEF2' },
+  programBadge: { minWidth: 44, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, alignItems: 'center', backgroundColor: '#EEF1FF' },
+  programBadgeText: { fontSize: 10, fontWeight: '900', color: '#4B68FF' },
+  programInfo: { flex: 1, marginLeft: 12 },
+  programName: { fontSize: 14, fontWeight: '900', color: '#252A32' },
+  programMeta: { marginTop: 4, fontSize: 11, color: '#7D8490' },
+  emptyProgramCard: { padding: 16, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  emptyProgramTitle: { fontSize: 14, fontWeight: '900', color: '#333842' },
+  emptyProgramSub: { marginTop: 5, fontSize: 11, fontWeight: '700', color: '#4B68FF' },
   sectionHeader: {
     marginTop: 22,
     marginBottom: 8,
