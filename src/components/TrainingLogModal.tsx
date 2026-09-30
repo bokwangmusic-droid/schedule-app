@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SimpleDatePickerModal } from './SimpleDatePickerModal';
 import {
   loadTrainingLogDraft,
   saveTrainingLogDraft,
@@ -122,6 +123,28 @@ function volumePlanText(logs: TrainingLogItem[]) {
   return '최근 볼륨 변화가 크지 않아요. 수행이 안정적이고 컨디션이 좋다면 총 볼륨을 약 5% 정도만 올리는 식으로 진행해보세요.';
 }
 
+function MealRow({
+  title, carbs, onCarbs, protein, onProtein, fat, onFat, isTablet,
+}: {
+  title: string;
+  carbs: string;
+  onCarbs: (value: string) => void;
+  protein: string;
+  onProtein: (value: string) => void;
+  fat: string;
+  onFat: (value: string) => void;
+  isTablet: boolean;
+}) {
+  return (
+    <View style={styles.mealCard}>
+      <Text style={styles.mealTitle}>{title}</Text>
+      <TextInput value={carbs} onChangeText={onCarbs} placeholder="탄수화물" placeholderTextColor="#A2A8B2" style={[styles.smallInput, isTablet && styles.smallInputTablet]} />
+      <TextInput value={protein} onChangeText={onProtein} placeholder="단백질" placeholderTextColor="#A2A8B2" style={[styles.smallInput, isTablet && styles.smallInputTablet]} />
+      <TextInput value={fat} onChangeText={onFat} placeholder="지방" placeholderTextColor="#A2A8B2" style={[styles.smallInput, isTablet && styles.smallInputTablet]} />
+    </View>
+  );
+}
+
 export function TrainingLogModal({
   visible,
   memberId,
@@ -164,8 +187,17 @@ export function TrainingLogModal({
   const [exercises, setExercises] = useState<EditableExercise[]>([emptyExercise()]);
   const [draftReady, setDraftReady] = useState(false);
   const [draftStatus, setDraftStatus] = useState('자동 저장 준비');
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [routinePickerOpen, setRoutinePickerOpen] = useState(false);
+  const [routineFilter, setRoutineFilter] = useState('전체');
+  const [selectedRoutine, setSelectedRoutine] = useState<TrainingLogItem | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const historyLogs = recentLogs.filter((log) => log.id !== initialLog?.id);
   const latestHistoryLog = historyLogs[0] ?? null;
+  const routineParts = ['전체', '가슴', '등', '하체', '어깨', '팔'];
+  const filteredRoutineLogs = historyLogs.filter((log) =>
+    routineFilter === '전체' || (log.bodyPart ?? '').includes(routineFilter)
+  );
   const planText = volumePlanText(historyLogs);
   const totalVolume = exercises.reduce(
     (total, exercise) => total + editableExerciseVolume(exercise),
@@ -499,23 +531,34 @@ export function TrainingLogModal({
     );
   };
 
-  const applyLatestRoutine = () => {
-    if (!latestHistoryLog) return;
-    setBodyPart(latestHistoryLog.bodyPart ?? '');
+  const applyRoutine = (log: TrainingLogItem) => {
+    setBodyPart(log.bodyPart ?? '');
     setExercises(
-      latestHistoryLog.exercises.length > 0
-        ? latestHistoryLog.exercises.map((exercise) => ({
+      log.exercises.length > 0
+        ? log.exercises.map((exercise) => ({
             name: exercise.name,
-            sets:
-              exercise.sets.length > 0
-                ? exercise.sets.map((set) => ({
-                    weight: set.weight === null ? '' : String(set.weight),
-                    reps: set.reps === null ? '' : String(set.reps),
-                  }))
-                : [{ weight: '', reps: '' }],
+            sets: exercise.sets.length > 0
+              ? exercise.sets.map((set) => ({
+                  weight: set.weight === null ? '' : String(set.weight),
+                  reps: set.reps === null ? '' : String(set.reps),
+                }))
+              : [{ weight: '', reps: '' }],
           }))
         : [emptyExercise()],
     );
+    setSelectedRoutine(null);
+    setRoutinePickerOpen(false);
+  };
+
+  const moveExercise = (from: number, to: number) => {
+    if (to < 0 || to >= exercises.length || from === to) return;
+    setExercises((current) => {
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setDraggingIndex(to);
   };
 
   const submit = () => {
@@ -548,48 +591,6 @@ export function TrainingLogModal({
     </View>
   );
 
-  const MealRow = ({
-    title,
-    carbs,
-    onCarbs,
-    protein,
-    onProtein,
-    fat,
-    onFat,
-  }: {
-    title: string;
-    carbs: string;
-    onCarbs: (value: string) => void;
-    protein: string;
-    onProtein: (value: string) => void;
-    fat: string;
-    onFat: (value: string) => void;
-  }) => (
-    <View style={styles.mealCard}>
-      <Text style={styles.mealTitle}>{title}</Text>
-      <TextInput
-        value={carbs}
-        onChangeText={onCarbs}
-        placeholder="탄수화물"
-        placeholderTextColor="#A2A8B2"
-        style={[styles.smallInput, isTablet && styles.smallInputTablet]}
-      />
-      <TextInput
-        value={protein}
-        onChangeText={onProtein}
-        placeholder="단백질"
-        placeholderTextColor="#A2A8B2"
-        style={[styles.smallInput, isTablet && styles.smallInputTablet]}
-      />
-      <TextInput
-        value={fat}
-        onChangeText={onFat}
-        placeholder="지방"
-        placeholderTextColor="#A2A8B2"
-        style={[styles.smallInput, isTablet && styles.smallInputTablet]}
-      />
-    </View>
-  );
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={close}>
@@ -626,17 +627,13 @@ export function TrainingLogModal({
             ]}>
               <Text style={styles.sectionTitle}>기본 정보</Text>
               <View style={styles.twoColumn}>
-                <TextInput
-                  value={logDate}
-                  onChangeText={setLogDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#A2A8B2"
-                  style={[
-                    styles.input,
-                    styles.flexInput,
-                    isTablet && styles.inputTablet,
-                  ]}
-                />
+                <Pressable
+                  style={[styles.input, styles.flexInput, styles.dateButton, isTablet && styles.inputTablet]}
+                  onPress={() => setDatePickerOpen(true)}
+                >
+                  <Text style={styles.dateButtonText}>{logDate}</Text>
+                  <Text style={styles.dateButtonHint}>달력 ›</Text>
+                </Pressable>
                 <TextInput
                   value={bodyPart}
                   onChangeText={setBodyPart}
@@ -715,7 +712,7 @@ export function TrainingLogModal({
                   <Text style={styles.planSubText}>최근 운동기록과 컨디션을 바탕으로 참고용 제안을 보여줘요.</Text>
                 </View>
                 {latestHistoryLog ? (
-                  <Pressable style={styles.loadRoutineButton} onPress={applyLatestRoutine}>
+                  <Pressable style={styles.loadRoutineButton} onPress={() => setRoutinePickerOpen(true)}>
                     <Text style={styles.loadRoutineButtonText}>최근 루틴 불러오기</Text>
                   </Pressable>
                 ) : null}
@@ -750,7 +747,17 @@ export function TrainingLogModal({
               </View>
 
               {exercises.map((exercise, exerciseIndex) => (
-                <View key={exerciseIndex} style={styles.exerciseCard}>
+                <View
+                  key={exerciseIndex}
+                  style={[styles.exerciseCard, draggingIndex === exerciseIndex && styles.exerciseCardDragging]}
+                  onTouchMove={(event) => {
+                    if (draggingIndex !== exerciseIndex) return;
+                    const y = event.nativeEvent.locationY;
+                    if (y < 18) moveExercise(exerciseIndex, exerciseIndex - 1);
+                    else if (y > 150) moveExercise(exerciseIndex, exerciseIndex + 1);
+                  }}
+                  onTouchEnd={() => setDraggingIndex(null)}
+                >
                   <View style={styles.exerciseTitleRow}>
                     <TextInput
                       value={exercise.name}
@@ -762,9 +769,20 @@ export function TrainingLogModal({
                         isTablet && styles.exerciseNameTablet,
                       ]}
                     />
-                    <Pressable onPress={() => removeExercise(exerciseIndex)} hitSlop={8}>
-                      <Text style={styles.removeText}>삭제</Text>
-                    </Pressable>
+                    <View style={styles.exerciseActions}>
+                      <Pressable
+                        style={styles.dragHandle}
+                        delayLongPress={250}
+                        onLongPress={() => setDraggingIndex(exerciseIndex)}
+                        onPressOut={() => setDraggingIndex(null)}
+                        hitSlop={10}
+                      >
+                        <Text style={styles.dragHandleText}>≡</Text>
+                      </Pressable>
+                      <Pressable onPress={() => removeExercise(exerciseIndex)} hitSlop={8}>
+                        <Text style={styles.removeText}>삭제</Text>
+                      </Pressable>
+                    </View>
                   </View>
                   {exercise.sets.map((set, setIndex) => (
                     <View key={setIndex} style={styles.setRow}>
@@ -838,6 +856,7 @@ export function TrainingLogModal({
                 onProtein={setBreakfastProtein}
                 fat={breakfastFat}
                 onFat={setBreakfastFat}
+                isTablet={isTablet}
               />
               <MealRow
                 title="점심"
@@ -847,6 +866,7 @@ export function TrainingLogModal({
                 onProtein={setLunchProtein}
                 fat={lunchFat}
                 onFat={setLunchFat}
+                isTablet={isTablet}
               />
               <MealRow
                 title="저녁"
@@ -856,6 +876,7 @@ export function TrainingLogModal({
                 onProtein={setDinnerProtein}
                 fat={dinnerFat}
                 onFat={setDinnerFat}
+                isTablet={isTablet}
               />
               <TextInput
                 value={snack}
@@ -891,6 +912,53 @@ export function TrainingLogModal({
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <SimpleDatePickerModal
+        visible={datePickerOpen}
+        title="운동일지 날짜 선택"
+        selectedDate={logDate}
+        onClose={() => setDatePickerOpen(false)}
+        onSelect={setLogDate}
+      />
+
+      <Modal visible={routinePickerOpen} transparent animationType="fade" onRequestClose={() => setRoutinePickerOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setRoutinePickerOpen(false)}>
+          <Pressable style={styles.routineModal} onPress={() => undefined}>
+            <Text style={styles.routineModalTitle}>최근 루틴 선택</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {routineParts.map((part) => (
+                <Pressable key={part} style={[styles.filterChip, routineFilter === part && styles.filterChipActive]} onPress={() => setRoutineFilter(part)}>
+                  <Text style={[styles.filterChipText, routineFilter === part && styles.filterChipTextActive]}>{part}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <ScrollView style={styles.routineList}>
+              {filteredRoutineLogs.map((log) => {
+                const first = log.exercises[0]?.name ?? '운동 기록';
+                const extra = Math.max(0, log.exercises.length - 1);
+                return (
+                  <Pressable key={log.id} style={[styles.routineRow, selectedRoutine?.id === log.id && styles.routineRowActive]} onPress={() => setSelectedRoutine(log)}>
+                    <Text style={styles.routineRowTitle}>{log.date.slice(5).replace('-', '/')} · {log.bodyPart || '전체'} · {first}{extra > 0 ? ` 외 ${extra}종목` : ''}</Text>
+                    {selectedRoutine?.id === log.id ? (
+                      <View style={styles.routineDetail}>
+                        {log.exercises.map((exercise) => <Text key={exercise.id} style={styles.routineExercise}>• {exercise.name} · {exercise.sets.length}세트</Text>)}
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.routineModalActions}>
+              <Pressable style={styles.todayButton} onPress={() => { setLogDate(new Date().toLocaleDateString('sv-SE')); setDatePickerOpen(false); }}>
+                <Text style={styles.todayButtonText}>오늘</Text>
+              </Pressable>
+              <Pressable style={[styles.useRoutineButton, !selectedRoutine && styles.disabled]} disabled={!selectedRoutine} onPress={() => selectedRoutine && applyRoutine(selectedRoutine)}>
+                <Text style={styles.useRoutineButtonText}>이 루틴 불러오기</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Modal>
   );
 }
@@ -1159,4 +1227,31 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     fontSize: 15,
   },
+  dateButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateButtonText: { fontSize: 14, color: '#252A32', fontWeight: '800' },
+  dateButtonHint: { fontSize: 11, color: '#6C78B8' },
+  exerciseActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dragHandle: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#EEF1F6' },
+  dragHandleText: { fontSize: 24, lineHeight: 25, fontWeight: '900', color: '#6B7380' },
+  exerciseCardDragging: { opacity: 0.72, transform: [{ scale: 1.01 }], borderWidth: 2, borderColor: '#7085FF' },
+  modalBackdrop: { flex: 1, padding: 18, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },
+  routineModal: { maxHeight: '82%', padding: 18, borderRadius: 22, backgroundColor: '#FFFFFF' },
+  routineModalTitle: { fontSize: 18, fontWeight: '900', color: '#20242B' },
+  filterRow: { gap: 7, paddingVertical: 12 },
+  filterChip: { paddingHorizontal: 13, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F2F6' },
+  filterChipActive: { backgroundColor: '#4B68FF' },
+  filterChipText: { fontSize: 11, fontWeight: '800', color: '#68707D' },
+  filterChipTextActive: { color: '#FFFFFF' },
+  routineList: { maxHeight: 430 },
+  routineRow: { padding: 13, marginBottom: 8, borderRadius: 14, borderWidth: 1, borderColor: '#E3E6EB', backgroundColor: '#FAFBFC' },
+  routineRowActive: { borderColor: '#7286FF', backgroundColor: '#F3F5FF' },
+  routineRowTitle: { fontSize: 12, fontWeight: '900', color: '#303640' },
+  routineDetail: { marginTop: 8, gap: 4 },
+  routineExercise: { fontSize: 11, color: '#69717D' },
+  routineModalActions: { marginTop: 12, flexDirection: 'row', gap: 8 },
+  todayButton: { minWidth: 70, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1F6' },
+  todayButtonText: { fontSize: 12, fontWeight: '900', color: '#555E6B' },
+  useRoutineButton: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4B68FF' },
+  useRoutineButtonText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
+
 });
