@@ -968,6 +968,10 @@ export default function HomeScreen() {
           setMoreMenuOpen(false);
           router.push('./members');
         }}
+        onPrograms={() => {
+          setMoreMenuOpen(false);
+          router.push('./program-settings');
+        }}
         onCalendar={() => {
           setMoreMenuOpen(false);
           router.push('./calendar');
