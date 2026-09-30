@@ -75,15 +75,81 @@ const scheduleSelectWithProjection = `
   SELECT
     s.*,
     m.name AS member_name,
-    m.pt_total_sessions AS member_pt_total_sessions,
-    m.pt_remaining_sessions AS member_pt_remaining_sessions,
     CASE
-      WHEN m.pt_remaining_sessions IS NULL OR s.member_id IS NULL THEN NULL
+      WHEN EXISTS (
+        SELECT 1 FROM member_programs mp
+        WHERE mp.member_id = s.member_id
+          AND mp.is_active = 1
+          AND mp.tracking_mode = 'sessions'
+      ) THEN (
+        SELECT mp.total_sessions FROM member_programs mp
+        WHERE mp.member_id = s.member_id
+          AND mp.is_active = 1
+          AND mp.tracking_mode = 'sessions'
+          AND (mp.start_date IS NULL OR mp.start_date <= s.date)
+        ORDER BY CASE WHEN mp.category = 'PT' THEN 0 ELSE 1 END, mp.created_at DESC
+        LIMIT 1
+      )
+      ELSE m.pt_total_sessions
+    END AS member_pt_total_sessions,
+    CASE
+      WHEN EXISTS (
+        SELECT 1 FROM member_programs mp
+        WHERE mp.member_id = s.member_id
+          AND mp.is_active = 1
+          AND mp.tracking_mode = 'sessions'
+      ) THEN (
+        SELECT mp.remaining_sessions FROM member_programs mp
+        WHERE mp.member_id = s.member_id
+          AND mp.is_active = 1
+          AND mp.tracking_mode = 'sessions'
+          AND (mp.start_date IS NULL OR mp.start_date <= s.date)
+        ORDER BY CASE WHEN mp.category = 'PT' THEN 0 ELSE 1 END, mp.created_at DESC
+        LIMIT 1
+      )
+      ELSE m.pt_remaining_sessions
+    END AS member_pt_remaining_sessions,
+    CASE
+      WHEN s.member_id IS NULL THEN NULL
+      WHEN EXISTS (
+        SELECT 1 FROM member_programs mp
+        WHERE mp.member_id = s.member_id
+          AND mp.is_active = 1
+          AND mp.tracking_mode = 'sessions'
+      ) THEN (
+        SELECT CASE
+          WHEN mp.start_date IS NOT NULL AND s.date < mp.start_date THEN NULL
+          WHEN s.date < ? THEN mp.remaining_sessions
+          ELSE MAX(
+            mp.remaining_sessions - (
+              SELECT COUNT(*)
+              FROM schedules p
+              WHERE p.member_id = s.member_id
+                AND p.is_all_day = 0
+                AND COALESCE(p.pt_consumed, 0) = 0
+                AND COALESCE(p.attendance_status, '') NOT IN ('canceled', 'no_show')
+                AND p.date >= MAX(?, COALESCE(mp.start_date, ?))
+                AND (
+                  p.date < s.date
+                  OR (p.date = s.date AND COALESCE(p.start_time, '00:00') < COALESCE(s.start_time, '00:00'))
+                  OR (p.date = s.date AND COALESCE(p.start_time, '00:00') = COALESCE(s.start_time, '00:00') AND p.created_at <= s.created_at)
+                )
+            ),
+            0
+          )
+        END
+        FROM member_programs mp
+        WHERE mp.member_id = s.member_id
+          AND mp.is_active = 1
+          AND mp.tracking_mode = 'sessions'
+        ORDER BY CASE WHEN mp.category = 'PT' THEN 0 ELSE 1 END, mp.created_at DESC
+        LIMIT 1
+      )
+      WHEN m.pt_remaining_sessions IS NULL THEN NULL
       WHEN s.date < ? THEN m.pt_remaining_sessions
       ELSE MAX(
         m.pt_remaining_sessions - (
-          SELECT COUNT(*)
-          FROM schedules p
+          SELECT COUNT(*) FROM schedules p
           WHERE p.member_id = s.member_id
             AND p.is_all_day = 0
             AND COALESCE(p.pt_consumed, 0) = 0
@@ -91,18 +157,10 @@ const scheduleSelectWithProjection = `
             AND p.date >= ?
             AND (
               p.date < s.date
-              OR (
-                p.date = s.date
-                AND COALESCE(p.start_time, '00:00') < COALESCE(s.start_time, '00:00')
-              )
-              OR (
-                p.date = s.date
-                AND COALESCE(p.start_time, '00:00') = COALESCE(s.start_time, '00:00')
-                AND p.created_at <= s.created_at
-              )
+              OR (p.date = s.date AND COALESCE(p.start_time, '00:00') < COALESCE(s.start_time, '00:00'))
+              OR (p.date = s.date AND COALESCE(p.start_time, '00:00') = COALESCE(s.start_time, '00:00') AND p.created_at <= s.created_at)
             )
-        ),
-        0
+        ), 0
       )
     END AS member_pt_projected_remaining_sessions
   FROM schedules s
@@ -121,7 +179,7 @@ export async function listSchedulesForDate(
               CASE WHEN s.is_all_day = 1 THEN 0 ELSE 1 END ASC,
               s.start_time ASC,
               s.created_at ASC`,
-    [projectionBaseDate, projectionBaseDate, date],
+    [projectionBaseDate, projectionBaseDate, projectionBaseDate, projectionBaseDate, projectionBaseDate, date],
   );
 
   return rows.map(mapScheduleRow);
@@ -140,7 +198,7 @@ export async function listSchedulesForRange(
               CASE WHEN s.is_all_day = 1 THEN 0 ELSE 1 END ASC,
               s.start_time ASC,
               s.created_at ASC`,
-    [projectionBaseDate, projectionBaseDate, startDate, endDate],
+    [projectionBaseDate, projectionBaseDate, projectionBaseDate, projectionBaseDate, projectionBaseDate, startDate, endDate],
   );
 
   return rows.map(mapScheduleRow);
