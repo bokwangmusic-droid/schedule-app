@@ -64,6 +64,8 @@ export function SignaturePreview({
       y: padding + (point.y - minY) * scale,
     }));
 
+    const maxSegmentLength = compact ? 24 : 60;
+
     return normalized.flatMap((point, index) => {
       if (index === 0) return [];
       const previous = normalized[index - 1];
@@ -74,13 +76,25 @@ export function SignaturePreview({
       const length = Math.sqrt(dx * dx + dy * dy);
       if (length < 0.5) return [];
 
-      return [{
-        key: `${point.stroke}-${index}`,
-        left: (previous.x + point.x) / 2 - length / 2,
-        top: (previous.y + point.y) / 2 - 1.6,
-        width: length,
-        angle: Math.atan2(dy, dx),
-      }];
+      const pieces = Math.max(1, Math.ceil(length / maxSegmentLength));
+      return Array.from({ length: pieces }, (_, pieceIndex) => {
+        const t0 = pieceIndex / pieces;
+        const t1 = (pieceIndex + 1) / pieces;
+        const x0 = previous.x + dx * t0;
+        const y0 = previous.y + dy * t0;
+        const x1 = previous.x + dx * t1;
+        const y1 = previous.y + dy * t1;
+        const pieceDx = x1 - x0;
+        const pieceDy = y1 - y0;
+        const pieceLength = Math.sqrt(pieceDx * pieceDx + pieceDy * pieceDy);
+        return {
+        key: `${point.stroke}-${index}-${pieceIndex}`,
+        left: (x0 + x1) / 2 - pieceLength / 2,
+        top: (y0 + y1) / 2 - 1.6,
+        width: pieceLength,
+        angle: Math.atan2(pieceDy, pieceDx),
+        };
+      });
     });
   }, [compact, height, points, width]);
 
