@@ -671,22 +671,6 @@ export default function HomeScreen() {
           <Pressable style={styles.smallHeaderButton} onPress={() => router.push('./calendar')}>
             <Text style={styles.smallHeaderButtonText}>달력</Text>
           </Pressable>
-          <Pressable
-            style={[
-              styles.smallHeaderButton,
-              selectionMode && styles.smallHeaderButtonActive,
-            ]}
-            onPress={toggleSelectionMode}
-          >
-            <Text
-              style={[
-                styles.smallHeaderButtonText,
-                selectionMode && styles.smallHeaderButtonTextActive,
-              ]}
-            >
-              {selectionMode ? '완료' : '선택'}
-            </Text>
-          </Pressable>
           <Pressable style={styles.addButton} onPress={() => openNewSchedule(todayString)}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
@@ -721,30 +705,9 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {selectionMode ? (
-        <View style={styles.selectionBar}>
-          <View style={styles.selectionBarTextWrap}>
-            <Text style={styles.selectionBarTitle}>
-              {selectedScheduleIds.length > 0
-                ? `${selectedScheduleIds.length}개 일정 선택됨`
-                : '지울 일정을 여러 개 선택하세요'}
-            </Text>
-            <Text style={styles.selectionBarHint}>
-              빈 시간은 세로로 드래그하면 19시~22시처럼 한 번에 범위를 잡을 수 있어요.
-            </Text>
-          </View>
-          <Pressable
-            style={[
-              styles.selectionDeleteButton,
-              selectedScheduleIds.length === 0 && styles.selectionDeleteButtonDisabled,
-            ]}
-            onPress={deleteSelectedSchedules}
-            disabled={selectedScheduleIds.length === 0}
-          >
-            <Text style={styles.selectionDeleteButtonText}>선택 삭제</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      <View style={styles.directManipulationHint}>
+        <Text style={styles.directManipulationHintText}>빈 시간 드래그 = 일정 추가 · 일정 길게 눌러 드래그 = 이동/삭제</Text>
+      </View>
 
       <View
         ref={timetableRef}
@@ -849,7 +812,7 @@ export default function HomeScreen() {
                     startHour={START_HOUR}
                     endHour={END_HOUR}
                     hourHeight={hourHeight}
-                    disabled={movingScheduleId !== null || selectionMode}
+                    disabled={movingScheduleId !== null}
                     onRangeSelected={(startTime, endTime) =>
                       openNewSchedule(dateString, startTime, endTime)
                     }
@@ -908,13 +871,9 @@ export default function HomeScreen() {
                     dayWidth={dayWidth}
                     hourHeight={hourHeight}
                     disabled={movingScheduleId !== null}
-                    dragDisabled={selectionMode}
+                    dragDisabled={false}
                     deleteDropY={deleteDropY}
-                    onPress={() =>
-                      selectionMode
-                        ? toggleScheduleSelection(schedule.id)
-                        : openSchedule(schedule.id)
-                    }
+                    onPress={() => openSchedule(schedule.id)}
                     onMove={(dayDelta, minuteDelta) =>
                       moveTimedSchedule(schedule, dayDelta, minuteDelta)
                     }
@@ -1253,4 +1212,6 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.08 }],
   },
   trashIcon: { fontSize: 28 },
+  directManipulationHint: { minHeight: 30, marginHorizontal: 10, marginBottom: 5, paddingHorizontal: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F3FF' },
+  directManipulationHintText: { fontSize: 10, fontWeight: '800', color: '#6574C9' },
 });
