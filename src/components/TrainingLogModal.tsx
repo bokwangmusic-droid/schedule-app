@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SimpleDatePickerModal } from './SimpleDatePickerModal';
+import { EXERCISE_CATEGORIES, listExerciseDefinitions, type ExerciseDefinition } from '../data/exerciseRepository';
 import {
   loadTrainingLogDraft,
   saveTrainingLogDraft,
@@ -192,6 +193,9 @@ export function TrainingLogModal({
   const [routineFilter, setRoutineFilter] = useState('전체');
   const [selectedRoutine, setSelectedRoutine] = useState<TrainingLogItem | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [exerciseLibrary, setExerciseLibrary] = useState<ExerciseDefinition[]>([]);
+  const [exercisePickerIndex, setExercisePickerIndex] = useState<number | null>(null);
+  const [exercisePickerCategory, setExercisePickerCategory] = useState('가슴');
   const historyLogs = recentLogs.filter((log) => log.id !== initialLog?.id);
   const latestHistoryLog = historyLogs[0] ?? null;
   const routineParts = ['전체', '가슴', '등', '하체', '어깨', '팔'];
@@ -199,6 +203,20 @@ export function TrainingLogModal({
     routineFilter === '전체' || (log.bodyPart ?? '').includes(routineFilter)
   );
   const planText = volumePlanText(historyLogs);
+  const previousExercise = (name: string) => {
+    const key=name.trim().toLocaleLowerCase();
+    if(!key) return null;
+    for(const log of historyLogs){
+      const found=log.exercises.find(item=>item.name.trim().toLocaleLowerCase()===key);
+      if(found) return {date:log.date, sets:found.sets};
+    }
+    return null;
+  };
+  const previousExerciseText = (name:string) => {
+    const previous=previousExercise(name); if(!previous)return '';
+    const sets=previous.sets.map(set=>[set.weight===null?'':set.weight+'kg',set.reps===null?'':set.reps+'회'].filter(Boolean).join(' × ')).filter(Boolean).join(' / ');
+    return sets ? `직전 ${previous.date.slice(5).replace('-','/')} · ${sets}` : '';
+  };
   const totalVolume = exercises.reduce(
     (total, exercise) => total + editableExerciseVolume(exercise),
     0,
@@ -304,6 +322,10 @@ export function TrainingLogModal({
         })),
       })),
   });
+
+  useEffect(() => {
+    if(visible) void listExerciseDefinitions(db).then(setExerciseLibrary).catch(console.error);
+  }, [db, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -770,13 +792,11 @@ export function TrainingLogModal({
                         }}
                         onTouchEnd={() => setDraggingIndex(null)}
                       >
-                        <TextInput
-                          value={exercise.name}
-                          onChangeText={(value) => updateExerciseName(exerciseIndex, value)}
-                          placeholder={`운동 ${exerciseIndex + 1}`}
-                          placeholderTextColor="#A2A8B2"
-                          style={styles.sheetExerciseInput}
-                        />
+                        <View style={styles.sheetExerciseWrap}>
+                          <TextInput value={exercise.name} onChangeText={(value) => updateExerciseName(exerciseIndex, value)} placeholder={`운동 ${exerciseIndex + 1}`} placeholderTextColor="#A2A8B2" style={styles.sheetExerciseInputInner} />
+                          <Pressable onPress={()=>setExercisePickerIndex(exerciseIndex)}><Text style={styles.exercisePickText}>목록</Text></Pressable>
+                          {previousExerciseText(exercise.name) ? <Text numberOfLines={1} style={styles.previousHint}>{previousExerciseText(exercise.name)}</Text> : null}
+                        </View>
                         {Array.from({ length: Math.max(1, ...exercises.map((item) => item.sets.length)) }, (_, setIndex) => {
                           const set = exercise.sets[setIndex];
                           return (
@@ -857,6 +877,7 @@ export function TrainingLogModal({
                         isTablet && styles.exerciseNameTablet,
                       ]}
                     />
+                    <Pressable style={styles.exercisePickButton} onPress={()=>setExercisePickerIndex(exerciseIndex)}><Text style={styles.exercisePickText}>목록</Text></Pressable>
                     <View style={styles.exerciseActions}>
                       <View style={styles.orderButtons}>
                         <Pressable style={[styles.orderButton, exerciseIndex === 0 && styles.orderButtonDisabled]} disabled={exerciseIndex === 0} onPress={() => moveExercise(exerciseIndex, exerciseIndex - 1)} hitSlop={6}>
@@ -871,6 +892,7 @@ export function TrainingLogModal({
                       </Pressable>
                     </View>
                   </View>
+                  {previousExerciseText(exercise.name) ? <Text style={styles.previousHint}>{previousExerciseText(exercise.name)}</Text> : null}
                   {exercise.sets.map((set, setIndex) => (
                     <View key={setIndex} style={styles.setRow}>
                       <Text style={styles.setNumber}>{setIndex + 1}set</Text>
@@ -1008,6 +1030,22 @@ export function TrainingLogModal({
         onClose={() => setDatePickerOpen(false)}
         onSelect={setLogDate}
       />
+
+      <Modal visible={exercisePickerIndex !== null} transparent animationType="fade" onRequestClose={()=>setExercisePickerIndex(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={()=>setExercisePickerIndex(null)}>
+          <Pressable style={styles.exercisePickerModal} onPress={()=>undefined}>
+            <Text style={styles.routineModalTitle}>운동 선택</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {EXERCISE_CATEGORIES.map(part=><Pressable key={part} style={[styles.filterChip,exercisePickerCategory===part&&styles.filterChipActive]} onPress={()=>setExercisePickerCategory(part)}><Text style={[styles.filterChipText,exercisePickerCategory===part&&styles.filterChipTextActive]}>{part}</Text></Pressable>)}
+            </ScrollView>
+            <ScrollView style={styles.exercisePickerList}>
+              {exerciseLibrary.filter(item=>item.category===exercisePickerCategory).map(item=><Pressable key={item.id} style={styles.exercisePickerRow} onPress={()=>{if(exercisePickerIndex!==null)updateExerciseName(exercisePickerIndex,item.name);setExercisePickerIndex(null)}}><View><Text style={styles.exercisePickerName}>{item.name}</Text>{previousExerciseText(item.name)?<Text style={styles.exercisePickerPrevious}>{previousExerciseText(item.name)}</Text>:null}</View><Text style={styles.exercisePickerArrow}>›</Text></Pressable>)}
+              {exerciseLibrary.filter(item=>item.category===exercisePickerCategory).length===0?<Text style={styles.emptyExerciseLibrary}>운동 설정에서 {exercisePickerCategory} 운동을 추가해 주세요.</Text>:null}
+            </ScrollView>
+            <Text style={styles.directInputHint}>목록에 없어도 운동명 입력칸에 바로 타이핑할 수 있어요.</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={routinePickerOpen} transparent animationType="fade" onRequestClose={() => setRoutinePickerOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setRoutinePickerOpen(false)}>
@@ -1367,4 +1405,5 @@ const styles = StyleSheet.create({
   orderButtonDisabled: { opacity: 0.28 },
   orderButtonText: { fontSize: 12, fontWeight: '900', color: '#4B68FF' },
 
+  exercisePickButton:{height:36,paddingHorizontal:10,borderRadius:9,alignItems:'center',justifyContent:'center',backgroundColor:'#EEF1FF'},exercisePickText:{fontSize:10,fontWeight:'900',color:'#4B68FF'},previousHint:{marginTop:5,fontSize:10,fontWeight:'700',color:'#A0A6B0'},sheetExerciseWrap:{width:210,padding:7,borderRightWidth:StyleSheet.hairlineWidth,borderRightColor:'#E1E5EB'},sheetExerciseInputInner:{height:34,paddingHorizontal:7,borderRadius:7,backgroundColor:'#F4F6F8',fontSize:13,fontWeight:'800',color:'#252A32'},exercisePickerModal:{maxHeight:'78%',padding:18,borderRadius:22,backgroundColor:'#FFF'},exercisePickerList:{maxHeight:430},exercisePickerRow:{minHeight:58,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#E5E7EB'},exercisePickerName:{fontSize:14,fontWeight:'900',color:'#303640'},exercisePickerPrevious:{marginTop:4,fontSize:10,color:'#9AA1AC'},exercisePickerArrow:{fontSize:24,color:'#9AA1AC'},emptyExerciseLibrary:{padding:24,textAlign:'center',fontSize:12,color:'#9299A4'},directInputHint:{marginTop:10,fontSize:10,color:'#8A919C'},
 });
