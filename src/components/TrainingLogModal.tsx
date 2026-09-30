@@ -757,7 +757,17 @@ export function TrainingLogModal({
                       <Text style={styles.sheetActionHeader}>관리</Text>
                     </View>
                     {exercises.map((exercise, exerciseIndex) => (
-                      <View key={exerciseIndex} style={[styles.sheetRow, draggingIndex === exerciseIndex && styles.exerciseCardDragging]}>
+                      <View
+                        key={exerciseIndex}
+                        style={[styles.sheetRow, draggingIndex === exerciseIndex && styles.exerciseCardDragging]}
+                        onTouchMove={(event) => {
+                          if (draggingIndex !== exerciseIndex) return;
+                          const y = event.nativeEvent.locationY;
+                          if (y < 12) moveExercise(exerciseIndex, exerciseIndex - 1);
+                          else if (y > 64) moveExercise(exerciseIndex, exerciseIndex + 1);
+                        }}
+                        onTouchEnd={() => setDraggingIndex(null)}
+                      >
                         <TextInput
                           value={exercise.name}
                           onChangeText={(value) => updateExerciseName(exerciseIndex, value)}
