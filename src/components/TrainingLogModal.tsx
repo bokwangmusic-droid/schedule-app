@@ -1337,7 +1337,7 @@ const styles = StyleSheet.create({
   sheetRow: { flexDirection: 'row', minHeight: 76, alignItems: 'stretch', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E1E5EB', backgroundColor: '#FFFFFF' },
   sheetExerciseInput: { width: 210, paddingHorizontal: 10, fontSize: 14, fontWeight: '800', color: '#252A32', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E1E5EB' },
   sheetSetCell: { width: 136, padding: 6, gap: 4, justifyContent: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E1E5EB' },
-  sheetMiniInput: { height: 34, minWidth: 118, paddingHorizontal: 10, borderRadius: 7, backgroundColor: '#F4F6F8', fontSize: 14, fontWeight: '700', textAlign: 'center', color: '#252A32' },
+  sheetMiniInput: { height: 40, minWidth: 118, paddingHorizontal: 10, paddingVertical: 0, borderRadius: 7, backgroundColor: '#F4F6F8', fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false, color: '#252A32' },
   sheetRemoveSet: { minHeight: 24, alignItems: 'center', justifyContent: 'center' },
   sheetRemoveSetText: { fontSize: 9, fontWeight: '800', color: '#D64B5B' },
   sheetAddSet: { flex: 1, alignItems: 'center', justifyContent: 'center' },
