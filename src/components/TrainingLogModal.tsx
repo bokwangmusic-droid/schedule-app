@@ -1072,7 +1072,8 @@ const styles = StyleSheet.create({
   headerCenter: { alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '900', color: '#20242B' },
   headerSub: { marginTop: 1, fontSize: 10, color: '#8A919C' },
-  headerSave: { minWidth: 54, textAlign: 'right',
+  headerSave: {
+    minWidth: 54,
     width: 54,
     textAlign: 'right',
     fontSize: 15,
