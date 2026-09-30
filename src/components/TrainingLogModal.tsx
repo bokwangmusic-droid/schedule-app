@@ -809,9 +809,24 @@ export function TrainingLogModal({
                           )}
                         </View>
                         <View style={styles.sheetActions}>
-                          <Pressable style={styles.dragHandle} delayLongPress={250} onLongPress={() => setDraggingIndex(exerciseIndex)} onPress={() => setDraggingIndex(null)}>
-                            <Text style={styles.dragHandleText}>≡</Text>
-                          </Pressable>
+                          <View style={styles.orderButtons}>
+                            <Pressable
+                              style={[styles.orderButton, exerciseIndex === 0 && styles.orderButtonDisabled]}
+                              disabled={exerciseIndex === 0}
+                              onPress={() => moveExercise(exerciseIndex, exerciseIndex - 1)}
+                              hitSlop={6}
+                            >
+                              <Text style={styles.orderButtonText}>▲</Text>
+                            </Pressable>
+                            <Pressable
+                              style={[styles.orderButton, exerciseIndex === exercises.length - 1 && styles.orderButtonDisabled]}
+                              disabled={exerciseIndex === exercises.length - 1}
+                              onPress={() => moveExercise(exerciseIndex, exerciseIndex + 1)}
+                              hitSlop={6}
+                            >
+                              <Text style={styles.orderButtonText}>▼</Text>
+                            </Pressable>
+                          </View>
                           <Pressable onPress={() => removeExercise(exerciseIndex)}><Text style={styles.removeText}>삭제</Text></Pressable>
                         </View>
                       </View>
@@ -843,15 +858,14 @@ export function TrainingLogModal({
                       ]}
                     />
                     <View style={styles.exerciseActions}>
-                      <Pressable
-                        style={styles.dragHandle}
-                        delayLongPress={250}
-                        onLongPress={() => setDraggingIndex(exerciseIndex)}
-                        onPressOut={() => setDraggingIndex(null)}
-                        hitSlop={10}
-                      >
-                        <Text style={styles.dragHandleText}>≡</Text>
-                      </Pressable>
+                      <View style={styles.orderButtons}>
+                        <Pressable style={[styles.orderButton, exerciseIndex === 0 && styles.orderButtonDisabled]} disabled={exerciseIndex === 0} onPress={() => moveExercise(exerciseIndex, exerciseIndex - 1)} hitSlop={6}>
+                          <Text style={styles.orderButtonText}>▲</Text>
+                        </Pressable>
+                        <Pressable style={[styles.orderButton, exerciseIndex === exercises.length - 1 && styles.orderButtonDisabled]} disabled={exerciseIndex === exercises.length - 1} onPress={() => moveExercise(exerciseIndex, exerciseIndex + 1)} hitSlop={6}>
+                          <Text style={styles.orderButtonText}>▼</Text>
+                        </Pressable>
+                      </View>
                       <Pressable onPress={() => removeExercise(exerciseIndex)} hitSlop={8}>
                         <Text style={styles.removeText}>삭제</Text>
                       </Pressable>
@@ -1346,6 +1360,10 @@ const styles = StyleSheet.create({
   sheetAddSetButton: { minWidth: 70, minHeight: 38, paddingHorizontal: 8, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1FF' },
   sheetAddSetButtonText: { fontSize: 11, fontWeight: '900', color: '#4B68FF' },
   sheetSetLimitText: { fontSize: 9, color: '#9AA1AC' },
-  sheetActions: { width: 92, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center' },
+  sheetActions: { width: 92, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+  orderButtons: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  orderButton: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1FF' },
+  orderButtonDisabled: { opacity: 0.28 },
+  orderButtonText: { fontSize: 12, fontWeight: '900', color: '#4B68FF' },
 
 });
