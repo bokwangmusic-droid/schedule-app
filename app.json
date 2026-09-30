@@ -73,6 +73,13 @@
             }
           ]
         }
+      ],
+      [
+        "react-native-pose-detection",
+        {
+          "model": "full",
+          "cameraPermissionText": "회원의 체형 분석을 위해 카메라를 사용합니다."
+        }
       ]
     ],
     "experiments": {
