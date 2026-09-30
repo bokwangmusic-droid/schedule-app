@@ -931,6 +931,10 @@ export default function HomeScreen() {
           setMoreMenuOpen(false);
           router.push('./program-settings');
         }}
+        onExercises={() => {
+          setMoreMenuOpen(false);
+          router.push('./exercise-settings');
+        }}
         onCalendar={() => {
           setMoreMenuOpen(false);
           router.push('./calendar');
