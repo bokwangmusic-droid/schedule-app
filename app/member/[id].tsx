@@ -213,7 +213,9 @@ export default function MemberDetailScreen() {
     .map(([, value]) => value)
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 3);
-  const dday = membershipDday(member?.membershipEndDate ?? null);
+  const durationProgram = memberPrograms.find((program) => program.trackingMode === 'duration') ?? null;
+  const sessionProgram = memberPrograms.find((program) => program.trackingMode === 'sessions') ?? null;
+  const dday = membershipDday(durationProgram?.endDate ?? (memberPrograms.length === 0 ? member?.membershipEndDate ?? null : null));
   const currentTrainingLog = scheduleId
     ? trainingLogs.find((log) => log.scheduleId === scheduleId) ?? null
     : trainingLogs.find((log) => log.date === routeDate) ?? null;
@@ -371,8 +373,12 @@ export default function MemberDetailScreen() {
             <View style={styles.profileText}>
               <Text style={styles.memberName}>{member.name}</Text>
               <Text style={styles.memberMeta}>
-                PT 잔여 {member.ptRemainingSessions ?? '-'} / {member.ptTotalSessions ?? '-'}회
-                {dday ? ` · 회원권 ${dday}` : ''}
+                {sessionProgram
+                  ? `${sessionProgram.programName} · 잔여 ${sessionProgram.remainingSessions ?? '-'} / ${sessionProgram.totalSessions ?? '-'}회`
+                  : memberPrograms.length === 0 && member.ptTotalSessions !== null
+                    ? `기존 PT · 잔여 ${member.ptRemainingSessions ?? '-'} / ${member.ptTotalSessions ?? '-'}회`
+                    : 'PT 프로그램 미등록'}
+                {durationProgram ? ` · ${durationProgram.programName}${dday ? ` ${dday}` : ''}` : dday ? ` · 기존 회원권 ${dday}` : ''}
               </Text>
               {member.phone ? <Text style={styles.memberPhone}>{member.phone}</Text> : null}
             </View>
