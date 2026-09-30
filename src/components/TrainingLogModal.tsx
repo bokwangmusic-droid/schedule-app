@@ -679,14 +679,7 @@ export function TrainingLogModal({
               <LevelPicker value={conditionLevel} onChange={setConditionLevel} />
               <Text style={styles.label}>활동강도</Text>
               <LevelPicker value={activityLevel} onChange={setActivityLevel} />
-              <View style={styles.switchLine}>
-                <Text style={styles.switchLabel}>식이조절</Text>
-                <Switch value={dietControl} onValueChange={setDietControl} />
-              </View>
-              <View style={styles.switchLine}>
-                <Text style={styles.switchLabel}>수분 섭취</Text>
-                <Switch value={hydration} onValueChange={setHydration} />
-              </View>
+
             </View>
 
             <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
@@ -954,47 +947,6 @@ export function TrainingLogModal({
                 </View>
               ))
               )}
-            </View>
-
-            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
-              <Text style={styles.sectionTitle}>오늘의 식단</Text>
-              <MealRow
-                title="아침"
-                carbs={breakfastCarbs}
-                onCarbs={setBreakfastCarbs}
-                protein={breakfastProtein}
-                onProtein={setBreakfastProtein}
-                fat={breakfastFat}
-                onFat={setBreakfastFat}
-                isTablet={isTablet}
-              />
-              <MealRow
-                title="점심"
-                carbs={lunchCarbs}
-                onCarbs={setLunchCarbs}
-                protein={lunchProtein}
-                onProtein={setLunchProtein}
-                fat={lunchFat}
-                onFat={setLunchFat}
-                isTablet={isTablet}
-              />
-              <MealRow
-                title="저녁"
-                carbs={dinnerCarbs}
-                onCarbs={setDinnerCarbs}
-                protein={dinnerProtein}
-                onProtein={setDinnerProtein}
-                fat={dinnerFat}
-                onFat={setDinnerFat}
-                isTablet={isTablet}
-              />
-              <TextInput
-                value={snack}
-                onChangeText={setSnack}
-                placeholder="간식"
-                placeholderTextColor="#A2A8B2"
-                style={[styles.input, isTablet && styles.inputTablet]}
-              />
             </View>
 
             <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
