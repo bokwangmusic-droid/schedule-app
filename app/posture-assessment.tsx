@@ -15,6 +15,19 @@ const DISPLAY_JOINTS=[0,11,12,13,14,15,16,23,24,25,26,27,28,29,30,31,32];
 function point(frame: { landmarks: Float32Array }, index:number): PosePoint {
   const offset=index*4; return {x:frame.landmarks[offset],y:frame.landmarks[offset+1],visibility:frame.landmarks[offset+3]};
 }
+function poseCenterScore(frame: { landmarks: Float32Array }) {
+  const joints=[11,12,23,24,25,26,27,28].map(i=>point(frame,i)).filter(p=>p.visibility>=0.35);
+  if(!joints.length)return Number.POSITIVE_INFINITY;
+  const cx=joints.reduce((sum,p)=>sum+p.x,0)/joints.length;
+  const cy=joints.reduce((sum,p)=>sum+p.y,0)/joints.length;
+  const centerDistance=Math.hypot(cx-0.5,cy-0.52);
+  const visiblePenalty=(8-joints.length)*0.08;
+  const outsidePenalty=joints.filter(p=>p.x<0.18||p.x>0.82||p.y<0.05||p.y>0.98).length*0.12;
+  return centerDistance+visiblePenalty+outsidePenalty;
+}
+function chooseGuidePose(frames: Array<{ landmarks: Float32Array }>) {
+  return [...frames].sort((a,b)=>poseCenterScore(a)-poseCenterScore(b))[0];
+}
 function postureFeedback(frame: { landmarks: Float32Array }) {
   const ls=point(frame,11),rs=point(frame,12),lh=point(frame,23),rh=point(frame,24),nose=point(frame,0);
   const shoulderTilt=(rs.y-ls.y)*100, hipTilt=(rh.y-lh.y)*100;
@@ -43,12 +56,12 @@ export default function PostureAssessmentScreen() {
     setAnalyzedPhoto(uri); setPosePoints([]); setAnalyzing(true);
     Image.getSize(uri,(w,h)=>{if(w>0&&h>0)setPhotoRatio(w/h);},()=>setPhotoRatio(3/4));
     try{
-      const poses=await detectOnImage(uri,{maxPoses:1,angles:true}); const frame=poses[0];
+      const poses=await detectOnImage(uri,{maxPoses:4,angles:true}); const frame=chooseGuidePose(poses);
       if(frame){
         const points=DISPLAY_JOINTS.map(i=>point(frame,i)).filter(p=>p.visibility>=0.45); setPosePoints(points);
         const auto=postureFeedback(frame);
         if(saveAuto&&active){setFeedback(auto);await updatePostureAssessment(db,active.id,{coachFeedback:auto});}
-      }else Alert.alert('자세를 찾지 못했어요.','전신이 화면 안에 들어오도록 다시 촬영해 주세요.');
+      }else Alert.alert('자세를 찾지 못했어요.','분석할 사람 한 명이 가운데 가이드 안에 크게 들어오도록 다시 촬영해 주세요.');
     }catch(error){console.error(error);Alert.alert('자동 분석 실패','사진은 저장됐지만 관절점 분석에 실패했어요. 다시 촬영해 주세요.');}
     finally{setAnalyzing(false);}
   };
@@ -66,7 +79,7 @@ export default function PostureAssessmentScreen() {
       </View>:null}
       <Text style={s.section}>이전 분석 기록</Text>{items.map(x=><Pressable key={x.id} style={s.history} onPress={()=>{setActive(x);setFeedback(x.coachFeedback??'');}}><View><Text style={s.historyDate}>{x.assessedDate}</Text><Text style={s.historyMeta}>{[x.frontPhotoUri,x.sidePhotoUri,x.backPhotoUri].filter(Boolean).length}/3 방향 촬영 · {x.coachFeedback?'메모 있음':'메모 없음'}</Text></View><Text style={s.arrow}>›</Text></Pressable>)}
     </ScrollView>
-    <Modal visible={shot!==null} animationType="slide" onRequestClose={()=>setShot(null)}><View style={s.cameraWrap}><CameraView ref={camera} style={StyleSheet.absoluteFill} facing="back"/><SafeAreaView style={s.cameraUi}><Text style={s.cameraTitle}>{shot?labels[shot]:''} 촬영</Text><View style={s.guide}><View style={s.head}/><View style={s.bodyLine}/><View style={s.shoulderLine}/><View style={s.hipLine}/></View><Text style={s.cameraHelp}>전신이 가이드 안에 들어오도록 맞춰주세요</Text><View style={s.cameraButtons}><Pressable style={s.cancel} onPress={()=>setShot(null)}><Text style={s.cancelText}>취소</Text></Pressable><Pressable style={s.capture} onPress={()=>void capture()}><View style={s.captureInner}/></Pressable><View style={{width:64}}/></View></SafeAreaView></View></Modal>
+    <Modal visible={shot!==null} animationType="slide" onRequestClose={()=>setShot(null)}><View style={s.cameraWrap}><CameraView ref={camera} style={StyleSheet.absoluteFill} facing="back"/><SafeAreaView style={s.cameraUi}><Text style={s.cameraTitle}>{shot?labels[shot]:''} 촬영</Text><View style={s.guide}><View style={s.head}/><View style={s.bodyLine}/><View style={s.shoulderLine}/><View style={s.hipLine}/></View><Text style={s.cameraHelp}>분석할 사람 한 명만 가운데 가이드 안에 맞춰주세요</Text><View style={s.cameraButtons}><Pressable style={s.cancel} onPress={()=>setShot(null)}><Text style={s.cancelText}>취소</Text></Pressable><Pressable style={s.capture} onPress={()=>void capture()}><View style={s.captureInner}/></Pressable><View style={{width:64}}/></View></SafeAreaView></View></Modal>
   </SafeAreaView>;
 }
 const s=StyleSheet.create({
