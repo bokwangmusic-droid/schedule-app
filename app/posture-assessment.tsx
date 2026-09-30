@@ -28,17 +28,50 @@ function poseCenterScore(frame: { landmarks: Float32Array }) {
 function chooseGuidePose(frames: Array<{ landmarks: Float32Array }>) {
   return [...frames].sort((a,b)=>poseCenterScore(a)-poseCenterScore(b))[0];
 }
-function postureFeedback(frame: { landmarks: Float32Array }) {
+function postureFeedback(frame: { landmarks: Float32Array }, shot: Shot) {
   const ls=point(frame,11),rs=point(frame,12),lh=point(frame,23),rh=point(frame,24),nose=point(frame,0);
-  const shoulderTilt=(rs.y-ls.y)*100, hipTilt=(rh.y-lh.y)*100;
-  const shoulderMid=(ls.x+rs.x)/2, headOffset=(nose.x-shoulderMid)*100;
+  const le=point(frame,7),re=point(frame,8),la=point(frame,27),ra=point(frame,28);
+  const visible=(...ps:PosePoint[])=>ps.every(p=>p.visibility>=0.35);
+  const angleDeg=(a:PosePoint,b:PosePoint)=>Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;
+  const signedHorizontal=(a:PosePoint,b:PosePoint)=>angleDeg(a,b);
+  const bodyScale=Math.max(Math.abs(((lh.y+rh.y)/2)-((ls.y+rs.y)/2)),0.12);
   const lines:string[]=[];
-  if(Math.abs(shoulderTilt)>=1.5) lines.push(`어깨 높이 차이가 약 ${Math.abs(shoulderTilt).toFixed(1)}% 관찰됩니다. 좌우 견갑 움직임과 상체 보상 여부를 함께 확인하세요.`);
-  else lines.push('어깨선은 사진상 큰 좌우 높이 차이 없이 관찰됩니다.');
-  if(Math.abs(hipTilt)>=1.5) lines.push(`골반 기준점 높이 차이가 약 ${Math.abs(hipTilt).toFixed(1)}% 관찰됩니다. 한쪽 체중 지지나 촬영 자세의 영향을 함께 확인하세요.`);
-  else lines.push('골반 기준점은 사진상 큰 좌우 높이 차이 없이 관찰됩니다.');
-  if(Math.abs(headOffset)>=2.5) lines.push(`머리 중심이 어깨 중심에서 약 ${Math.abs(headOffset).toFixed(1)}% 벗어나 보입니다. 목·흉추 자세와 촬영 정렬을 재확인하세요.`);
-  lines.push('사진 기반 관찰값은 진단이 아니며 통증·저림·근력저하가 있으면 의료진 평가가 우선입니다.');
+
+  if(shot==='front'||shot==='back'){
+    if(visible(ls,rs)){
+      const deg=signedHorizontal(ls,rs);
+      const diff=Math.abs(rs.y-ls.y)/bodyScale*100;
+      if(Math.abs(deg)>=0.8||diff>=1.0) lines.push(`어깨선 기울기 약 ${Math.abs(deg).toFixed(1)}° · 몸통 기준 높이 차이 ${diff.toFixed(1)}%가 관찰됩니다. ${deg>0?'사진 오른쪽 어깨가 더 낮게':'사진 왼쪽 어깨가 더 낮게'} 보입니다.`);
+      else lines.push(`어깨선 기울기 약 ${Math.abs(deg).toFixed(1)}°로 큰 좌우 차이는 관찰되지 않습니다.`);
+    } else lines.push('어깨 기준점 신뢰도가 낮아 어깨선 판정을 보류합니다. 다시 촬영해 주세요.');
+
+    if(visible(lh,rh)){
+      const deg=signedHorizontal(lh,rh);
+      const diff=Math.abs(rh.y-lh.y)/bodyScale*100;
+      if(Math.abs(deg)>=0.8||diff>=1.0) lines.push(`골반선 기울기 약 ${Math.abs(deg).toFixed(1)}° · 몸통 기준 높이 차이 ${diff.toFixed(1)}%가 관찰됩니다. 한쪽 체중 지지와 촬영 정렬도 함께 확인하세요.`);
+      else lines.push(`골반선 기울기 약 ${Math.abs(deg).toFixed(1)}°로 큰 좌우 차이는 관찰되지 않습니다.`);
+    } else lines.push('골반 기준점 신뢰도가 낮아 골반선 판정을 보류합니다. 다시 촬영해 주세요.');
+
+    if(visible(nose,ls,rs)){
+      const shoulderMidX=(ls.x+rs.x)/2;
+      const offset=(nose.x-shoulderMidX)/bodyScale*100;
+      if(Math.abs(offset)>=2) lines.push(`머리 중심이 어깨 중심에서 몸통 기준 약 ${Math.abs(offset).toFixed(1)}% 좌우로 벗어나 보입니다.`);
+    }
+  } else {
+    const shoulder=ls.visibility>=rs.visibility?ls:rs;
+    const ear=le.visibility>=re.visibility?le:re;
+    const ankle=la.visibility>=ra.visibility?la:ra;
+    if(visible(ear,shoulder)){
+      const dx=(ear.x-shoulder.x)/bodyScale*100;
+      lines.push(`측면 머리-어깨 수평 차이: 몸통 기준 ${Math.abs(dx).toFixed(1)}%. ${Math.abs(dx)>=8?'머리가 어깨보다 앞쪽으로 나온 경향을 확인하세요.':'큰 전방 편위는 두드러지지 않습니다.'}`);
+    }
+    if(visible(ear,shoulder,lh,rh,ankle)){
+      const hip={...lh,x:(lh.x+rh.x)/2,y:(lh.y+rh.y)/2,visibility:Math.min(lh.visibility,rh.visibility)};
+      const trunkAngle=Math.abs(90-Math.abs(angleDeg(shoulder,hip)));
+      lines.push(`상체 수직선 편위 약 ${trunkAngle.toFixed(1)}°가 관찰됩니다. 측면 촬영 각도와 몸통 정렬을 함께 확인하세요.`);
+    }
+  }
+  lines.push('수치는 사진 속 포즈 기준의 코칭 참고값이며 의료 진단이 아닙니다. 같은 거리·높이·가이드 위치로 재촬영해야 전후 비교가 의미 있습니다.');
   return lines.join('\n');
 }
 
@@ -59,7 +92,7 @@ export default function PostureAssessmentScreen() {
       const poses=await detectOnImage(uri,{maxPoses:4,angles:true}); const frame=chooseGuidePose(poses);
       if(frame){
         const points=DISPLAY_JOINTS.map(i=>point(frame,i)).filter(p=>p.visibility>=0.45); setPosePoints(points);
-        const auto=postureFeedback(frame);
+        const auto=postureFeedback(frame, shot ?? 'front');
         if(saveAuto&&active){setFeedback(auto);await updatePostureAssessment(db,active.id,{coachFeedback:auto});}
       }else Alert.alert('자세를 찾지 못했어요.','분석할 사람 한 명이 가운데 가이드 안에 크게 들어오도록 다시 촬영해 주세요.');
     }catch(error){console.error(error);Alert.alert('자동 분석 실패','사진은 저장됐지만 관절점 분석에 실패했어요. 다시 촬영해 주세요.');}
