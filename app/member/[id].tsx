@@ -460,6 +460,8 @@ export default function MemberDetailScreen() {
           <Text style={styles.sectionCount}>{bodyRecords.length}회 측정</Text>
         </View>
 
+        {bodyRecords.length > 0 ? <BodyTrendChart records={bodyRecords} /> : null}
+
         {latestBody ? (
           <View style={styles.bodyCard}>
             <View style={styles.bodyCardHeader}>
