@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Modal,
   PanResponder,
   Pressable,
@@ -289,12 +290,24 @@ export default function MembersScreen() {
     return `${month}/${day}`;
   };
 
+  const historyTranslateY = useRef(new Animated.Value(0)).current;
   const historyPanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dy > 80 || gesture.vy > 0.8) closeSignatureHistory();
+      onPanResponderMove: (_, gesture) => {
+        historyTranslateY.setValue(Math.max(0, gesture.dy));
       },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dy > 80 || gesture.vy > 0.8) {
+          Animated.timing(historyTranslateY, { toValue: 500, duration: 160, useNativeDriver: true }).start(() => {
+            historyTranslateY.setValue(0);
+            closeSignatureHistory();
+          });
+        } else {
+          Animated.spring(historyTranslateY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+      onPanResponderTerminate: () => Animated.spring(historyTranslateY, { toValue: 0, useNativeDriver: true }).start(),
     }),
   ).current;
 
@@ -490,7 +503,7 @@ export default function MembersScreen() {
         onRequestClose={closeSignatureHistory}
       >
         <View style={styles.historyBackdrop}>
-          <View style={styles.historySheet} {...historyPanResponder.panHandlers}>
+          <Animated.View style={[styles.historySheet, { transform: [{ translateY: historyTranslateY }] }]} {...historyPanResponder.panHandlers}>
             <View style={styles.historyHandle} />
             <View style={styles.historyHeader}>
               <View>
@@ -552,7 +565,7 @@ export default function MembersScreen() {
                 ) : null}
               </View>
             )}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
