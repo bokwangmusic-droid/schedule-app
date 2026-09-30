@@ -385,8 +385,19 @@ export default function MemberDetailScreen() {
             <Pressable
               style={[styles.primaryAction, isTablet && styles.primaryActionTablet]}
               onPress={() => {
-                setEditingLog(currentTrainingLog);
-                setLogModalOpen(true);
+                if (currentTrainingLog) {
+                  setEditingLog(currentTrainingLog);
+                  setLogModalOpen(true);
+                  return;
+                }
+                void (async () => {
+                  const newDraftKey = trainingLogDraftKey(member.id, scheduleId, null);
+                  await deleteTrainingLogDraft(db, newDraftKey).catch((error) => {
+                    console.error('새 운동일지 임시저장 초기화 실패', error);
+                  });
+                  setEditingLog(null);
+                  setLogModalOpen(true);
+                })();
               }}
             >
               <Text style={styles.primaryActionTitle}>{currentTrainingLog ? '운동일지 수정' : '+ 운동일지'}</Text>
