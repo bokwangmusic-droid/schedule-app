@@ -597,15 +597,19 @@ export async function deleteSignedMemberSession(
       );
     }
 
-    if (member.pt_remaining_sessions !== null) {
-      const restored =
-        member.pt_total_sessions === null
-          ? member.pt_remaining_sessions + 1
-          : Math.min(member.pt_remaining_sessions + 1, member.pt_total_sessions);
-      await txn.runAsync(
-        'UPDATE members SET pt_remaining_sessions = ?, updated_at = ? WHERE id = ?',
-        [restored, now, memberId],
-      );
+    const program = await txn.getFirstAsync<{ id: string; total_sessions: number | null; remaining_sessions: number | null }>(
+      `SELECT id, total_sessions, remaining_sessions FROM member_programs
+       WHERE member_id = ? AND is_active = 1 AND tracking_mode = 'sessions'
+         AND remaining_sessions IS NOT NULL AND total_sessions IS NOT NULL
+         AND remaining_sessions < total_sessions
+       ORDER BY CASE WHEN category = 'PT' THEN 0 ELSE 1 END, created_at ASC LIMIT 1`,
+      [memberId],
+    );
+    if (program && program.remaining_sessions !== null && program.total_sessions !== null) {
+      await txn.runAsync('UPDATE member_programs SET remaining_sessions = ?, updated_at = ? WHERE id = ?', [Math.min(program.remaining_sessions + 1, program.total_sessions), now, program.id]);
+    } else if (member.pt_remaining_sessions !== null) {
+      const restored = member.pt_total_sessions === null ? member.pt_remaining_sessions + 1 : Math.min(member.pt_remaining_sessions + 1, member.pt_total_sessions);
+      await txn.runAsync('UPDATE members SET pt_remaining_sessions = ?, updated_at = ? WHERE id = ?', [restored, now, memberId]);
     }
   });
 }
