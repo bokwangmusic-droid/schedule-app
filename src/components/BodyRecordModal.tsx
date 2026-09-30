@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { parseInBodyQr } from '../lib/inbodyQr';
+import { inBodyQrDiagnostic, parseInBodyQr } from '../lib/inbodyQr';
 import type { CreateBodyRecordInput } from '../types/memberFitness';
 
 type Props = {
@@ -110,6 +110,11 @@ export function BodyRecordModal({
   const applyQr = (data: string) => {
     if (scannerLocked) return;
     setScannerLocked(true);
+    if (__DEV__) {
+      // Diagnostic only: report structure, never persist the QR payload itself.
+      console.info('[InBody QR diagnostic]', inBodyQrDiagnostic(data));
+      console.info('[InBody QR payload - dev only]', data);
+    }
     try {
       const parsed = parseInBodyQr(data);
       setMeasuredDate(parsed.measuredDate);
