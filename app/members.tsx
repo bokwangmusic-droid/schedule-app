@@ -32,7 +32,7 @@ import {
   type SignedMemberSession,
 } from '../src/data/scheduleRepository';
 import type { MemberItem } from '../src/types/member';
-import { enrollMemberProgram, listPrograms, type ProgramDefinition } from '../src/data/programRepository';
+import { enrollMemberProgram, listMemberPrograms, listPrograms, type MemberProgram, type ProgramDefinition } from '../src/data/programRepository';
 import { toLocalDateString } from '../src/lib/date';
 
 type DatePickerTarget = 'start' | 'end' | null;
@@ -45,6 +45,7 @@ export default function MembersScreen() {
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [formVisible, setFormVisible] = useState(false);
   const [programs, setPrograms] = useState<ProgramDefinition[]>([]);
+  const [memberProgramsByMember, setMemberProgramsByMember] = useState<Record<string, MemberProgram[]>>({});
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -66,8 +67,10 @@ export default function MembersScreen() {
 
   const loadMembers = useCallback(async () => {
     const [rows, availablePrograms] = await Promise.all([listMembers(db), listPrograms(db)]);
+    const programPairs = await Promise.all(rows.map(async (member) => [member.id, await listMemberPrograms(db, member.id)] as const));
     setMembers(rows);
     setPrograms(availablePrograms);
+    setMemberProgramsByMember(Object.fromEntries(programPairs));
   }, [db]);
 
   useFocusEffect(
@@ -468,16 +471,22 @@ export default function MembersScreen() {
               <Pressable style={styles.memberInfo} onPress={() => router.push({ pathname: '/member/[id]', params: { id: member.id } } as never)}>
                 <Text style={styles.memberName}>{member.name}</Text>
                 {member.phone ? <Text style={styles.memberMeta}>{member.phone}</Text> : null}
-                {member.membershipStartDate || member.membershipEndDate ? (
-                  <Text style={styles.memberMeta}>
-                    회원권 {member.membershipStartDate ?? '미입력'} ~ {member.membershipEndDate ?? '미입력'}
-                  </Text>
-                ) : null}
-                {member.ptTotalSessions !== null && member.ptRemainingSessions !== null ? (
-                  <Text style={styles.ptMeta}>
-                    PT 현재 잔여 {member.ptRemainingSessions}/{member.ptTotalSessions}
-                  </Text>
-                ) : null}
+                {(memberProgramsByMember[member.id] ?? []).length > 0 ? (
+                  <View style={styles.memberProgramSummary}>
+                    {(memberProgramsByMember[member.id] ?? []).map((program) => (
+                      <Text key={program.id} style={program.trackingMode === 'sessions' ? styles.ptMeta : styles.memberMeta}>
+                        {program.programName} · {program.trackingMode === 'sessions'
+                          ? `잔여 ${program.remainingSessions ?? '-'} / ${program.totalSessions ?? '-'}회`
+                          : `${program.startDate ?? '-'} ~ ${program.endDate ?? '-'}`}
+                      </Text>
+                    ))}
+                  </View>
+                ) : (
+                  <>
+                    {member.membershipStartDate || member.membershipEndDate ? <Text style={styles.memberMeta}>기존 회원권 {member.membershipStartDate ?? '미입력'} ~ {member.membershipEndDate ?? '미입력'}</Text> : null}
+                    {member.ptTotalSessions !== null && member.ptRemainingSessions !== null ? <Text style={styles.ptMeta}>기존 PT 잔여 {member.ptRemainingSessions}/{member.ptTotalSessions}</Text> : null}
+                  </>
+                )}
                 {member.memo ? <Text numberOfLines={2} style={styles.memberMemo}>{member.memo}</Text> : null}
               </Pressable>
               <View style={styles.memberActions}>
@@ -915,4 +924,5 @@ const styles = StyleSheet.create({
   editButtonLargeText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   moreMemberButton: { minWidth: 52, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0F1' },
   moreMemberButtonText: { fontSize: 12, fontWeight: '900', color: '#D64B5B' },
+  memberProgramSummary: { marginTop: 3, gap: 2 },
 });
