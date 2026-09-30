@@ -31,7 +31,8 @@
     "react-native-view-shot": "5.1.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1",
-    "expo-camera": "~57.0.5"
+    "expo-camera": "~57.0.5",
+    "react-native-pose-detection": "^0.2.2"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
