@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { memberHomeRoute } from '../../src/auth/appSession';
 import { BodyRecordModal } from '../../src/components/BodyRecordModal';
+import { BodyTrendChart } from '../../src/components/BodyTrendChart';
 import { MemberSignatureHistoryModal } from '../../src/components/MemberSignatureHistoryModal';
 import { SessionSignatureModal } from '../../src/components/SessionSignatureModal';
 import { TrainingLogModal } from '../../src/components/TrainingLogModal';
