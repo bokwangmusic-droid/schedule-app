@@ -151,12 +151,15 @@ export default function MemberDetailScreen() {
 
   useEffect(() => {
     if (didAutoOpen || params.newLog !== '1' || !member) return;
-    const existing = scheduleId
-      ? trainingLogs.find((log) => log.scheduleId === scheduleId)
-      : trainingLogs.find((log) => log.date === routeDate);
     setDidAutoOpen(true);
-    setEditingLog(existing ?? null);
-    setLogModalOpen(true);
+    void (async () => {
+      const newDraftKey = trainingLogDraftKey(member.id, scheduleId, null);
+      await deleteTrainingLogDraft(db, newDraftKey).catch((error) => {
+        console.error('새 운동일지 임시저장 초기화 실패', error);
+      });
+      setEditingLog(null);
+      setLogModalOpen(true);
+    })();
   }, [didAutoOpen, member, params.newLog, routeDate, scheduleId, trainingLogs]);
 
   const signedSessionNumberByScheduleId = useMemo(
@@ -385,11 +388,6 @@ export default function MemberDetailScreen() {
             <Pressable
               style={[styles.primaryAction, isTablet && styles.primaryActionTablet]}
               onPress={() => {
-                if (currentTrainingLog) {
-                  setEditingLog(currentTrainingLog);
-                  setLogModalOpen(true);
-                  return;
-                }
                 void (async () => {
                   const newDraftKey = trainingLogDraftKey(member.id, scheduleId, null);
                   await deleteTrainingLogDraft(db, newDraftKey).catch((error) => {
@@ -400,8 +398,8 @@ export default function MemberDetailScreen() {
                 })();
               }}
             >
-              <Text style={styles.primaryActionTitle}>{currentTrainingLog ? '운동일지 수정' : '+ 운동일지'}</Text>
-              <Text style={styles.primaryActionSub}>{currentTrainingLog ? '저장된 기록 이어서 수정' : '오늘 수업 기록'}</Text>
+              <Text style={styles.primaryActionTitle}>+ 운동일지</Text>
+              <Text style={styles.primaryActionSub}>새 수업 기록 작성</Text>
             </Pressable>
             <Pressable style={[styles.quickAction, isTablet && styles.quickActionTablet]} onPress={() => setBodyModalOpen(true)}>
               <Text style={styles.quickActionTitle}>인바디</Text>
