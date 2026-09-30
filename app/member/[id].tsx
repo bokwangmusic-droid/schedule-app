@@ -378,6 +378,14 @@ export default function MemberDetailScreen() {
           </View>
 
           <Pressable
+            style={styles.memberEditButton}
+            onPress={() => router.push({ pathname: '/members', params: { editMemberId: member.id } } as never)}
+          >
+            <Text style={styles.memberEditButtonTitle}>회원정보 수정</Text>
+            <Text style={styles.memberEditButtonArrow}>›</Text>
+          </Pressable>
+
+          <Pressable
             style={styles.memberViewButton}
             onPress={() => router.push(memberHomeRoute(member.id) as never)}
           >
@@ -1064,4 +1072,7 @@ const styles = StyleSheet.create({
   logCardio: { marginTop: 8, fontSize: 10, color: '#757D88' },
   logSummary: { marginTop: 10, fontSize: 12, fontWeight: '800', color: '#343A44' },
   logFeedback: { marginTop: 5, fontSize: 11, lineHeight: 16, color: '#777E89' },
+  memberEditButton: { minHeight: 48, marginTop: 12, paddingHorizontal: 14, borderRadius: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F3F5F8' },
+  memberEditButtonTitle: { fontSize: 13, fontWeight: '900', color: '#333842' },
+  memberEditButtonArrow: { fontSize: 22, color: '#8C94A0' },
 });
