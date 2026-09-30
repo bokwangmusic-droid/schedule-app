@@ -146,6 +146,25 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_program_definitions_sort
       ON program_definitions(is_active, category, sort_order);
 
+    CREATE TABLE IF NOT EXISTS member_programs (
+      id TEXT PRIMARY KEY NOT NULL,
+      member_id TEXT NOT NULL,
+      program_id TEXT NOT NULL,
+      program_name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      tracking_mode TEXT NOT NULL,
+      start_date TEXT,
+      end_date TEXT,
+      total_sessions INTEGER,
+      remaining_sessions INTEGER,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_member_programs_member
+      ON member_programs(member_id, is_active, created_at);
+
     CREATE INDEX IF NOT EXISTS idx_schedules_date
       ON schedules(date);
 
