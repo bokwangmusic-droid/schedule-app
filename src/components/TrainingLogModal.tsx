@@ -117,7 +117,7 @@ function volumePlanText(logs: TrainingLogItem[]) {
   if (change >= 10) {
     return `최근 볼륨이 이전 평균보다 약 ${change.toFixed(0)}% 높아요. 오늘은 추가 증량보다 현재 수준을 유지하거나 세트 품질을 확인하는 편이 좋아요.`;
   }
-  if (change <= -10 && latest.conditionLevel !== '하') {
+  if (change <= -10) {
     return `최근 볼륨이 이전 평균보다 약 ${Math.abs(change).toFixed(0)}% 낮아요. 컨디션이 괜찮다면 5~10% 정도 점진적으로 올려볼 수 있어요.`;
   }
   return '최근 볼륨 변화가 크지 않아요. 수행이 안정적이고 컨디션이 좋다면 총 볼륨을 약 5% 정도만 올리는 식으로 진행해보세요.';
