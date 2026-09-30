@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import type { SignedMemberSession } from '../data/scheduleRepository';
 import { SignaturePreview } from './SignaturePreview';
@@ -35,6 +36,9 @@ export function MemberSignatureHistoryModal({
   onDelete,
 }: Props) {
   const [selected, setSelected] = useState<SignedMemberSession | null>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  const rowsPerColumn = Math.max(5, Math.floor((windowHeight * 0.92 - 150) / 26));
+  const orderedSessions = [...sessions].sort((a, b) => a.sessionNumber - b.sessionNumber);
 
   const close = () => {
     setSelected(null);
@@ -81,10 +85,10 @@ export function MemberSignatureHistoryModal({
               </View>
             ) : (
               <View style={styles.grid}>
-                {sessions.slice(0, 50).map((session) => (
+                {orderedSessions.slice(0, 50).map((session, index) => (
                   <Pressable
                     key={session.id}
-                    style={styles.item}
+                    style={[styles.item, { position: 'absolute', left: index < rowsPerColumn ? 0 : '50%', top: (index % rowsPerColumn) * 26 }]}
                     onPress={() => setSelected(session)}
                   >
                     <Text style={styles.meta}>
@@ -229,11 +233,7 @@ const styles = StyleSheet.create({
   grid: {
     flex: 1,
     marginTop: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignContent: 'flex-start',
-    columnGap: 6,
-    rowGap: 2,
+    position: 'relative',
   },
   item: {
     width: '49%',
