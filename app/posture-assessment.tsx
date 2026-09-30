@@ -36,7 +36,7 @@ export default function PostureAssessmentScreen() {
   const [posePoints,setPosePoints]=useState<PosePoint[]>([]); const [analyzing,setAnalyzing]=useState(false); const [analyzedPhoto,setAnalyzedPhoto]=useState<string|null>(null); const [photoRatio,setPhotoRatio]=useState(3/4);
   const load=useCallback(async()=>{if(memberId)setItems(await listPostureAssessments(db,memberId));},[db,memberId]);
   useFocusEffect(useCallback(()=>{void load();},[load]));
-  const start=async()=>{const id=await createPostureAssessment(db,memberId,toLocalDateString(new Date()));await load();const list=await listPostureAssessments(db,memberId);setActive(list.find(x=>x.id===id)??null);};
+  const start=async()=>{const list=await listPostureAssessments(db,memberId);const unfinished=list.find(x=>!x.frontPhotoUri&&!x.sidePhotoUri&&!x.backPhotoUri&&!x.coachFeedback);if(unfinished){setActive(unfinished);setFeedback('');setAnalyzedPhoto(null);setPosePoints([]);return;}const id=await createPostureAssessment(db,memberId,toLocalDateString(new Date()));const next=await listPostureAssessments(db,memberId);setItems(next);setActive(next.find(x=>x.id===id)??null);setFeedback('');setAnalyzedPhoto(null);setPosePoints([]);};
   const photoUri=(item:PostureAssessment,s:Shot)=>s==='front'?item.frontPhotoUri:s==='side'?item.sidePhotoUri:item.backPhotoUri;
   const openCamera=async(s:Shot)=>{if(!permission?.granted){const r=await requestPermission();if(!r.granted){Alert.alert('카메라 권한이 필요해요.');return;}}setShot(s);};
   const analyzePhoto=async(uri:string,saveAuto=false)=>{
