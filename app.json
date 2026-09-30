@@ -3,7 +3,7 @@
     "name": "스케줄",
     "slug": "schedule-app",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "scheduleapp",
     "android": {
