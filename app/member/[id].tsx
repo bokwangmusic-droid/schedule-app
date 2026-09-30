@@ -416,6 +416,16 @@ export default function MemberDetailScreen() {
           </View>
           <Pressable
             style={styles.mskGuideButton}
+            onPress={() => router.push({ pathname: '/posture-assessment', params: { memberId: member.id } } as never)}
+          >
+            <View>
+              <Text style={styles.mskGuideTitle}>체형 분석</Text>
+              <Text style={styles.mskGuideSub}>정면 · 측면 · 후면 촬영 · 변화 기록 · 트레이너 관찰 메모</Text>
+            </View>
+            <Text style={styles.mskGuideArrow}>›</Text>
+          </Pressable>
+          <Pressable
+            style={styles.mskGuideButton}
             onPress={() => router.push('/msk-guide' as never)}
           >
             <View>
