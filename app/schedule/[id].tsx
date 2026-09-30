@@ -216,12 +216,12 @@ export default function EditScheduleScreen() {
       await updateSchedule(db, id, {
         title: trimmedTitle,
         date,
-        startTime: isAllDay ? null : startTime,
-        endTime: isAllDay ? null : endTime,
+        startTime: scheduleKind === 'member' || !isAllDay ? startTime : null,
+        endTime: scheduleKind === 'member' || !isAllDay ? endTime : null,
         memo,
         color,
         memberId: scheduleKind === 'member' ? memberId : null,
-        isAllDay,
+        isAllDay: scheduleKind === 'personal' ? isAllDay : false,
       });
       router.back();
     } catch (error) {
@@ -665,12 +665,14 @@ export default function EditScheduleScreen() {
           </View>
 
           <View style={styles.section}>
-            <View style={styles.switchRow}>
-              <Text style={styles.labelWithoutMargin}>하루 종일</Text>
-              <Switch value={isAllDay} onValueChange={setIsAllDay} />
-            </View>
+            {scheduleKind === 'personal' ? (
+              <View style={styles.switchRow}>
+                <Text style={styles.labelWithoutMargin}>하루 종일</Text>
+                <Switch value={isAllDay} onValueChange={setIsAllDay} />
+              </View>
+            ) : null}
 
-            {!isAllDay && (
+            {(scheduleKind === 'member' || !isAllDay) && (
               <View style={styles.timeRow}>
                 <TimePickerField label="시작" value={startTime} onChange={changeStartTime} />
                 <TimePickerField label="종료" value={endTime} onChange={setEndTime} />
