@@ -97,3 +97,86 @@ export async function moveProgram(db: SQLiteDatabase, programs: ProgramDefinitio
     await db.runAsync('UPDATE program_definitions SET sort_order = ?, updated_at = ? WHERE id = ?', [first.sortOrder, new Date().toISOString(), second.id]);
   });
 }
+
+
+export type MemberProgram = {
+  id: string;
+  memberId: string;
+  programId: string;
+  programName: string;
+  category: string;
+  trackingMode: ProgramTrackingMode;
+  startDate: string | null;
+  endDate: string | null;
+  totalSessions: number | null;
+  remainingSessions: number | null;
+};
+
+type MemberProgramRow = {
+  id: string;
+  member_id: string;
+  program_id: string;
+  program_name: string;
+  category: string;
+  tracking_mode: ProgramTrackingMode;
+  start_date: string | null;
+  end_date: string | null;
+  total_sessions: number | null;
+  remaining_sessions: number | null;
+};
+
+function mapMemberProgram(row: MemberProgramRow): MemberProgram {
+  return {
+    id: row.id,
+    memberId: row.member_id,
+    programId: row.program_id,
+    programName: row.program_name,
+    category: row.category,
+    trackingMode: row.tracking_mode,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    totalSessions: row.total_sessions,
+    remainingSessions: row.remaining_sessions,
+  };
+}
+
+function addMonths(dateString: string, months: number) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12);
+  date.setMonth(date.getMonth() + months);
+  date.setDate(date.getDate() - 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+export async function listMemberPrograms(db: SQLiteDatabase, memberId: string) {
+  const rows = await db.getAllAsync<MemberProgramRow>(
+    `SELECT id, member_id, program_id, program_name, category, tracking_mode,
+            start_date, end_date, total_sessions, remaining_sessions
+     FROM member_programs
+     WHERE member_id = ? AND is_active = 1
+     ORDER BY created_at ASC`,
+    [memberId],
+  );
+  return rows.map(mapMemberProgram);
+}
+
+export async function enrollMemberProgram(db: SQLiteDatabase, memberId: string, program: ProgramDefinition, startDate: string) {
+  const now = new Date().toISOString();
+  const endDate = program.trackingMode === 'duration' && program.durationMonths
+    ? addMonths(startDate, program.durationMonths)
+    : null;
+  await db.runAsync(
+    `INSERT INTO member_programs
+     (id, member_id, program_id, program_name, category, tracking_mode, start_date, end_date,
+      total_sessions, remaining_sessions, is_active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    [
+      createId(), memberId, program.id, program.name, program.category, program.trackingMode,
+      startDate, endDate, program.sessionCount, program.sessionCount, now, now,
+    ],
+  );
+}
+
+export async function removeMemberProgram(db: SQLiteDatabase, id: string) {
+  await db.runAsync('UPDATE member_programs SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id]);
+}
