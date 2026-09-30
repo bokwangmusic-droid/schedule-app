@@ -427,7 +427,7 @@ export default function EditScheduleScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Text style={styles.headerAction}>취소</Text>
           </Pressable>
-          <Text style={styles.headerTitle}>일정 수정</Text>
+          <Text style={styles.headerTitle}>{scheduleKind === 'member' && selectedMember ? `${selectedMember.name} 수업` : '일정 수정'}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -485,7 +485,7 @@ export default function EditScheduleScreen() {
             <View style={styles.sessionCard}>
               <View style={styles.sessionTitleRow}>
                 <View style={styles.sessionTitleInfo}>
-                  <Text style={styles.sessionTitle}>수업 관리</Text>
+                  <Text style={styles.sessionTitle}>이번 수업</Text>
                   <Text style={styles.sessionSubText}>
                     PT 총 {selectedMember.ptTotalSessions ?? '-'} · 소진 {
                       selectedMember.ptTotalSessions !== null &&
@@ -511,7 +511,7 @@ export default function EditScheduleScreen() {
                         } as never)
                       }
                     >
-                      <Text style={styles.memberRecordButtonText}>회원 기록</Text>
+                      <Text style={styles.memberRecordButtonText}>운동·체형 기록</Text>
                     </Pressable>
                     <Pressable
                       style={styles.memberManageButton}
@@ -522,13 +522,13 @@ export default function EditScheduleScreen() {
                         } as never)
                       }
                     >
-                      <Text style={styles.memberManageButtonText}>회원 관리</Text>
+                      <Text style={styles.memberManageButtonText}>회원정보 수정</Text>
                     </Pressable>
                     <Pressable
                       style={styles.historyButton}
                       onPress={() => void openSignatureHistory()}
                     >
-                      <Text style={styles.historyButtonText}>서명 기록</Text>
+                      <Text style={styles.historyButtonText}>PT 서명내역</Text>
                     </Pressable>
                   </View>
                   {selectedMember.ptRemainingSessions !== null && selectedMember.ptRemainingSessions <= 3 ? (
