@@ -609,7 +609,7 @@ export function TrainingLogModal({
             </View>
             <Pressable onPress={submit} disabled={saving} hitSlop={10}>
               <Text style={[styles.headerSave, saving && styles.disabled]}>
-                {saving ? '저장중' : initialLog ? '수정완료' : '저장'}
+                {saving ? '저장중' : initialLog ? '완료' : '저장'}
               </Text>
             </Pressable>
           </View>
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
   headerCenter: { alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '900', color: '#20242B' },
   headerSub: { marginTop: 1, fontSize: 10, color: '#8A919C' },
-  headerSave: {
+  headerSave: { minWidth: 54, textAlign: 'right',
     width: 54,
     textAlign: 'right',
     fontSize: 15,
