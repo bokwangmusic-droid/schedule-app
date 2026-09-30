@@ -7,6 +7,7 @@ type Props = {
   onClose: () => void;
   onMembers: () => void;
   onPrograms: () => void;
+  onExercises: () => void;
   onCalendar: () => void;
   onSettings: () => void;
   onAddWidget?: () => void;
@@ -22,6 +23,7 @@ export function TimetableMoreMenu({
   onClose,
   onMembers,
   onPrograms,
+  onExercises,
   onCalendar,
   onSettings,
   onAddWidget,
@@ -70,6 +72,7 @@ export function TimetableMoreMenu({
           <MenuItem icon="▤" label="홈 화면 위젯 추가" value="NEW" onPress={() => void addWidget()} />
           <MenuItem icon="👤" label="회원 관리" onPress={onMembers} />
           <MenuItem icon="▦" label="프로그램 설정" value="NEW" onPress={onPrograms} />
+          <MenuItem icon="🏋" label="운동 설정" value="NEW" onPress={onExercises} />
           <MenuItem icon="▦" label="달력 보기" onPress={onCalendar} />
           <MenuItem icon="⚙" label="시간표 디자인/설정" onPress={onSettings} />
           <MenuItem icon="▣" label="이번 주 → 다음 주 복사" onPress={onCopyWeek} />
