@@ -4,21 +4,41 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { detectOnImage } from 'react-native-pose-detection';
 import { createPostureAssessment, deletePostureAssessment, listPostureAssessments, updatePostureAssessment, type PostureAssessment } from '../src/data/postureRepository';
 import { toLocalDateString } from '../src/lib/date';
 
 type Shot = 'front' | 'side' | 'back';
 const labels: Record<Shot,string> = { front:'정면', side:'측면', back:'후면' };
+type PosePoint = { x:number; y:number; visibility:number };
+const DISPLAY_JOINTS=[0,11,12,13,14,15,16,23,24,25,26,27,28,29,30,31,32];
+function point(frame: { landmarks: Float32Array }, index:number): PosePoint {
+  const offset=index*4; return {x:frame.landmarks[offset],y:frame.landmarks[offset+1],visibility:frame.landmarks[offset+3]};
+}
+function postureFeedback(frame: { landmarks: Float32Array }) {
+  const ls=point(frame,11),rs=point(frame,12),lh=point(frame,23),rh=point(frame,24),nose=point(frame,0);
+  const shoulderTilt=(rs.y-ls.y)*100, hipTilt=(rh.y-lh.y)*100;
+  const shoulderMid=(ls.x+rs.x)/2, headOffset=(nose.x-shoulderMid)*100;
+  const lines:string[]=[];
+  if(Math.abs(shoulderTilt)>=1.5) lines.push(`어깨 높이 차이가 약 ${Math.abs(shoulderTilt).toFixed(1)}% 관찰됩니다. 좌우 견갑 움직임과 상체 보상 여부를 함께 확인하세요.`);
+  else lines.push('어깨선은 사진상 큰 좌우 높이 차이 없이 관찰됩니다.');
+  if(Math.abs(hipTilt)>=1.5) lines.push(`골반 기준점 높이 차이가 약 ${Math.abs(hipTilt).toFixed(1)}% 관찰됩니다. 한쪽 체중 지지나 촬영 자세의 영향을 함께 확인하세요.`);
+  else lines.push('골반 기준점은 사진상 큰 좌우 높이 차이 없이 관찰됩니다.');
+  if(Math.abs(headOffset)>=2.5) lines.push(`머리 중심이 어깨 중심에서 약 ${Math.abs(headOffset).toFixed(1)}% 벗어나 보입니다. 목·흉추 자세와 촬영 정렬을 재확인하세요.`);
+  lines.push('사진 기반 관찰값은 진단이 아니며 통증·저림·근력저하가 있으면 의료진 평가가 우선입니다.');
+  return lines.join('\n');
+}
 
 export default function PostureAssessmentScreen() {
   const db=useSQLiteContext(); const params=useLocalSearchParams<{memberId?:string}>(); const memberId=typeof params.memberId==='string'?params.memberId:'';
   const [permission,requestPermission]=useCameraPermissions(); const camera=useRef<CameraView>(null);
   const [items,setItems]=useState<PostureAssessment[]>([]); const [active,setActive]=useState<PostureAssessment|null>(null); const [shot,setShot]=useState<Shot|null>(null); const [feedback,setFeedback]=useState('');
+  const [posePoints,setPosePoints]=useState<PosePoint[]>([]); const [analyzing,setAnalyzing]=useState(false); const [analyzedPhoto,setAnalyzedPhoto]=useState<string|null>(null);
   const load=useCallback(async()=>{if(memberId)setItems(await listPostureAssessments(db,memberId));},[db,memberId]);
   useFocusEffect(useCallback(()=>{void load();},[load]));
   const start=async()=>{const id=await createPostureAssessment(db,memberId,toLocalDateString(new Date()));await load();const list=await listPostureAssessments(db,memberId);setActive(list.find(x=>x.id===id)??null);};
   const openCamera=async(s:Shot)=>{if(!permission?.granted){const r=await requestPermission();if(!r.granted){Alert.alert('카메라 권한이 필요해요.');return;}}setShot(s);};
-  const capture=async()=>{if(!shot||!active)return;const photo=await camera.current?.takePictureAsync({quality:0.7});if(!photo?.uri)return;const key=shot==='front'?'frontPhotoUri':shot==='side'?'sidePhotoUri':'backPhotoUri';await updatePostureAssessment(db,active.id,{[key]:photo.uri});setShot(null);const list=await listPostureAssessments(db,memberId);setItems(list);setActive(list.find(x=>x.id===active.id)??null);};
+  const capture=async()=>{if(!shot||!active)return;const photo=await camera.current?.takePictureAsync({quality:0.85});if(!photo?.uri)return;const key=shot==='front'?'frontPhotoUri':shot==='side'?'sidePhotoUri':'backPhotoUri';await updatePostureAssessment(db,active.id,{[key]:photo.uri});setShot(null);setAnalyzing(true);try{const poses=await detectOnImage(photo.uri,{maxPoses:1,angles:true});const frame=poses[0];if(frame){const points=DISPLAY_JOINTS.map(i=>point(frame,i)).filter(p=>p.visibility>=0.45);const auto=postureFeedback(frame);setPosePoints(points);setAnalyzedPhoto(photo.uri);setFeedback(auto);await updatePostureAssessment(db,active.id,{coachFeedback:auto});}else{setPosePoints([]);setAnalyzedPhoto(photo.uri);Alert.alert('자세를 찾지 못했어요.','전신이 화면 안에 들어오도록 다시 촬영해 주세요.');}}catch(error){console.error(error);Alert.alert('자동 분석 실패','사진은 저장됐지만 관절점 분석에 실패했어요. 다시 촬영해 주세요.');}finally{setAnalyzing(false);}const list=await listPostureAssessments(db,memberId);setItems(list);setActive(list.find(x=>x.id===active.id)??null);};
   const removeActive=()=>{if(!active)return;Alert.alert('분석 기록 삭제','이번 체형 분석 기록을 삭제할까요?',[{text:'취소',style:'cancel'},{text:'삭제',style:'destructive',onPress:()=>void(async()=>{await deletePostureAssessment(db,active.id);setActive(null);setFeedback('');await load();})()}]);};
   const saveFeedback=async()=>{if(!active)return;await updatePostureAssessment(db,active.id,{coachFeedback:feedback});await load();Alert.alert('저장 완료','체형 관찰 메모를 저장했어요.');};
   return <SafeAreaView style={s.safe}><View style={s.header}><Pressable onPress={()=>router.back()}><Text style={s.back}>‹ 뒤로</Text></Pressable><Text style={s.title}>체형 분석</Text><View style={{width:60}}/></View>
@@ -26,7 +46,7 @@ export default function PostureAssessmentScreen() {
       <View style={s.notice}><Text style={s.noticeTitle}>트레이너용 자세 관찰 보조</Text><Text style={s.noticeText}>정면·측면·후면을 같은 거리와 카메라 높이에서 촬영해 변화를 비교하세요. 이 기능은 의료 진단이 아니며 통증·신경학적 증상은 의료진 평가가 우선입니다.</Text></View>
       <Pressable style={s.start} onPress={()=>void start()}><Text style={s.startText}>+ 새 체형 분석 시작</Text></Pressable>
       {active?<View style={s.assessment}><Text style={s.assessmentTitle}>{active.assessedDate} 촬영</Text><View style={s.shots}>{(['front','side','back'] as Shot[]).map(x=><Pressable key={x} style={[s.shot,active[(x+'PhotoUri') as keyof PostureAssessment]&&s.shotDone]} onPress={()=>void openCamera(x)}><Text style={s.shotLabel}>{labels[x]}</Text><Text style={s.shotState}>{active[(x+'PhotoUri') as keyof PostureAssessment]?'촬영 완료 · 다시 찍기':'촬영하기'}</Text></Pressable>)}</View>
-        {active.frontPhotoUri ? <View style={s.previewWrap}><Image source={{uri:active.frontPhotoUri}} style={s.previewImage}/><View pointerEvents="none" style={s.landmarks}>{[[50,10],[40,25],[60,25],[42,45],[58,45],[42,68],[58,68],[42,90],[58,90]].map(([left,top],i)=><View key={i} style={[s.point,{left:`${left}%`,top:`${top}%`}]} />)}<View style={[s.analysisLine,{top:'25%',left:'39%',width:'22%'}]}/><View style={[s.analysisLine,{top:'45%',left:'41%',width:'18%'}]}/></View><Text style={s.previewCaption}>촬영 가이드 포인트 미리보기 · 자동 관절 검출 모델 연결 전에는 진단값으로 사용하지 않습니다.</Text></View>:null}
+        {analyzedPhoto ? <View style={s.previewWrap}><Image source={{uri:analyzedPhoto}} style={s.previewImage}/><View pointerEvents="none" style={s.landmarks}>{posePoints.map((p,i)=><View key={i} style={[s.point,{left:`${Math.max(0,Math.min(100,p.x*100))}%`,top:`${Math.max(0,Math.min(100,p.y*100))}%`}]} />)}</View><Text style={s.previewCaption}>{analyzing?'관절점을 분석하고 있어요...':`자동 검출된 관절점 ${posePoints.length}개 · 아래에 분석 피드백이 자동 입력됩니다.`}</Text></View>:null}
         <TextInput value={feedback} onChangeText={setFeedback} multiline placeholder="관찰 메모 예: 좌우 어깨 높이 차이 관찰, 스쿼트 시 추가 확인..." style={s.memo}/><View style={s.saveRow}><Pressable style={s.save} onPress={()=>void saveFeedback()}><Text style={s.saveText}>관찰 메모 저장</Text></Pressable><Pressable style={s.deleteAssessment} onPress={removeActive}><Text style={s.deleteAssessmentText}>이번 기록 삭제</Text></Pressable></View>
       </View>:null}
       <Text style={s.section}>이전 분석 기록</Text>{items.map(x=><Pressable key={x.id} style={s.history} onPress={()=>{setActive(x);setFeedback(x.coachFeedback??'');}}><View><Text style={s.historyDate}>{x.assessedDate}</Text><Text style={s.historyMeta}>{[x.frontPhotoUri,x.sidePhotoUri,x.backPhotoUri].filter(Boolean).length}/3 방향 촬영 · {x.coachFeedback?'메모 있음':'메모 없음'}</Text></View><Text style={s.arrow}>›</Text></Pressable>)}
