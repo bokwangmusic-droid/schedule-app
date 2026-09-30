@@ -496,7 +496,8 @@ export default function EditScheduleScreen() {
                     {dday ? ` · 회원권 ${dday}` : ''}
                   </Text>
                 </View>
-                <View style={styles.sessionTitleActions}>
+              </View>
+              <View style={styles.sessionTitleActions}>
                   <View style={styles.sessionActionRow}>
                     <Pressable
                       style={styles.memberRecordButton}
@@ -537,7 +538,6 @@ export default function EditScheduleScreen() {
                     </View>
                   ) : null}
                 </View>
-              </View>
 
               <Pressable
                 style={styles.trainingLogButton}
@@ -898,21 +898,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#FFFFFF',
   },
-  sessionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
+  sessionTitleRow: { gap: 8 },
   sessionTitleInfo: { flex: 1, minWidth: 0 },
-  sessionTitleActions: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  sessionActionRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
+  sessionTitleActions: { gap: 6 },
+  sessionActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   memberRecordButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
