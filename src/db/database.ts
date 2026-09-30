@@ -165,6 +165,24 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_member_programs_member
       ON member_programs(member_id, is_active, created_at);
 
+    CREATE TABLE IF NOT EXISTS posture_assessments (
+      id TEXT PRIMARY KEY NOT NULL,
+      member_id TEXT NOT NULL,
+      assessed_date TEXT NOT NULL,
+      front_photo_uri TEXT,
+      side_photo_uri TEXT,
+      back_photo_uri TEXT,
+      front_notes TEXT,
+      side_notes TEXT,
+      back_notes TEXT,
+      coach_feedback TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_posture_assessments_member
+      ON posture_assessments(member_id, assessed_date DESC, created_at DESC);
+
     CREATE INDEX IF NOT EXISTS idx_schedules_date
       ON schedules(date);
 
