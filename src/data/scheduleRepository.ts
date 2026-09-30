@@ -353,31 +353,37 @@ export async function completeMemberSessionWithSignature(
       throw new Error('PT_ALREADY_CONSUMED');
     }
 
-    const member = await txn.getFirstAsync<{
-      pt_remaining_sessions: number | null;
-    }>(
+    const program = await txn.getFirstAsync<{ id: string; remaining_sessions: number | null }>(
+      `SELECT id, remaining_sessions
+       FROM member_programs
+       WHERE member_id = ? AND is_active = 1 AND tracking_mode = 'sessions'
+         AND remaining_sessions IS NOT NULL AND remaining_sessions > 0
+       ORDER BY CASE WHEN category = 'PT' THEN 0 ELSE 1 END, created_at ASC
+       LIMIT 1`,
+      [schedule.member_id],
+    );
+    const member = await txn.getFirstAsync<{ pt_remaining_sessions: number | null }>(
       'SELECT pt_remaining_sessions FROM members WHERE id = ? LIMIT 1',
       [schedule.member_id],
     );
+    if (!member) throw new Error('MEMBER_NOT_FOUND');
 
-    if (!member) {
-      throw new Error('MEMBER_NOT_FOUND');
-    }
-    if (member.pt_remaining_sessions === null) {
-      throw new Error('PT_BALANCE_NOT_SET');
-    }
-    if (member.pt_remaining_sessions <= 0) {
-      throw new Error('NO_PT_REMAINING');
-    }
+    const balance = program?.remaining_sessions ?? member.pt_remaining_sessions;
+    if (balance === null) throw new Error('PT_BALANCE_NOT_SET');
+    if (balance <= 0) throw new Error('NO_PT_REMAINING');
+    const nextRemaining = balance - 1;
 
-    const nextRemaining = member.pt_remaining_sessions - 1;
-
-    await txn.runAsync(
-      `UPDATE members
-       SET pt_remaining_sessions = ?, updated_at = ?
-       WHERE id = ?`,
-      [nextRemaining, now, schedule.member_id],
-    );
+    if (program) {
+      await txn.runAsync(
+        'UPDATE member_programs SET remaining_sessions = ?, updated_at = ? WHERE id = ?',
+        [nextRemaining, now, program.id],
+      );
+    } else {
+      await txn.runAsync(
+        'UPDATE members SET pt_remaining_sessions = ?, updated_at = ? WHERE id = ?',
+        [nextRemaining, now, schedule.member_id],
+      );
+    }
 
     await txn.runAsync(
       `UPDATE schedules
@@ -516,13 +522,21 @@ export async function addManualMemberSignature(
   const id = createId();
 
   await db.withExclusiveTransactionAsync(async (txn) => {
+    const program = await txn.getFirstAsync<{ id: string; remaining_sessions: number | null }>(
+      `SELECT id, remaining_sessions FROM member_programs
+       WHERE member_id = ? AND is_active = 1 AND tracking_mode = 'sessions'
+         AND remaining_sessions IS NOT NULL AND remaining_sessions > 0
+       ORDER BY CASE WHEN category = 'PT' THEN 0 ELSE 1 END, created_at ASC LIMIT 1`,
+      [memberId],
+    );
     const member = await txn.getFirstAsync<{ pt_remaining_sessions: number | null }>(
       'SELECT pt_remaining_sessions FROM members WHERE id = ? LIMIT 1',
       [memberId],
     );
     if (!member) throw new Error('MEMBER_NOT_FOUND');
-    if (member.pt_remaining_sessions === null) throw new Error('PT_BALANCE_NOT_SET');
-    if (member.pt_remaining_sessions <= 0) throw new Error('NO_PT_REMAINING');
+    const balance = program?.remaining_sessions ?? member.pt_remaining_sessions;
+    if (balance === null) throw new Error('PT_BALANCE_NOT_SET');
+    if (balance <= 0) throw new Error('NO_PT_REMAINING');
 
     await txn.runAsync(
       `INSERT INTO member_manual_signatures (
@@ -530,10 +544,11 @@ export async function addManualMemberSignature(
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, memberId, date, signatureJson, sessionNote?.trim() || null, now, now],
     );
-    await txn.runAsync(
-      'UPDATE members SET pt_remaining_sessions = ?, updated_at = ? WHERE id = ?',
-      [member.pt_remaining_sessions - 1, now, memberId],
-    );
+    if (program) {
+      await txn.runAsync('UPDATE member_programs SET remaining_sessions = ?, updated_at = ? WHERE id = ?', [balance - 1, now, program.id]);
+    } else {
+      await txn.runAsync('UPDATE members SET pt_remaining_sessions = ?, updated_at = ? WHERE id = ?', [balance - 1, now, memberId]);
+    }
   });
 
   return id;
