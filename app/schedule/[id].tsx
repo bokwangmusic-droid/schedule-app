@@ -924,6 +924,17 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#2D7A57',
   },
+  memberManageButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#F3F0FF',
+  },
+  memberManageButtonText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#6B4FD3',
+  },
   historyButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
