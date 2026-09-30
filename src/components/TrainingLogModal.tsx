@@ -135,8 +135,9 @@ export function TrainingLogModal({
   onSubmit,
 }: Props) {
   const db = useSQLiteContext();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isTablet = width >= 700;
+  const isTabletLandscape = isTablet && width > height;
   const draftKey = trainingLogDraftKey(memberId, scheduleId, initialLog?.id ?? null);
   const [logDate, setLogDate] = useState(date);
   const [bodyPart, setBodyPart] = useState('');
@@ -616,10 +617,13 @@ export function TrainingLogModal({
             contentContainerStyle={[
               styles.content,
               isTablet && styles.contentTablet,
+              isTabletLandscape && styles.contentTabletLandscape,
             ]}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={[styles.card, isTablet && styles.cardTablet]}>
+            <View style={[styles.card, isTablet && styles.cardTablet,
+              isTabletLandscape && styles.cardTabletLandscape,
+            ]}>
               <Text style={styles.sectionTitle}>기본 정보</Text>
               <View style={styles.twoColumn}>
                 <TextInput
@@ -647,7 +651,7 @@ export function TrainingLogModal({
               </View>
             </View>
 
-            <View style={[styles.card, isTablet && styles.cardTablet]}>
+            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
               <Text style={styles.sectionTitle}>오늘의 진단</Text>
               <Text style={styles.label}>숙면</Text>
               <LevelPicker value={sleepQuality} onChange={setSleepQuality} />
@@ -665,7 +669,7 @@ export function TrainingLogModal({
               </View>
             </View>
 
-            <View style={[styles.card, isTablet && styles.cardTablet]}>
+            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
               <Text style={styles.sectionTitle}>유산소</Text>
               <View style={styles.threeColumn}>
                 <TextInput
@@ -704,7 +708,7 @@ export function TrainingLogModal({
               </View>
             </View>
 
-            <View style={[styles.card, isTablet && styles.cardTablet]}>
+            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
               <View style={styles.planHeaderRow}>
                 <View style={styles.planHeaderText}>
                   <Text style={styles.sectionTitle}>수업 계획 도우미</Text>
@@ -727,7 +731,7 @@ export function TrainingLogModal({
               </View>
             </View>
 
-            <View style={[styles.card, isTablet && styles.cardTablet]}>
+            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
               <View style={styles.sectionHeaderRow}>
                 <View>
                   <Text style={styles.sectionTitle}>웨이트 트레이닝</Text>
@@ -824,7 +828,7 @@ export function TrainingLogModal({
               ))}
             </View>
 
-            <View style={[styles.card, isTablet && styles.cardTablet]}>
+            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
               <Text style={styles.sectionTitle}>오늘의 식단</Text>
               <MealRow
                 title="아침"
@@ -862,7 +866,7 @@ export function TrainingLogModal({
               />
             </View>
 
-            <View style={[styles.card, isTablet && styles.cardTablet]}>
+            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
               <Text style={styles.sectionTitle}>트레이너 기록</Text>
               <TextInput
                 value={summary}
@@ -930,10 +934,21 @@ const styles = StyleSheet.create({
     paddingBottom: 44,
     gap: 14,
   },
+  contentTabletLandscape: {
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 24,
+    gap: 8,
+  },
   card: { padding: 14, borderRadius: 18, backgroundColor: '#FFFFFF' },
   cardTablet: {
     padding: 20,
     borderRadius: 22,
+  },
+  cardTabletLandscape: {
+    padding: 14,
+    borderRadius: 16,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
