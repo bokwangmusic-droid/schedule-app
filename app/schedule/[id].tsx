@@ -192,7 +192,7 @@ export default function EditScheduleScreen() {
       return;
     }
 
-    const trimmedTitle = title.trim() || selectedMember?.name || '';
+    const trimmedTitle = scheduleKind === 'member' ? (selectedMember?.name ?? '') : title.trim();
 
     if (!trimmedTitle) {
       Alert.alert('일정 이름을 입력해 주세요.');
@@ -617,16 +617,16 @@ export default function EditScheduleScreen() {
             </View>
           ) : null}
 
-          <View style={styles.section}>
-            <Text style={styles.label}>{scheduleKind === 'member' ? '일정명' : '개인 일정명'}</Text>
+          {scheduleKind === 'personal' ? <View style={styles.section}>
+            <Text style={styles.label}>개인 일정명</Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder={scheduleKind === 'member' ? '예: 홍길동 PT' : '예: 병원, 가족약속, 운동'}
+              placeholder="예: 병원, 가족약속, 운동"
               placeholderTextColor="#A4AAB5"
               style={styles.titleInput}
             />
-          </View>
+          </View> : null}
 
           <View style={styles.section}>
             <Text style={styles.label}>색상</Text>
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
   sessionTitleRow: { gap: 8 },
   sessionTitleInfo: { flex: 1, minWidth: 0 },
   sessionTitleActions: { gap: 6 },
-  sessionActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  sessionActionRow: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   memberRecordButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
