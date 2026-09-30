@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,8 @@ import {
   type SignedMemberSession,
 } from '../src/data/scheduleRepository';
 import type { MemberItem } from '../src/types/member';
+import { enrollMemberProgram, listPrograms, type ProgramDefinition } from '../src/data/programRepository';
+import { toLocalDateString } from '../src/lib/date';
 
 type DatePickerTarget = 'start' | 'end' | null;
 
@@ -39,6 +42,9 @@ export default function MembersScreen() {
   const editMemberId = typeof params.editMemberId === 'string' ? params.editMemberId : null;
   const scrollRef = useRef<ScrollView>(null);
   const [members, setMembers] = useState<MemberItem[]>([]);
+  const [formVisible, setFormVisible] = useState(false);
+  const [programs, setPrograms] = useState<ProgramDefinition[]>([]);
+  const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -58,8 +64,9 @@ export default function MembersScreen() {
   const [didOpenRequestedMember, setDidOpenRequestedMember] = useState(false);
 
   const loadMembers = useCallback(async () => {
-    const rows = await listMembers(db);
+    const [rows, availablePrograms] = await Promise.all([listMembers(db), listPrograms(db)]);
     setMembers(rows);
+    setPrograms(availablePrograms);
   }, [db]);
 
   useFocusEffect(
@@ -78,6 +85,8 @@ export default function MembersScreen() {
     setPtRemainingSessions('');
     setMemo('');
     setDatePickerTarget(null);
+    setSelectedProgramIds([]);
+    setFormVisible(false);
   };
 
   const beginEdit = (member: MemberItem) => {
@@ -93,6 +102,7 @@ export default function MembersScreen() {
       member.ptRemainingSessions === null ? '' : String(member.ptRemainingSessions),
     );
     setMemo(member.memo ?? '');
+    setFormVisible(true);
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
   };
 
@@ -158,7 +168,11 @@ export default function MembersScreen() {
       if (editingMemberId) {
         await updateMember(db, editingMemberId, input);
       } else {
-        await createMember(db, input);
+        const newMemberId = await createMember(db, input);
+        const startDate = start || toLocalDateString(new Date());
+        for (const program of programs.filter((item) => selectedProgramIds.includes(item.id))) {
+          await enrollMemberProgram(db, newMemberId, program, startDate);
+        }
       }
 
       resetForm();
@@ -275,6 +289,15 @@ export default function MembersScreen() {
     return `${month}/${day}`;
   };
 
+  const historyPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dy > 80 || gesture.vy > 0.8) closeSignatureHistory();
+      },
+    }),
+  ).current;
+
   const selectedPickerDate =
     datePickerTarget === 'start' ? membershipStartDate : membershipEndDate;
 
@@ -285,7 +308,9 @@ export default function MembersScreen() {
           <Text style={styles.backText}>‹ 시간표</Text>
         </Pressable>
         <Text style={styles.headerTitle}>회원 관리</Text>
-        <View style={styles.headerSpacer} />
+        <Pressable style={styles.headerAddButton} onPress={() => { resetForm(); setFormVisible(true); }}>
+          <Text style={styles.headerAddText}>+ 회원 추가</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -293,6 +318,7 @@ export default function MembersScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        {formVisible ? (
         <View style={styles.card}>
           <View style={styles.formHeader}>
             <Text style={styles.sectionTitle}>{editingMemberId ? '회원 수정' : '회원 등록'}</Text>
@@ -376,6 +402,23 @@ export default function MembersScreen() {
             현재 잔여 횟수를 기준으로 앞으로 잡힌 PT 예약의 잔여 횟수가 자동 계산됩니다.
           </Text>
 
+          {!editingMemberId && programs.length > 0 ? (
+            <>
+              <Text style={styles.fieldTitle}>이용 프로그램 선택</Text>
+              <Text style={styles.helpText}>여러 개를 동시에 선택할 수 있어요.</Text>
+              <View style={styles.programChoices}>
+                {programs.map((program) => {
+                  const selected = selectedProgramIds.includes(program.id);
+                  return (
+                    <Pressable key={program.id} style={[styles.programChoice, selected && styles.programChoiceSelected]} onPress={() => setSelectedProgramIds((current) => selected ? current.filter((id) => id !== program.id) : [...current, program.id])}>
+                      <Text style={[styles.programChoiceText, selected && styles.programChoiceTextSelected]}>{selected ? '✓ ' : ''}{program.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
+
           <TextInput
             value={memo}
             onChangeText={setMemo}
@@ -395,6 +438,7 @@ export default function MembersScreen() {
             </Text>
           </Pressable>
         </View>
+        ) : null}
 
         <View style={styles.listHeader}>
           <Text style={styles.sectionTitle}>등록 회원</Text>
@@ -408,7 +452,7 @@ export default function MembersScreen() {
         ) : (
           members.map((member) => (
             <View key={member.id} style={styles.memberCard}>
-              <View style={styles.memberInfo}>
+              <Pressable style={styles.memberInfo} onPress={() => router.push({ pathname: '/member/[id]', params: { id: member.id } } as never)}>
                 <Text style={styles.memberName}>{member.name}</Text>
                 {member.phone ? <Text style={styles.memberMeta}>{member.phone}</Text> : null}
                 {member.membershipStartDate || member.membershipEndDate ? (
@@ -421,33 +465,17 @@ export default function MembersScreen() {
                     PT 현재 잔여 {member.ptRemainingSessions}/{member.ptTotalSessions}
                   </Text>
                 ) : null}
-                {member.memo ? <Text numberOfLines={3} style={styles.memberMemo}>{member.memo}</Text> : null}
-              </View>
+                {member.memo ? <Text numberOfLines={2} style={styles.memberMemo}>{member.memo}</Text> : null}
+              </Pressable>
               <View style={styles.memberActions}>
-                <Pressable
-                  onPress={() =>
-                    router.push(memberHomeRoute(member.id) as never)
-                  }
-                  hitSlop={8}
-                >
-                  <Text style={styles.memberViewText}>회원화면</Text>
+                <Pressable style={styles.manageButton} onPress={() => router.push({ pathname: '/member/[id]', params: { id: member.id } } as never)}>
+                  <Text style={styles.manageButtonText}>관리</Text>
                 </Pressable>
-                <Pressable
-                  onPress={() =>
-                    router.push({ pathname: '/member/[id]', params: { id: member.id } } as never)
-                  }
-                  hitSlop={8}
-                >
-                  <Text style={styles.recordText}>운동기록</Text>
+                <Pressable style={styles.editButtonLarge} onPress={() => beginEdit(member)}>
+                  <Text style={styles.editButtonLargeText}>수정</Text>
                 </Pressable>
-                <Pressable onPress={() => void openSignatureHistory(member)} hitSlop={8}>
-                  <Text style={styles.historyText}>서명기록</Text>
-                </Pressable>
-                <Pressable onPress={() => beginEdit(member)} hitSlop={8}>
-                  <Text style={styles.editText}>수정</Text>
-                </Pressable>
-                <Pressable onPress={() => confirmDelete(member)} hitSlop={8}>
-                  <Text style={styles.deleteText}>삭제</Text>
+                <Pressable style={styles.moreMemberButton} onPress={() => confirmDelete(member)}>
+                  <Text style={styles.moreMemberButtonText}>삭제</Text>
                 </Pressable>
               </View>
             </View>
@@ -462,7 +490,7 @@ export default function MembersScreen() {
         onRequestClose={closeSignatureHistory}
       >
         <View style={styles.historyBackdrop}>
-          <View style={styles.historySheet}>
+          <View style={styles.historySheet} {...historyPanResponder.panHandlers}>
             <View style={styles.historyHandle} />
             <View style={styles.historyHeader}>
               <View>
@@ -861,4 +889,17 @@ const styles = StyleSheet.create({
     color: '#9AA0AA',
     textAlign: 'right',
   },
+  headerAddButton: { minHeight: 38, paddingHorizontal: 13, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4B68FF' },
+  headerAddText: { fontSize: 12, fontWeight: '900', color: '#FFF' },
+  programChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, marginBottom: 6 },
+  programChoice: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 11, backgroundColor: '#F1F3F6' },
+  programChoiceSelected: { backgroundColor: '#E8EDFF', borderWidth: 1, borderColor: '#8092F7' },
+  programChoiceText: { fontSize: 12, fontWeight: '800', color: '#68707C' },
+  programChoiceTextSelected: { color: '#4B68FF' },
+  manageButton: { minWidth: 72, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4B68FF' },
+  manageButtonText: { fontSize: 13, fontWeight: '900', color: '#FFF' },
+  editButtonLarge: { minWidth: 62, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1FF' },
+  editButtonLargeText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
+  moreMemberButton: { minWidth: 52, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0F1' },
+  moreMemberButtonText: { fontSize: 12, fontWeight: '900', color: '#D64B5B' },
 });
