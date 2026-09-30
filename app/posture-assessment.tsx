@@ -67,7 +67,7 @@ export default function PostureAssessmentScreen() {
   };
   const viewShot=(s:Shot)=>{if(!active)return;const uri=photoUri(active,s);if(uri)void analyzePhoto(uri,false);else void openCamera(s);};
   const capture=async()=>{if(!shot||!active)return;const photo=await camera.current?.takePictureAsync({quality:0.85});if(!photo?.uri)return;const key=shot==='front'?'frontPhotoUri':shot==='side'?'sidePhotoUri':'backPhotoUri';await updatePostureAssessment(db,active.id,{[key]:photo.uri});setShot(null);await analyzePhoto(photo.uri,true);const list=await listPostureAssessments(db,memberId);setItems(list);setActive(list.find(x=>x.id===active.id)??null);};
-  const removeActive=()=>{if(!active)return;Alert.alert('분석 기록 삭제','이번 체형 분석 기록을 삭제할까요?',[{text:'취소',style:'cancel'},{text:'삭제',style:'destructive',onPress:()=>void(async()=>{await deletePostureAssessment(db,active.id);setActive(null);setFeedback('');await load();})()}]);};
+  const removeActive=()=>{if(!active)return;Alert.alert('분석 기록 삭제','이번 체형 분석 기록을 삭제할까요?',[{text:'취소',style:'cancel'},{text:'삭제',style:'destructive',onPress:()=>void(async()=>{await deletePostureAssessment(db,active.id);setActive(null);setFeedback('');setAnalyzedPhoto(null);setPosePoints([]);setAnalyzing(false);setPhotoRatio(3/4);await load();})()}]);};
   const saveFeedback=async()=>{if(!active)return;await updatePostureAssessment(db,active.id,{coachFeedback:feedback});await load();Alert.alert('저장 완료','체형 관찰 메모를 저장했어요.');};
   return <SafeAreaView style={s.safe}><View style={s.header}><Pressable onPress={()=>router.back()}><Text style={s.back}>‹ 뒤로</Text></Pressable><Text style={s.title}>체형 분석</Text><View style={{width:60}}/></View>
     <ScrollView contentContainerStyle={s.content}>
