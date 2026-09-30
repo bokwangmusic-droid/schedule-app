@@ -597,7 +597,7 @@ export function TrainingLogModal({
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.header, isTablet && styles.headerTablet]}>
             <Pressable onPress={close} hitSlop={10}>
@@ -621,6 +621,7 @@ export function TrainingLogModal({
               isTabletLandscape && styles.contentTabletLandscape,
             ]}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             <View style={[styles.card, isTablet && styles.cardTablet,
               isTabletLandscape && styles.cardTabletLandscape,
@@ -751,9 +752,10 @@ export function TrainingLogModal({
                   <View style={styles.sheet}>
                     <View style={styles.sheetHeaderRow}>
                       <Text style={styles.sheetExerciseHeader}>운동명</Text>
-                      {Array.from({ length: Math.max(4, ...exercises.map((item) => item.sets.length)) }, (_, index) => (
+                      {Array.from({ length: Math.max(1, ...exercises.map((item) => item.sets.length)) }, (_, index) => (
                         <Text key={index} style={styles.sheetSetHeader}>{index + 1}세트</Text>
                       ))}
+                      <Text style={styles.sheetAddHeader}>세트 추가</Text>
                       <Text style={styles.sheetActionHeader}>관리</Text>
                     </View>
                     {exercises.map((exercise, exerciseIndex) => (
@@ -775,14 +777,19 @@ export function TrainingLogModal({
                           placeholderTextColor="#A2A8B2"
                           style={styles.sheetExerciseInput}
                         />
-                        {Array.from({ length: Math.max(4, ...exercises.map((item) => item.sets.length)) }, (_, setIndex) => {
+                        {Array.from({ length: Math.max(1, ...exercises.map((item) => item.sets.length)) }, (_, setIndex) => {
                           const set = exercise.sets[setIndex];
                           return (
                             <View key={setIndex} style={styles.sheetSetCell}>
                               {set ? (
                                 <>
-                                  <TextInput value={set.weight} onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'weight', value)} placeholder="kg" placeholderTextColor="#A2A8B2" keyboardType="decimal-pad" style={styles.sheetMiniInput} />
-                                  <TextInput value={set.reps} onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'reps', value)} placeholder="회" placeholderTextColor="#A2A8B2" keyboardType="number-pad" style={styles.sheetMiniInput} />
+                                  <TextInput value={set.weight} onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'weight', value)} placeholder="kg" placeholderTextColor="#A2A8B2" keyboardType="decimal-pad" style={styles.sheetMiniInput} selectTextOnFocus />
+                                  <TextInput value={set.reps} onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'reps', value)} placeholder="회" placeholderTextColor="#A2A8B2" keyboardType="number-pad" style={styles.sheetMiniInput} selectTextOnFocus />
+                                  {exercise.sets.length > 1 ? (
+                                    <Pressable style={styles.sheetRemoveSet} onPress={() => removeSet(exerciseIndex, setIndex)}>
+                                      <Text style={styles.sheetRemoveSetText}>세트 삭제</Text>
+                                    </Pressable>
+                                  ) : null}
                                 </>
                               ) : (
                                 <Pressable style={styles.sheetAddSet} onPress={() => addSet(exerciseIndex)}>
@@ -792,6 +799,15 @@ export function TrainingLogModal({
                             </View>
                           );
                         })}
+                        <View style={styles.sheetAddColumn}>
+                          {exercise.sets.length < 7 ? (
+                            <Pressable style={styles.sheetAddSetButton} onPress={() => addSet(exerciseIndex)}>
+                              <Text style={styles.sheetAddSetButtonText}>+ 세트</Text>
+                            </Pressable>
+                          ) : (
+                            <Text style={styles.sheetSetLimitText}>최대 7세트</Text>
+                          )}
+                        </View>
                         <View style={styles.sheetActions}>
                           <Pressable style={styles.dragHandle} delayLongPress={250} onLongPress={() => setDraggingIndex(exerciseIndex)} onPress={() => setDraggingIndex(null)}>
                             <Text style={styles.dragHandleText}>≡</Text>
@@ -1050,7 +1066,7 @@ const styles = StyleSheet.create({
     color: '#4B68FF',
   },
   disabled: { opacity: 0.45 },
-  content: { padding: 14, paddingBottom: 32, gap: 10 },
+  content: { padding: 14, paddingBottom: 180, gap: 10 },
   contentTablet: {
     width: '100%',
     maxWidth: 980,
@@ -1315,14 +1331,21 @@ const styles = StyleSheet.create({
   sheet: { minWidth: '100%', marginTop: 14, borderWidth: 1, borderColor: '#E1E5EB', borderRadius: 14, overflow: 'hidden' },
   sheetHeaderRow: { flexDirection: 'row', minHeight: 38, alignItems: 'center', backgroundColor: '#F0F2F6' },
   sheetExerciseHeader: { width: 210, paddingHorizontal: 10, fontSize: 11, fontWeight: '900', color: '#505866' },
-  sheetSetHeader: { width: 118, textAlign: 'center', fontSize: 11, fontWeight: '900', color: '#505866' },
+  sheetSetHeader: { width: 136, textAlign: 'center', fontSize: 11, fontWeight: '900', color: '#505866' },
+  sheetAddHeader: { width: 92, textAlign: 'center', fontSize: 11, fontWeight: '900', color: '#505866' },
   sheetActionHeader: { width: 92, textAlign: 'center', fontSize: 11, fontWeight: '900', color: '#505866' },
   sheetRow: { flexDirection: 'row', minHeight: 76, alignItems: 'stretch', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E1E5EB', backgroundColor: '#FFFFFF' },
   sheetExerciseInput: { width: 210, paddingHorizontal: 10, fontSize: 14, fontWeight: '800', color: '#252A32', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E1E5EB' },
-  sheetSetCell: { width: 118, padding: 6, gap: 4, justifyContent: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E1E5EB' },
-  sheetMiniInput: { height: 29, paddingHorizontal: 7, borderRadius: 7, backgroundColor: '#F4F6F8', fontSize: 11, textAlign: 'center', color: '#252A32' },
+  sheetSetCell: { width: 136, padding: 6, gap: 4, justifyContent: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E1E5EB' },
+  sheetMiniInput: { height: 34, minWidth: 118, paddingHorizontal: 10, borderRadius: 7, backgroundColor: '#F4F6F8', fontSize: 14, fontWeight: '700', textAlign: 'center', color: '#252A32' },
+  sheetRemoveSet: { minHeight: 24, alignItems: 'center', justifyContent: 'center' },
+  sheetRemoveSetText: { fontSize: 9, fontWeight: '800', color: '#D64B5B' },
   sheetAddSet: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   sheetAddSetText: { fontSize: 22, fontWeight: '700', color: '#6D7BD0' },
+  sheetAddColumn: { width: 92, alignItems: 'center', justifyContent: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E1E5EB' },
+  sheetAddSetButton: { minWidth: 70, minHeight: 38, paddingHorizontal: 8, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1FF' },
+  sheetAddSetButtonText: { fontSize: 11, fontWeight: '900', color: '#4B68FF' },
+  sheetSetLimitText: { fontSize: 9, color: '#9AA1AC' },
   sheetActions: { width: 92, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center' },
 
 });
