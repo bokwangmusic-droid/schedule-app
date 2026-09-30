@@ -37,7 +37,7 @@ export function MemberSignatureHistoryModal({
 }: Props) {
   const [selected, setSelected] = useState<SignedMemberSession | null>(null);
   const { height: windowHeight } = useWindowDimensions();
-  const rowsPerColumn = Math.max(5, Math.floor((windowHeight * 0.92 - 150) / 26));
+  const rowsPerColumn = Math.max(5, Math.floor((windowHeight * 0.92 - 150) / 44));
   const orderedSessions = [...sessions].sort((a, b) => a.sessionNumber - b.sessionNumber);
 
   const close = () => {
@@ -88,7 +88,7 @@ export function MemberSignatureHistoryModal({
                 {orderedSessions.slice(0, 50).map((session, index) => (
                   <Pressable
                     key={session.id}
-                    style={[styles.item, { position: 'absolute', left: index < rowsPerColumn ? 0 : '50%', top: (index % rowsPerColumn) * 26 }]}
+                    style={[styles.item, { position: 'absolute', left: index < rowsPerColumn ? 0 : '50%', top: (index % rowsPerColumn) * 44 }]}
                     onPress={() => setSelected(session)}
                   >
                     <Text style={styles.meta}>
@@ -97,7 +97,7 @@ export function MemberSignatureHistoryModal({
                     <View style={styles.signature}>
                       <SignaturePreview
                         signatureJson={session.signatureJson}
-                        height={18}
+                        height={30}
                         compact
                       />
                     </View>
@@ -237,9 +237,9 @@ const styles = StyleSheet.create({
   },
   item: {
     width: '49%',
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 7,
+    height: 40,
+    paddingHorizontal: 9,
+    borderRadius: 9,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -247,15 +247,15 @@ const styles = StyleSheet.create({
     borderColor: '#E1E4EA',
   },
   meta: {
-    width: 68,
-    fontSize: 9,
+    width: 78,
+    fontSize: 11,
     fontWeight: '900',
     color: '#303640',
   },
   signature: {
     flex: 1,
-    height: 18,
-    marginLeft: 4,
+    height: 30,
+    marginLeft: 6,
   },
   more: {
     width: '100%',
