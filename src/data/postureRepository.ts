@@ -38,3 +38,7 @@ export async function updatePostureAssessment(db: SQLiteDatabase, assessmentId: 
   if(!pairs.length)return; pairs.push('updated_at = ?');values.push(new Date().toISOString());values.push(assessmentId);
   await db.runAsync(`UPDATE posture_assessments SET ${pairs.join(', ')} WHERE id = ?`, values);
 }
+
+export async function deletePostureAssessment(db: SQLiteDatabase, assessmentId: string) {
+  await db.runAsync('DELETE FROM posture_assessments WHERE id = ?', [assessmentId]);
+}
