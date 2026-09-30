@@ -27,6 +27,7 @@ import { toLocalDateString } from '../../src/lib/date';
 import type { BodyRecordItem, TrainingLogItem } from '../../src/types/memberFitness';
 import type { MemberItem } from '../../src/types/member';
 import type { ScheduleItem } from '../../src/types/schedule';
+import { BodyTrendChart } from '../../src/components/BodyTrendChart';
 
 function parseDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -387,6 +388,8 @@ export default function MemberViewScreen() {
           <Text style={styles.sectionTitle}>인바디 변화</Text>
           <Text style={styles.sectionHint}>{latestBody ? latestBody.measuredDate : '측정 기록'}</Text>
         </View>
+
+        {bodyRecords.length > 0 ? <BodyTrendChart records={bodyRecords} /> : null}
 
         {latestBody ? (
           <View style={styles.bodyCard}>
