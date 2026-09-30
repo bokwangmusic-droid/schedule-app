@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     color: '#6C74A8',
   },
   signatureBox: {
-    height: 190,
+    height: 260,
     marginTop: 8,
     overflow: 'hidden',
     borderWidth: 1.5,
