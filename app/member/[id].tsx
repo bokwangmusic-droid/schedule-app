@@ -92,8 +92,9 @@ function volumeChangePercent(current: number, previous: number) {
 
 export default function MemberDetailScreen() {
   const db = useSQLiteContext();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isTablet = width >= 700;
+  const isTabletLandscape = isTablet && width > height;
   const params = useLocalSearchParams<{
     id?: string;
     scheduleId?: string;
@@ -344,6 +345,7 @@ export default function MemberDetailScreen() {
         contentContainerStyle={[
           styles.content,
           isTablet && styles.contentTablet,
+          isTabletLandscape && styles.contentTabletLandscape,
         ]}
       >
         <View style={[styles.profileCard, isTablet && styles.profileCardTablet]}>
@@ -709,6 +711,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 22,
     paddingBottom: 48,
+  },
+  contentTabletLandscape: {
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 28,
   },
   profileCard: { padding: 16, borderRadius: 20, backgroundColor: '#FFFFFF' },
   profileCardTablet: {
