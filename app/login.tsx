@@ -14,9 +14,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { authorizeCurrentLaunch, saveAppSession } from '../src/auth/appSession';
 import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
-import { requestMemberMagicLink } from '../src/remote/supabaseAuth';
+import { requestMemberMagicLink, requestTrainerMagicLink } from '../src/remote/supabaseAuth';
 
 type LoginMode = 'select' | 'trainer' | 'member';
 
@@ -27,13 +26,16 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const remoteConfigured = isSupabaseConfigured();
 
-  const enterTrainerMode = async () => {
-    if (busy) return;
+  const sendTrainerMagicLink = async () => {
+    if (!remoteConfigured || busy) return;
+    Keyboard.dismiss();
     setBusy(true);
     try {
-      await saveAppSession(db, { role: 'trainer', trainerId: 'local-trainer' });
-      authorizeCurrentLaunch();
-      router.replace('/trainer');
+      await requestTrainerMagicLink(email);
+      Alert.alert('인증 메일을 보냈어요', '메일의 링크를 눌러 강사 가입/로그인을 계속해 주세요.');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('전송 실패', error instanceof Error ? error.message : '인증 메일을 보내지 못했어요.');
     } finally {
       setBusy(false);
     }
@@ -109,14 +111,28 @@ export default function LoginScreen() {
 
               {mode === 'trainer' ? (
                 <>
-                  <Text style={styles.formText}>강사용 시간표와 회원 관리 화면으로 이동합니다.</Text>
+                  <Text style={styles.formText}>이메일 인증 후 강사 인증을 신청할 수 있어요.</Text>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="이메일 주소"
+                    placeholderTextColor="#A7ADB6"
+                    editable={!busy}
+                    returnKeyType="send"
+                    onSubmitEditing={() => void sendTrainerMagicLink()}
+                    style={styles.input}
+                  />
                   <Pressable
-                    style={[styles.primaryButton, busy && styles.disabled]}
-                    onPress={() => void enterTrainerMode()}
-                    disabled={busy}
+                    style={[styles.primaryButton, (!remoteConfigured || busy) && styles.disabled]}
+                    onPress={() => void sendTrainerMagicLink()}
+                    disabled={!remoteConfigured || busy}
                   >
-                    <Text style={styles.primaryButtonText}>{busy ? '접속 중...' : '강사 화면으로 들어가기'}</Text>
+                    <Text style={styles.primaryButtonText}>{busy ? '전송 중...' : '이메일 인증하기'}</Text>
                   </Pressable>
+                  <Text style={styles.helperText}>처음 가입하는 강사는 인증 후 재직증명서 또는 명함을 제출하고 승인을 받아야 해요.</Text>
                 </>
               ) : (
                 <>
@@ -231,5 +247,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   errorText: { marginTop: 10, fontSize: 11, lineHeight: 16, color: '#B65C5C' },
+  helperText: { marginTop: 12, fontSize: 11, lineHeight: 17, color: '#858C97' },
   disabled: { opacity: 0.5 },
 });
