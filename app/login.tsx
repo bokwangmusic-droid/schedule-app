@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -15,80 +14,49 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  authorizeCurrentLaunch,
-  memberHomeRoute,
-  saveAppSession,
-} from '../src/auth/appSession';
-import { listMembers } from '../src/data/memberRepository';
-import type { MemberItem } from '../src/types/member';
+import { authorizeCurrentLaunch, saveAppSession } from '../src/auth/appSession';
 import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
 import { requestMemberMagicLink } from '../src/remote/supabaseAuth';
 
+type LoginMode = 'select' | 'trainer' | 'member';
+
 export default function LoginScreen() {
   const db = useSQLiteContext();
-  const [members, setMembers] = useState<MemberItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [signingInId, setSigningInId] = useState<string | null>(null);
+  const [mode, setMode] = useState<LoginMode>('select');
   const [email, setEmail] = useState('');
-  const [remoteBusy, setRemoteBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
   const remoteConfigured = isSupabaseConfigured();
 
-  useEffect(() => {
-    let active = true;
-    void listMembers(db)
-      .then((rows) => {
-        if (active) setMembers(rows);
-      })
-      .catch(console.error)
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [db]);
-
-  const sendMemberMagicLink = async () => {
-    if (!remoteConfigured || remoteBusy) return;
-    setRemoteBusy(true);
-    try {
-      await requestMemberMagicLink(email);
-      Alert.alert(
-        '로그인 메일 전송',
-        '이메일로 보낸 로그인 링크를 눌러 주세요. 링크를 누르면 비케이짐 스케줄 앱으로 돌아와 로그인돼요.',
-      );
-    } catch (error) {
-      console.error(error);
-      const message =
-        error instanceof Error && error.message !== 'SUPABASE_NOT_CONFIGURED'
-          ? error.message
-          : '회원 로그인 서버가 아직 연결되지 않았어요.';
-      Alert.alert('전송 실패', message);
-    } finally {
-      setRemoteBusy(false);
-    }
-  };
-
   const enterTrainerMode = async () => {
-    setSigningInId('trainer');
+    if (busy) return;
+    setBusy(true);
     try {
       await saveAppSession(db, { role: 'trainer', trainerId: 'local-trainer' });
       authorizeCurrentLaunch();
       router.replace('/trainer');
     } finally {
-      setSigningInId(null);
+      setBusy(false);
     }
   };
 
-  const enterMemberMode = async (member: MemberItem) => {
-    setSigningInId(member.id);
+  const sendMemberMagicLink = async () => {
+    if (!remoteConfigured || busy) return;
+    Keyboard.dismiss();
+    setBusy(true);
     try {
-      await saveAppSession(db, { role: 'member', memberId: member.id });
-      authorizeCurrentLaunch();
-      router.replace(memberHomeRoute(member.id) as never);
+      await requestMemberMagicLink(email);
+      Alert.alert(
+        '로그인 메일을 보냈어요',
+        '메일에서 로그인 링크를 누르면 비케이짐 앱으로 돌아와 로그인됩니다.',
+      );
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        '전송 실패',
+        error instanceof Error ? error.message : '로그인 메일을 보내지 못했어요.',
+      );
     } finally {
-      setSigningInId(null);
+      setBusy(false);
     }
   };
 
@@ -97,148 +65,89 @@ export default function LoginScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardAvoider}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
       >
         <ScrollView
           contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
         >
-        <View style={styles.brandBlock}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>BK</Text>
-          </View>
-          <Text style={styles.brand}>비케이짐 스케줄</Text>
-          <Text style={styles.subtitle}>사용할 모드를 선택해 주세요.</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardEyebrow}>강사</Text>
-          <Text style={styles.cardTitle}>트레이너 모드</Text>
-          <Text style={styles.cardText}>
-            시간표, 회원 관리, 운동 기록을 관리하는 기존 화면으로 들어갑니다.
-          </Text>
-          <Pressable
-            style={[styles.primaryButton, signingInId !== null && styles.disabled]}
-            onPress={() => void enterTrainerMode()}
-            disabled={signingInId !== null}
-          >
-            <Text style={styles.primaryButtonText}>
-              {signingInId === 'trainer' ? '접속 중...' : '강사로 시작하기'}
-            </Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.memberLoginCard}>
-          <View style={styles.memberLoginTop}>
-            <View>
-              <Text style={styles.memberLoginEyebrow}>회원</Text>
-              <Text style={styles.memberLoginTitle}>회원 로그인</Text>
-            </View>
-            <View style={[styles.serverBadge, !remoteConfigured && styles.serverBadgeOff]}>
-              <Text style={[styles.serverBadgeText, !remoteConfigured && styles.serverBadgeTextOff]}>
-                {remoteConfigured ? '서버 연결됨' : '연결 준비'}
-              </Text>
-            </View>
+          <View style={styles.brandBlock}>
+            <View style={styles.logo}><Text style={styles.logoText}>BK</Text></View>
+            <Text style={styles.brand}>비케이짐</Text>
+            <Text style={styles.subtitle}>수업과 운동 기록을 한곳에서 관리하세요.</Text>
           </View>
 
-          <Text style={styles.memberLoginText}>
-            등록된 이메일로 로그인 링크를 받으면 내 예약, 운동 기록, 인바디를 확인할 수 있어요.
-          </Text>
-
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            placeholder="이메일 주소"
-            placeholderTextColor="#A7ADB6"
-            editable={!remoteBusy}
-            returnKeyType="done"
-            onSubmitEditing={Keyboard.dismiss}
-            style={styles.input}
-          />
-
-          <Pressable
-            style={[
-              styles.memberLoginButton,
-              (!remoteConfigured || remoteBusy) && styles.disabled,
-            ]}
-            disabled={!remoteConfigured || remoteBusy}
-            onPress={() => void sendMemberMagicLink()}
-          >
-            <Text style={styles.memberLoginButtonText}>
-              {remoteBusy ? '전송 중...' : '이메일 로그인 링크 받기'}
-            </Text>
-          </Pressable>
-
-          {!remoteConfigured ? (
-            <Text style={styles.memberLoginHint}>
-              Supabase 프로젝트 연결 후 바로 사용할 수 있어요. 아래 로컬 회원 선택은 계속 테스트용으로 남겨둡니다.
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>회원 모드 테스트</Text>
-            <Text style={styles.sectionSub}>
-              현재 이 기기에 저장된 회원 중 한 명을 선택합니다.
-            </Text>
-          </View>
-          <View style={styles.testBadge}>
-            <Text style={styles.testBadgeText}>로컬 테스트</Text>
-          </View>
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color="#4B68FF" />
-          </View>
-        ) : members.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>등록된 회원이 없어요.</Text>
-            <Text style={styles.emptyText}>
-              먼저 강사 모드에서 회원을 등록한 뒤 다시 테스트해 주세요.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.memberList}>
-            {members.map((member) => (
-              <Pressable
-                key={member.id}
-                style={[styles.memberRow, signingInId !== null && styles.disabled]}
-                onPress={() => void enterMemberMode(member)}
-                disabled={signingInId !== null}
-              >
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{member.name.slice(0, 1)}</Text>
+          {mode === 'select' ? (
+            <View style={styles.roleGroup}>
+              <Pressable style={styles.trainerCard} onPress={() => setMode('trainer')}>
+                <View>
+                  <Text style={styles.roleEyebrow}>TRAINER</Text>
+                  <Text style={styles.roleTitle}>강사 로그인</Text>
+                  <Text style={styles.roleText}>시간표 · 회원 · 수업 기록 관리</Text>
                 </View>
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>{member.name}</Text>
-                  <Text style={styles.memberMeta}>
-                    {member.phone || '연락처 미등록'}
-                    {member.ptRemainingSessions !== null
-                      ? ` · PT ${member.ptRemainingSessions}회 남음`
-                      : ''}
-                  </Text>
-                </View>
-                <Text style={styles.chevron}>
-                  {signingInId === member.id ? '…' : '›'}
-                </Text>
+                <Text style={styles.arrow}>›</Text>
               </Pressable>
-            ))}
-          </View>
-        )}
 
-        <View style={styles.notice}>
-          <Text style={styles.noticeTitle}>지금 단계는 로그인 흐름 확인용이에요.</Text>
-          <Text style={styles.noticeText}>
-            실제 회원 이메일 로그인과 서버 데이터 동기화를 테스트 중입니다.
-            현재 회원 모드는 이 기기에 저장된 데이터만 사용합니다.
-          </Text>
-        </View>
+              <Pressable style={styles.memberCard} onPress={() => setMode('member')}>
+                <View>
+                  <Text style={[styles.roleEyebrow, styles.memberEyebrow]}>MEMBER</Text>
+                  <Text style={styles.roleTitle}>회원 로그인</Text>
+                  <Text style={styles.roleText}>내 일정 · 운동 기록 · 인바디 확인</Text>
+                </View>
+                <Text style={styles.arrow}>›</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.loginCard}>
+              <Pressable style={styles.backRow} onPress={() => setMode('select')}>
+                <Text style={styles.backText}>‹ 로그인 선택으로</Text>
+              </Pressable>
+
+              <Text style={styles.formEyebrow}>{mode === 'trainer' ? 'TRAINER' : 'MEMBER'}</Text>
+              <Text style={styles.formTitle}>{mode === 'trainer' ? '강사 로그인' : '회원 로그인'}</Text>
+
+              {mode === 'trainer' ? (
+                <>
+                  <Text style={styles.formText}>강사용 시간표와 회원 관리 화면으로 이동합니다.</Text>
+                  <Pressable
+                    style={[styles.primaryButton, busy && styles.disabled]}
+                    onPress={() => void enterTrainerMode()}
+                    disabled={busy}
+                  >
+                    <Text style={styles.primaryButtonText}>{busy ? '접속 중...' : '강사 화면으로 들어가기'}</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.formText}>등록된 이메일로 로그인 링크를 받아주세요.</Text>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="이메일 주소"
+                    placeholderTextColor="#A7ADB6"
+                    editable={!busy}
+                    returnKeyType="send"
+                    onSubmitEditing={() => void sendMemberMagicLink()}
+                    style={styles.input}
+                  />
+                  <Pressable
+                    style={[styles.memberButton, (!remoteConfigured || busy) && styles.disabled]}
+                    onPress={() => void sendMemberMagicLink()}
+                    disabled={!remoteConfigured || busy}
+                  >
+                    <Text style={styles.primaryButtonText}>{busy ? '전송 중...' : '로그인 링크 받기'}</Text>
+                  </Pressable>
+                  {!remoteConfigured ? (
+                    <Text style={styles.errorText}>회원 로그인 서버 연결을 확인해 주세요.</Text>
+                  ) : null}
+                </>
+              )}
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -246,142 +155,81 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F6FA' },
+  safeArea: { flex: 1, backgroundColor: '#F5F6F8' },
   keyboardAvoider: { flex: 1 },
-  content: { padding: 18, paddingBottom: 40 },
-  brandBlock: { alignItems: 'center', paddingTop: 28, paddingBottom: 24 },
+  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 32 },
+  brandBlock: { alignItems: 'center', marginBottom: 34 },
   logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 22,
+    width: 70,
+    height: 70,
+    borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4058D6',
   },
-  logoText: { fontSize: 23, fontWeight: '900', color: '#FFFFFF' },
-  brand: { marginTop: 13, fontSize: 24, fontWeight: '900', color: '#20242C' },
-  subtitle: { marginTop: 6, fontSize: 12, color: '#8A919C' },
-  card: {
-    padding: 18,
+  logoText: { fontSize: 25, fontWeight: '900', color: '#FFFFFF' },
+  brand: { marginTop: 15, fontSize: 27, fontWeight: '900', color: '#20242C' },
+  subtitle: { marginTop: 7, fontSize: 13, color: '#858C97' },
+  roleGroup: { gap: 13 },
+  trainerCard: {
+    minHeight: 112,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
   },
-  cardEyebrow: { fontSize: 10, fontWeight: '900', color: '#6978C7' },
-  cardTitle: { marginTop: 4, fontSize: 19, fontWeight: '900', color: '#252A32' },
-  cardText: { marginTop: 7, fontSize: 12, lineHeight: 18, color: '#7C8490' },
+  memberCard: {
+    minHeight: 112,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  roleEyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#4058D6' },
+  memberEyebrow: { color: '#2F7F5E' },
+  roleTitle: { marginTop: 5, fontSize: 20, fontWeight: '900', color: '#252A32' },
+  roleText: { marginTop: 7, fontSize: 12, color: '#858C97' },
+  arrow: { fontSize: 32, fontWeight: '300', color: '#A5ABB4' },
+  loginCard: { padding: 20, borderRadius: 24, backgroundColor: '#FFFFFF' },
+  backRow: { alignSelf: 'flex-start', paddingVertical: 4, paddingRight: 12 },
+  backText: { fontSize: 12, fontWeight: '800', color: '#737B87' },
+  formEyebrow: { marginTop: 24, fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#4058D6' },
+  formTitle: { marginTop: 5, fontSize: 22, fontWeight: '900', color: '#252A32' },
+  formText: { marginTop: 8, fontSize: 13, lineHeight: 19, color: '#7C8490' },
+  input: {
+    height: 52,
+    marginTop: 20,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: '#E0E4EA',
+    borderRadius: 15,
+    fontSize: 15,
+    color: '#2C3139',
+    backgroundColor: '#FAFBFC',
+  },
   primaryButton: {
-    height: 50,
-    marginTop: 16,
+    height: 52,
+    marginTop: 22,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4058D6',
   },
-  primaryButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
-  memberLoginCard: {
-    marginTop: 16,
-    padding: 18,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-  },
-  memberLoginTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  memberLoginEyebrow: { fontSize: 10, fontWeight: '900', color: '#3C8B68' },
-  memberLoginTitle: { marginTop: 4, fontSize: 19, fontWeight: '900', color: '#252A32' },
-  memberLoginText: { marginTop: 7, fontSize: 12, lineHeight: 18, color: '#7C8490' },
-  serverBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 9,
-    backgroundColor: '#EAF6F0',
-  },
-  serverBadgeOff: { backgroundColor: '#F1F2F5' },
-  serverBadgeText: { fontSize: 9, fontWeight: '900', color: '#2D7A57' },
-  serverBadgeTextOff: { color: '#8B919A' },
-  input: {
-    height: 48,
-    marginTop: 14,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#E2E5EA',
-    borderRadius: 14,
-    fontSize: 14,
-    color: '#2C3139',
-    backgroundColor: '#FAFBFC',
-  },
-  memberLoginButton: {
-    height: 50,
-    marginTop: 10,
+  memberButton: {
+    height: 52,
+    marginTop: 11,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#2F7F5E',
   },
-  memberLoginButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
-  memberLoginHint: { marginTop: 9, fontSize: 10, lineHeight: 15, color: '#9AA0AA' },
-  sectionHeader: {
-    marginTop: 24,
-    marginBottom: 9,
-    paddingHorizontal: 2,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '900', color: '#272C34' },
-  sectionSub: { marginTop: 4, fontSize: 10, color: '#9299A4' },
-  testBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 9,
-    backgroundColor: '#EEF1FF',
-  },
-  testBadgeText: { fontSize: 9, fontWeight: '900', color: '#6573BE' },
-  loadingBox: {
-    height: 120,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  emptyCard: { padding: 22, borderRadius: 20, backgroundColor: '#FFFFFF' },
-  emptyTitle: { fontSize: 14, fontWeight: '900', color: '#4A515B' },
-  emptyText: { marginTop: 5, fontSize: 11, lineHeight: 17, color: '#939AA5' },
-  memberList: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-  },
-  memberRow: {
-    minHeight: 68,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#EBEDF1',
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EEF1FF',
-  },
-  avatarText: { fontSize: 15, fontWeight: '900', color: '#4058D6' },
-  memberInfo: { flex: 1, marginLeft: 11 },
-  memberName: { fontSize: 14, fontWeight: '900', color: '#30353D' },
-  memberMeta: { marginTop: 3, fontSize: 10, color: '#9097A2' },
-  chevron: { fontSize: 24, fontWeight: '400', color: '#A5ABB4' },
-  notice: {
-    marginTop: 18,
-    padding: 14,
-    borderRadius: 15,
-    backgroundColor: '#EAEDF4',
-  },
-  noticeTitle: { fontSize: 11, fontWeight: '900', color: '#59616D' },
-  noticeText: { marginTop: 5, fontSize: 10, lineHeight: 16, color: '#7D8591' },
-  disabled: { opacity: 0.55 },
+  primaryButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
+  errorText: { marginTop: 10, fontSize: 11, lineHeight: 16, color: '#B65C5C' },
+  disabled: { opacity: 0.5 },
 });
