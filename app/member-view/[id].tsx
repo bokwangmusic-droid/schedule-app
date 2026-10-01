@@ -8,6 +8,7 @@ import {
   Text,
   View,
   Pressable,
+  Image,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -110,6 +111,18 @@ export default function MemberViewScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [appSession, setAppSession] = useState<AppSession | null>(null);
+  const [trainerProfile, setTrainerProfile] = useState<{
+    trainer_id: string;
+    name: string;
+    bio: string | null;
+    specialties: string | null;
+    certifications: string | null;
+    career: string | null;
+    education: string | null;
+    awards: string | null;
+    instagram: string | null;
+    profile_photo_url: string | null;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -135,11 +148,23 @@ export default function MemberViewScreen() {
     const today = toLocalDateString(new Date());
     try {
       setLoadError(false);
-      const [memberRow, logs, body, schedules] = await Promise.all([
+      const [memberRow, logs, body, schedules, profile] = await Promise.all([
         getMemberById(db, id),
         listTrainingLogs(db, id, 12),
         listBodyRecords(db, id, 8),
         listMemberUpcomingSchedules(db, id, today, 20),
+        db.getFirstAsync<{
+          trainer_id: string;
+          name: string;
+          bio: string | null;
+          specialties: string | null;
+          certifications: string | null;
+          career: string | null;
+          education: string | null;
+          awards: string | null;
+          instagram: string | null;
+          profile_photo_url: string | null;
+        }>('SELECT * FROM trainer_profile_cache ORDER BY updated_at DESC LIMIT 1'),
       ]);
       const now = new Date();
       const currentTime =
@@ -147,6 +172,7 @@ export default function MemberViewScreen() {
         ':' +
         String(now.getMinutes()).padStart(2, '0');
       setMember(memberRow);
+      setTrainerProfile(profile);
       setTrainingLogs(logs);
       setBodyRecords(body);
       setUpcomingSchedules(
@@ -275,6 +301,62 @@ export default function MemberViewScreen() {
             </View>
           </View>
         </View>
+
+        {trainerProfile ? (
+          <>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>담당 강사</Text>
+              <Text style={styles.sectionHint}>프로필</Text>
+            </View>
+            <View style={styles.trainerCard}>
+              <View style={styles.trainerTop}>
+                {trainerProfile.profile_photo_url ? (
+                  <Image source={{ uri: trainerProfile.profile_photo_url }} style={styles.trainerPhoto} />
+                ) : (
+                  <View style={styles.trainerPhotoFallback}>
+                    <Text style={styles.trainerPhotoFallbackText}>{trainerProfile.name.slice(0, 1)}</Text>
+                  </View>
+                )}
+                <View style={styles.trainerHeadline}>
+                  <Text style={styles.trainerName}>{trainerProfile.name}</Text>
+                  {trainerProfile.specialties ? (
+                    <Text style={styles.trainerSpecialties} numberOfLines={2}>
+                      {trainerProfile.specialties.replace(/\n/g, ' · ')}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              {trainerProfile.bio ? <Text style={styles.trainerBio}>{trainerProfile.bio}</Text> : null}
+              {trainerProfile.certifications ? (
+                <View style={styles.trainerInfoBlock}>
+                  <Text style={styles.trainerInfoTitle}>자격증</Text>
+                  <Text style={styles.trainerInfoText}>{trainerProfile.certifications}</Text>
+                </View>
+              ) : null}
+              {trainerProfile.career ? (
+                <View style={styles.trainerInfoBlock}>
+                  <Text style={styles.trainerInfoTitle}>경력</Text>
+                  <Text style={styles.trainerInfoText}>{trainerProfile.career}</Text>
+                </View>
+              ) : null}
+              {trainerProfile.education ? (
+                <View style={styles.trainerInfoBlock}>
+                  <Text style={styles.trainerInfoTitle}>교육 이력</Text>
+                  <Text style={styles.trainerInfoText}>{trainerProfile.education}</Text>
+                </View>
+              ) : null}
+              {trainerProfile.awards ? (
+                <View style={styles.trainerInfoBlock}>
+                  <Text style={styles.trainerInfoTitle}>수상·대회</Text>
+                  <Text style={styles.trainerInfoText}>{trainerProfile.awards}</Text>
+                </View>
+              ) : null}
+              {trainerProfile.instagram ? (
+                <Text style={styles.trainerInstagram}>Instagram · {trainerProfile.instagram}</Text>
+              ) : null}
+            </View>
+          </>
+        ) : null}
 
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>다음 예약</Text>
@@ -515,6 +597,26 @@ const styles = StyleSheet.create({
   hello: { fontSize: 11, fontWeight: '700', color: '#CFD6FF' },
   heroName: { marginTop: 1, fontSize: 22, fontWeight: '900', color: '#FFFFFF' },
   heroMembership: { marginTop: 5, fontSize: 10, fontWeight: '800', color: '#DCE1FF' },
+  trainerCard: { padding: 17, borderRadius: 20, backgroundColor: '#FFFFFF' },
+  trainerTop: { flexDirection: 'row', alignItems: 'center' },
+  trainerPhoto: { width: 68, height: 68, borderRadius: 22, backgroundColor: '#EEF1F5' },
+  trainerPhotoFallback: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5F3',
+  },
+  trainerPhotoFallbackText: { fontSize: 24, fontWeight: '900', color: '#177B78' },
+  trainerHeadline: { flex: 1, marginLeft: 14 },
+  trainerName: { fontSize: 19, fontWeight: '900', color: '#252A32' },
+  trainerSpecialties: { marginTop: 5, fontSize: 11, lineHeight: 17, color: '#177B78', fontWeight: '800' },
+  trainerBio: { marginTop: 14, fontSize: 12, lineHeight: 19, color: '#666F7C' },
+  trainerInfoBlock: { marginTop: 14, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#ECEFF3' },
+  trainerInfoTitle: { fontSize: 10, fontWeight: '900', color: '#8B929C' },
+  trainerInfoText: { marginTop: 5, fontSize: 12, lineHeight: 19, color: '#353A43' },
+  trainerInstagram: { marginTop: 14, fontSize: 11, fontWeight: '800', color: '#F07A63' },
   ptSummary: {
     marginTop: 18,
     padding: 14,
