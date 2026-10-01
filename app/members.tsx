@@ -37,6 +37,16 @@ import { toLocalDateString } from '../src/lib/date';
 
 type DatePickerTarget = 'start' | 'end' | null;
 
+function addMembershipMonths(startDate: string, months: number) {
+  const [year, month, day] = startDate.split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const targetMonth = month - 1 + months;
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+  const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+  return toLocalDateString(new Date(targetYear, normalizedMonth, Math.min(day, lastDay)));
+}
+
 export default function MembersScreen() {
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ editMemberId?: string }>();
@@ -440,6 +450,16 @@ export default function MembersScreen() {
                           } else {
                             setPtTotalSessions(String(program.sessionCount));
                             setPtRemainingSessions(String(program.sessionCount));
+                          }
+                        }
+                        if (program.trackingMode === 'duration' && program.durationMonths !== null) {
+                          if (selected) {
+                            setMembershipStartDate('');
+                            setMembershipEndDate('');
+                          } else {
+                            const startDate = membershipStartDate || toLocalDateString(new Date());
+                            setMembershipStartDate(startDate);
+                            setMembershipEndDate(addMembershipMonths(startDate, program.durationMonths));
                           }
                         }
                       }}
