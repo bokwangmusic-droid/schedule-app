@@ -117,3 +117,67 @@ export async function completeMemberMagicLink(accessToken: string) {
   const user = (await response.json()) as AuthUser;
   return resolveMemberAccount(accessToken, user);
 }
+
+
+export type RemoteTrainerLogin = {
+  trainerId: string;
+  userId: string;
+  email: string;
+  accessToken: string;
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string | null;
+};
+
+export async function requestTrainerMagicLink(emailInput: string) {
+  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
+  const email = emailInput.trim().toLowerCase();
+  if (!email || !email.includes('@')) throw new Error('이메일 주소를 확인해 주세요.');
+
+  const response = await fetch(SUPABASE_URL + '/auth/v1/otp', {
+    method: 'POST',
+    headers: supabaseHeaders(),
+    body: JSON.stringify({
+      email,
+      create_user: true,
+      email_redirect_to: 'scheduleapp://auth-callback?role=trainer',
+    }),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return email;
+}
+
+export async function completeTrainerMagicLink(accessToken: string): Promise<RemoteTrainerLogin> {
+  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
+  const userResponse = await fetch(SUPABASE_URL + '/auth/v1/user', {
+    headers: supabaseHeaders(accessToken),
+  });
+  if (!userResponse.ok) throw new Error(await readError(userResponse));
+  const user = (await userResponse.json()) as AuthUser;
+  const userId = user.id;
+  const email = user.email?.trim().toLowerCase() ?? '';
+  if (!userId || !email) throw new Error('강사 인증 정보를 확인하지 못했어요.');
+
+  const response = await fetch(
+    SUPABASE_URL + '/rest/v1/trainers?auth_user_id=eq.' + encodeURIComponent(userId) +
+      '&select=auth_user_id,verification_status,verification_rejection_reason&limit=1',
+    { headers: supabaseHeaders(accessToken) },
+  );
+  if (!response.ok) throw new Error(await readError(response));
+  const rows = (await response.json()) as Array<{
+    auth_user_id: string;
+    verification_status?: 'pending' | 'approved' | 'rejected';
+    verification_rejection_reason?: string | null;
+  }>;
+  const trainer = rows[0];
+  if (!trainer) {
+    return { trainerId: userId, userId, email, accessToken, verificationStatus: 'pending' };
+  }
+  return {
+    trainerId: trainer.auth_user_id,
+    userId,
+    email,
+    accessToken,
+    verificationStatus: trainer.verification_status ?? 'pending',
+    rejectionReason: trainer.verification_rejection_reason,
+  };
+}
