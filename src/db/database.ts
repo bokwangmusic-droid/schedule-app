@@ -130,6 +130,20 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS trainer_profile_cache (
+      trainer_id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      bio TEXT,
+      specialties TEXT,
+      certifications TEXT,
+      career TEXT,
+      education TEXT,
+      awards TEXT,
+      instagram TEXT,
+      profile_photo_url TEXT,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS program_definitions (
       id TEXT PRIMARY KEY NOT NULL,
       category TEXT NOT NULL,
