@@ -426,7 +426,24 @@ export default function MembersScreen() {
                 {programs.map((program) => {
                   const selected = selectedProgramIds.includes(program.id);
                   return (
-                    <Pressable key={program.id} style={[styles.programChoice, selected && styles.programChoiceSelected]} onPress={() => setSelectedProgramIds((current) => selected ? current.filter((id) => id !== program.id) : [...current, program.id])}>
+                    <Pressable
+                      key={program.id}
+                      style={[styles.programChoice, selected && styles.programChoiceSelected]}
+                      onPress={() => {
+                        setSelectedProgramIds((current) =>
+                          selected ? current.filter((id) => id !== program.id) : [...current, program.id],
+                        );
+                        if (program.trackingMode === 'sessions' && program.sessionCount !== null) {
+                          if (selected) {
+                            setPtTotalSessions('');
+                            setPtRemainingSessions('');
+                          } else {
+                            setPtTotalSessions(String(program.sessionCount));
+                            setPtRemainingSessions(String(program.sessionCount));
+                          }
+                        }
+                      }}
+                    >
                       <Text style={[styles.programChoiceText, selected && styles.programChoiceTextSelected]}>{selected ? '✓ ' : ''}{program.name}</Text>
                     </Pressable>
                   );
