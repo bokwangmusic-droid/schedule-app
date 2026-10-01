@@ -5,6 +5,7 @@ export type AppRole = 'trainer' | 'member';
 export type TrainerSession = {
   role: 'trainer';
   trainerId: string;
+  accessToken?: string;
 };
 
 export type MemberSession = {
