@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -29,6 +29,7 @@ export default function AuthCallbackScreen() {
   const [message, setMessage] = useState('로그인을 확인하고 있어요.');
   const [detail, setDetail] = useState('링크 정보를 읽는 중이에요.');
   const [busy, setBusy] = useState(true);
+  const handledUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -48,7 +49,8 @@ export default function AuthCallbackScreen() {
     };
 
     const finish = async (url: string | null) => {
-      if (!url || !active) return;
+      if (!url || !active || handledUrlRef.current === url) return;
+      handledUrlRef.current = url;
       try {
         setDetail('로그인 링크를 확인하는 중이에요.');
         const errorDescription = getParam(url, 'error_description');
@@ -107,9 +109,27 @@ export default function AuthCallbackScreen() {
       }
     };
 
-    void Linking.getInitialURL().then(finish);
     const subscription = Linking.addEventListener('url', ({ url }) => {
       void finish(url);
+    });
+
+    void Linking.getInitialURL().then((url) => {
+      if (url) {
+        void finish(url);
+        return;
+      }
+      if (active) {
+        setMessage('로그인 링크를 확인하지 못했어요.');
+        setDetail('앱에서 새 인증 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
+        setBusy(false);
+      }
+    }).catch((error) => {
+      console.error(error);
+      if (active) {
+        setMessage('로그인 링크를 읽지 못했어요.');
+        setDetail('로그인 화면으로 돌아가 새 인증 메일을 받아 주세요.');
+        setBusy(false);
+      }
     });
 
     return () => {
