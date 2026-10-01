@@ -9,11 +9,7 @@
     "android": {
       "package": "com.ijcompany.scheduleapp",
       "icon": "./assets/icon.png",
-      "versionCode": 2,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F8F4EE"
-      }
+      "versionCode": 2
     },
     "plugins": [
       "expo-router",
