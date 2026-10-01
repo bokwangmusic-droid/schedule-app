@@ -6,6 +6,7 @@ type Props = {
   overlapView: boolean;
   onClose: () => void;
   onMembers: () => void;
+  onProfile: () => void;
   onPrograms: () => void;
   onExercises: () => void;
   onCalendar: () => void;
@@ -23,6 +24,7 @@ export function TimetableMoreMenu({
   overlapView,
   onClose,
   onMembers,
+  onProfile,
   onPrograms,
   onExercises,
   onCalendar,
@@ -73,6 +75,7 @@ export function TimetableMoreMenu({
 
           <MenuItem icon="▤" label="홈 화면 위젯 추가" value="NEW" onPress={() => void addWidget()} />
           <MenuItem icon="👤" label="회원 관리" onPress={onMembers} />
+          <MenuItem icon="★" label="내 강사 프로필" value="NEW" onPress={onProfile} />
           <MenuItem icon="▦" label="프로그램 설정" value="NEW" onPress={onPrograms} />
           <MenuItem icon="🏋" label="운동 설정" value="NEW" onPress={onExercises} />
           <MenuItem icon="▦" label="달력 보기" onPress={onCalendar} />
