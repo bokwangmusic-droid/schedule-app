@@ -5,6 +5,7 @@ import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
+  Image,
   Platform,
   Pressable,
   BackHandler,
@@ -106,7 +107,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandBlock}>
-            <View style={styles.logo}><Text style={styles.logoText}>핏</Text></View>
+            <Image source={require('../assets/icon.png')} style={styles.logoImage} />
             <Text style={styles.brand}>핏모두</Text>
             <Text style={styles.subtitle}>강사와 회원의 피트니스를 한곳에서 관리하세요.</Text>
           </View>
@@ -220,15 +221,11 @@ const styles = StyleSheet.create({
   keyboardAvoider: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 32 },
   brandBlock: { alignItems: 'center', marginBottom: 34 },
-  logo: {
-    width: 70,
-    height: 70,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F07A63',
+  logoImage: {
+    width: 82,
+    height: 82,
+    borderRadius: 24,
   },
-  logoText: { fontSize: 25, fontWeight: '900', color: '#FFFFFF' },
   brand: { marginTop: 15, fontSize: 27, fontWeight: '900', color: '#20242C' },
   subtitle: { marginTop: 7, fontSize: 13, color: '#858C97' },
   roleGroup: { gap: 13 },
