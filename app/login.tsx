@@ -80,7 +80,7 @@ export default function LoginScreen() {
       await requestMemberMagicLink(email);
       Alert.alert(
         '로그인 메일을 보냈어요',
-        '메일에서 로그인 링크를 누르면 비케이짐 앱으로 돌아와 로그인됩니다.',
+        '메일에서 로그인 링크를 누르면 핏모두 앱으로 돌아와 로그인됩니다.',
       );
     } catch (error) {
       console.error(error);
@@ -106,9 +106,9 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandBlock}>
-            <View style={styles.logo}><Text style={styles.logoText}>BK</Text></View>
-            <Text style={styles.brand}>비케이짐</Text>
-            <Text style={styles.subtitle}>수업과 운동 기록을 한곳에서 관리하세요.</Text>
+            <View style={styles.logo}><Text style={styles.logoText}>핏</Text></View>
+            <Text style={styles.brand}>핏모두</Text>
+            <Text style={styles.subtitle}>강사와 회원의 피트니스를 한곳에서 관리하세요.</Text>
           </View>
 
           {mode === 'select' ? (
@@ -175,7 +175,7 @@ export default function LoginScreen() {
                       >
                         <Text style={styles.qaButtonText}>이메일 없이 강사 화면 테스트</Text>
                       </Pressable>
-                      <Text style={styles.qaHelp}>개발 빌드에서만 표시되며 실제 강사 인증은 건너뛰지 않아요.</Text>
+                      <Text style={styles.qaHelp}>테스트용 임시 입장입니다. 정식 출시 전에는 제거할 예정이에요.</Text>
                     </>
                   ) : null}
                 </>
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4058D6',
+    backgroundColor: '#F07A63',
   },
   logoText: { fontSize: 25, fontWeight: '900', color: '#FFFFFF' },
   brand: { marginTop: 15, fontSize: 27, fontWeight: '900', color: '#20242C' },
@@ -252,15 +252,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
   },
-  roleEyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#4058D6' },
-  memberEyebrow: { color: '#2F7F5E' },
+  roleEyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#177B78' },
+  memberEyebrow: { color: '#F07A63' },
   roleTitle: { marginTop: 5, fontSize: 20, fontWeight: '900', color: '#252A32' },
   roleText: { marginTop: 7, fontSize: 12, color: '#858C97' },
   arrow: { fontSize: 32, fontWeight: '300', color: '#A5ABB4' },
   loginCard: { padding: 20, borderRadius: 24, backgroundColor: '#FFFFFF' },
   backRow: { alignSelf: 'flex-start', paddingVertical: 4, paddingRight: 12 },
   backText: { fontSize: 12, fontWeight: '800', color: '#737B87' },
-  formEyebrow: { marginTop: 24, fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#4058D6' },
+  formEyebrow: { marginTop: 24, fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#177B78' },
   formTitle: { marginTop: 5, fontSize: 22, fontWeight: '900', color: '#252A32' },
   formText: { marginTop: 8, fontSize: 13, lineHeight: 19, color: '#7C8490' },
   input: {
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4058D6',
+    backgroundColor: '#177B78',
   },
   memberButton: {
     height: 52,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2F7F5E',
+    backgroundColor: '#F07A63',
   },
   primaryButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   errorText: { marginTop: 10, fontSize: 11, lineHeight: 16, color: '#B65C5C' },

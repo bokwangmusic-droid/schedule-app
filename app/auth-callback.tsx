@@ -172,8 +172,8 @@ export default function AuthCallbackScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.center}>
-        {busy ? <ActivityIndicator color="#4058D6" /> : null}
-        <Text style={styles.title}>비케이짐 로그인</Text>
+        {busy ? <ActivityIndicator color="#177B78" /> : null}
+        <Text style={styles.title}>핏모두 로그인</Text>
         <Text style={styles.message}>{message}</Text>
         <Text style={styles.detail}>{detail}</Text>
         {!busy ? (
@@ -192,6 +192,6 @@ const styles = StyleSheet.create({
   title: { marginTop: 16, fontSize: 19, fontWeight: '900', color: '#252A32' },
   message: { marginTop: 9, fontSize: 12, lineHeight: 18, textAlign: 'center', color: '#7C8490' },
   detail: { marginTop: 6, fontSize: 11, lineHeight: 17, textAlign: 'center', color: '#9AA1AC' },
-  backButton: { marginTop: 18, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12, backgroundColor: '#4058D6' },
+  backButton: { marginTop: 18, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12, backgroundColor: '#177B78' },
   backButtonText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
 });

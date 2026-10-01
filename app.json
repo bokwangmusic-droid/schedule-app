@@ -1,14 +1,19 @@
 {
   "expo": {
-    "name": "스케줄",
+    "name": "핏모두",
     "slug": "schedule-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "scheduleapp",
     "android": {
       "package": "com.ijcompany.scheduleapp",
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F8F4EE"
+      }
     },
     "plugins": [
       "expo-router",
