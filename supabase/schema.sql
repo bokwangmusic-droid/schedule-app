@@ -6,7 +6,16 @@ create extension if not exists pgcrypto;
 create table if not exists public.trainers (
   auth_user_id uuid primary key references auth.users(id) on delete cascade,
   name text not null default 'BKGYM Trainer',
-  created_at timestamptz not null default now()
+  bio text,
+  specialties text,
+  certifications text,
+  career text,
+  education text,
+  awards text,
+  instagram text,
+  profile_photo_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.members (
@@ -130,6 +139,23 @@ alter table public.member_body_records enable row level security;
 drop policy if exists trainers_self_select on public.trainers;
 create policy trainers_self_select on public.trainers for select using (auth.uid() = auth_user_id);
 
+drop policy if exists trainers_self_update on public.trainers;
+create policy trainers_self_update on public.trainers for update
+using (auth.uid() = auth_user_id)
+with check (auth.uid() = auth_user_id);
+
+drop policy if exists trainers_member_select on public.trainers;
+create policy trainers_member_select on public.trainers for select
+using (
+  exists (
+    select 1
+    from public.members m
+    join public.member_accounts a on a.member_id = m.id
+    where m.trainer_user_id = trainers.auth_user_id
+      and a.auth_user_id = auth.uid()
+  )
+);
+
 drop policy if exists member_accounts_self_select on public.member_accounts;
 create policy member_accounts_self_select on public.member_accounts for select using (auth.uid() = auth_user_id);
 
@@ -244,4 +270,28 @@ using (
     select 1 from public.member_accounts a
     where a.auth_user_id = auth.uid() and a.member_id = member_body_records.member_id
   )
+);
+
+
+-- Trainer profile photo storage
+insert into storage.buckets (id, name, public)
+values ('trainer-profiles', 'trainer-profiles', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists trainer_profiles_insert on storage.objects;
+create policy trainer_profiles_insert on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'trainer-profiles'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists trainer_profiles_update on storage.objects;
+create policy trainer_profiles_update on storage.objects for update to authenticated
+using (
+  bucket_id = 'trainer-profiles'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'trainer-profiles'
+  and (storage.foldername(name))[1] = auth.uid()::text
 );
