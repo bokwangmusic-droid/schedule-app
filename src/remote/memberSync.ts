@@ -3,6 +3,7 @@ import { SUPABASE_URL, supabaseHeaders } from './supabaseConfig';
 
 type RemoteMember = {
   id: string;
+  trainer_user_id: string;
   name: string;
   phone: string | null;
   membership_start_date: string | null;
@@ -12,6 +13,20 @@ type RemoteMember = {
   memo: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type RemoteTrainerProfile = {
+  auth_user_id: string;
+  name: string;
+  bio: string | null;
+  specialties: string | null;
+  certifications: string | null;
+  career: string | null;
+  education: string | null;
+  awards: string | null;
+  instagram: string | null;
+  profile_photo_url: string | null;
+  updated_at: string | null;
 };
 
 type RemoteSchedule = {
@@ -147,6 +162,14 @@ export async function syncMemberSnapshot(
   const member = members[0];
   if (!member) throw new Error('서버에서 회원 정보를 찾지 못했어요.');
 
+  const trainerProfiles = await fetchRows<RemoteTrainerProfile>(
+    'trainers?auth_user_id=eq.' +
+      encodeURIComponent(member.trainer_user_id) +
+      '&select=auth_user_id,name,bio,specialties,certifications,career,education,awards,instagram,profile_photo_url,updated_at&limit=1',
+    accessToken,
+  );
+  const trainerProfile = trainerProfiles[0] ?? null;
+
   const logIds = logs.map((row) => row.id);
   const exercises =
     logIds.length > 0
@@ -190,6 +213,29 @@ export async function syncMemberSnapshot(
     await db.runAsync('DELETE FROM member_training_logs WHERE member_id = ?', [memberId]);
     await db.runAsync('DELETE FROM member_body_records WHERE member_id = ?', [memberId]);
     await db.runAsync('DELETE FROM schedules WHERE member_id = ?', [memberId]);
+
+    if (trainerProfile) {
+      await db.runAsync('DELETE FROM trainer_profile_cache');
+      await db.runAsync(
+        `INSERT INTO trainer_profile_cache (
+          trainer_id, name, bio, specialties, certifications, career,
+          education, awards, instagram, profile_photo_url, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          trainerProfile.auth_user_id,
+          trainerProfile.name,
+          trainerProfile.bio,
+          trainerProfile.specialties,
+          trainerProfile.certifications,
+          trainerProfile.career,
+          trainerProfile.education,
+          trainerProfile.awards,
+          trainerProfile.instagram,
+          trainerProfile.profile_photo_url,
+          trainerProfile.updated_at ?? new Date().toISOString(),
+        ],
+      );
+    }
 
     await db.runAsync(
       `INSERT INTO members (
