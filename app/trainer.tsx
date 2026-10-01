@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
-import { getAppSession, isCurrentLaunchAuthorized, memberHomeRoute } from '../src/auth/appSession';
+import { clearAppSession, getAppSession, isCurrentLaunchAuthorized, memberHomeRoute } from '../src/auth/appSession';
 import { DraggableScheduleBlock } from '../src/components/DraggableScheduleBlock';
 import { ScheduleRangeSelector } from '../src/components/ScheduleRangeSelector';
 import { TimetableMoreMenu } from '../src/components/TimetableMoreMenu';
@@ -559,6 +559,23 @@ export default function HomeScreen() {
     }
   };
 
+  const logoutTrainer = () => {
+    setMoreMenuOpen(false);
+    Alert.alert('로그아웃', '강사 모드에서 로그아웃할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '로그아웃',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            await clearAppSession(db);
+            router.replace('/login');
+          })();
+        },
+      },
+    ]);
+  };
+
   const showDailySummary = () => {
     setMoreMenuOpen(false);
     const todayItems = schedules.filter((schedule) => schedule.date === todayString);
@@ -951,6 +968,7 @@ export default function HomeScreen() {
         onSaveImage={() => {
           void saveTimetableImage();
         }}
+        onLogout={logoutTrainer}
       />
 
       <TimetableSettingsModal
