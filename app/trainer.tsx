@@ -944,6 +944,10 @@ export default function HomeScreen() {
           setMoreMenuOpen(false);
           router.push('./members');
         }}
+        onProfile={() => {
+          setMoreMenuOpen(false);
+          router.push('./trainer-profile');
+        }}
         onPrograms={() => {
           setMoreMenuOpen(false);
           router.push('./program-settings');
