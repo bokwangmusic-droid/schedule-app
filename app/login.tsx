@@ -27,7 +27,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const remoteConfigured = isSupabaseConfigured();
-  const qaTrainerEnabled = __DEV__;
+  const qaTrainerEnabled = true;
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
