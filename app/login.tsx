@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { authorizeCurrentLaunch, saveAppSession } from '../src/auth/appSession';
 import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
 import { requestMemberMagicLink, requestTrainerMagicLink } from '../src/remote/supabaseAuth';
 
@@ -26,6 +27,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const remoteConfigured = isSupabaseConfigured();
+  const qaTrainerEnabled = __DEV__;
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -38,6 +40,22 @@ export default function LoginScreen() {
     });
     return () => subscription.remove();
   }, [mode]);
+
+  const enterQaTrainer = async () => {
+    if (!qaTrainerEnabled || busy) return;
+    Keyboard.dismiss();
+    setBusy(true);
+    try {
+      await saveAppSession(db, { role: 'trainer', trainerId: 'local-qa-trainer' });
+      authorizeCurrentLaunch();
+      router.replace('/trainer');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('테스트 입장 실패', '강사 화면을 열지 못했어요.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const sendTrainerMagicLink = async () => {
     if (!remoteConfigured || busy) return;
@@ -146,6 +164,20 @@ export default function LoginScreen() {
                     <Text style={styles.primaryButtonText}>{busy ? '전송 중...' : '이메일 인증하기'}</Text>
                   </Pressable>
                   <Text style={styles.helperText}>처음 가입하는 강사는 인증 후 재직증명서 또는 명함을 제출하고 승인을 받아야 해요.</Text>
+                  {qaTrainerEnabled ? (
+                    <>
+                      <View style={styles.qaDivider} />
+                      <Text style={styles.qaLabel}>개발 테스트 전용</Text>
+                      <Pressable
+                        style={[styles.qaButton, busy && styles.disabled]}
+                        onPress={() => void enterQaTrainer()}
+                        disabled={busy}
+                      >
+                        <Text style={styles.qaButtonText}>이메일 없이 강사 화면 테스트</Text>
+                      </Pressable>
+                      <Text style={styles.qaHelp}>개발 빌드에서만 표시되며 실제 강사 인증은 건너뛰지 않아요.</Text>
+                    </>
+                  ) : null}
                 </>
               ) : (
                 <>
@@ -261,5 +293,17 @@ const styles = StyleSheet.create({
   primaryButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   errorText: { marginTop: 10, fontSize: 11, lineHeight: 16, color: '#B65C5C' },
   helperText: { marginTop: 12, fontSize: 11, lineHeight: 17, color: '#858C97' },
+  qaDivider: { height: 1, marginTop: 20, backgroundColor: '#ECEFF3' },
+  qaLabel: { marginTop: 14, fontSize: 10, fontWeight: '900', color: '#9A6B28' },
+  qaButton: {
+    height: 46,
+    marginTop: 8,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F4E8D4',
+  },
+  qaButtonText: { fontSize: 12, fontWeight: '900', color: '#7A531E' },
+  qaHelp: { marginTop: 8, fontSize: 10, lineHeight: 15, color: '#9A8B78' },
   disabled: { opacity: 0.5 },
 });
