@@ -30,6 +30,7 @@ export default function AuthCallbackScreen() {
   const [detail, setDetail] = useState('링크 정보를 읽는 중이에요.');
   const [busy, setBusy] = useState(true);
   const handledUrlRef = useRef<string | null>(null);
+  const lastUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -49,17 +50,44 @@ export default function AuthCallbackScreen() {
     };
 
     const finish = async (url: string | null) => {
-      if (!url || !active || handledUrlRef.current === url) return;
+      if (!url || !active) return;
+      lastUrlRef.current = url;
+      if (handledUrlRef.current === url) return;
       handledUrlRef.current = url;
       try {
         setDetail('로그인 링크를 확인하는 중이에요.');
         const errorDescription = getParam(url, 'error_description');
         if (errorDescription) throw new Error(decodeURIComponent(errorDescription));
 
-        const accessToken = getParam(url, 'access_token');
+        let accessToken = getParam(url, 'access_token');
+        const tokenHash = getParam(url, 'token_hash');
+        const tokenType = getParam(url, 'type') ?? 'email';
+        if (!accessToken && tokenHash) {
+          setDetail('이메일 인증 정보를 확인하는 중이에요.');
+          const verifyResponse = await withTimeout(
+            '이메일 인증',
+            fetch(process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '') + '/auth/v1/verify', {
+              method: 'POST',
+              headers: {
+                apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ token_hash: tokenHash, type: tokenType }),
+            }),
+          );
+          if (!verifyResponse.ok) {
+            const body = await verifyResponse.json().catch(() => ({})) as { msg?: string; message?: string; error_description?: string };
+            throw new Error(body.msg || body.message || body.error_description || '이메일 인증에 실패했어요.');
+          }
+          const verified = await verifyResponse.json() as { access_token?: string };
+          accessToken = verified.access_token ?? null;
+        }
         if (!accessToken) {
+          const code = getParam(url, 'code');
           setMessage('로그인 링크를 확인하지 못했어요.');
-          setDetail('앱에서 새 로그인 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
+          setDetail(code
+            ? '인증 코드는 도착했지만 현재 로그인 방식과 맞지 않아요. 로그인 화면에서 새 인증 메일을 받아 다시 시도해 주세요.'
+            : '앱에서 새 로그인 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
           setBusy(false);
           return;
         }
@@ -114,15 +142,18 @@ export default function AuthCallbackScreen() {
     });
 
     void Linking.getInitialURL().then((url) => {
-      if (url) {
-        void finish(url);
-        return;
-      }
-      if (active) {
-        setMessage('로그인 링크를 확인하지 못했어요.');
-        setDetail('앱에서 새 인증 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
-        setBusy(false);
-      }
+      if (url) void finish(url);
+      setTimeout(() => {
+        if (!active || lastUrlRef.current) return;
+        void Linking.getInitialURL().then((retryUrl) => {
+          if (retryUrl) void finish(retryUrl);
+          else if (active) {
+            setMessage('로그인 링크를 확인하지 못했어요.');
+            setDetail('앱에서 새 인증 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
+            setBusy(false);
+          }
+        });
+      }, 700);
     }).catch((error) => {
       console.error(error);
       if (active) {
