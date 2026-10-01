@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  BackHandler,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
 import { requestMemberMagicLink, requestTrainerMagicLink } from '../src/remote/supabaseAuth';
 
@@ -25,6 +27,18 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const remoteConfigured = isSupabaseConfigured();
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (mode !== 'select') {
+        Keyboard.dismiss();
+        setMode('select');
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [mode]));
 
   const sendTrainerMagicLink = async () => {
     if (!remoteConfigured || busy) return;
