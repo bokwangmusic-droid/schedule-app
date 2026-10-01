@@ -10,7 +10,7 @@ import {
   saveAppSession,
 } from '../src/auth/appSession';
 import { syncMemberSnapshot } from '../src/remote/memberSync';
-import { completeMemberMagicLink } from '../src/remote/supabaseAuth';
+import { completeMemberMagicLink, completeTrainerMagicLink } from '../src/remote/supabaseAuth';
 
 function getParam(url: string, key: string) {
   const queryIndex = url.indexOf('?');
@@ -62,18 +62,34 @@ export default function AuthCallbackScreen() {
           return;
         }
 
+        const role = getParam(url, 'role');
+        if (role === 'trainer') {
+          setDetail('강사 인증 상태를 확인하는 중이에요.');
+          const login = await withTimeout('강사 인증 확인', completeTrainerMagicLink(accessToken));
+          if (login.verificationStatus === 'approved') {
+            await saveAppSession(db, { role: 'trainer', trainerId: login.trainerId });
+            authorizeCurrentLaunch();
+            router.replace('/trainer');
+            return;
+          }
+          router.replace({
+            pathname: '/trainer-verification' as never,
+            params: {
+              accessToken: login.accessToken,
+              userId: login.userId,
+              email: login.email,
+              status: login.verificationStatus,
+              rejectionReason: login.rejectionReason ?? '',
+            },
+          } as never);
+          return;
+        }
+
         setDetail('Supabase 회원 인증을 확인하는 중이에요.');
-        const login = await withTimeout(
-          '회원 인증 확인',
-          completeMemberMagicLink(accessToken),
-        );
+        const login = await withTimeout('회원 인증 확인', completeMemberMagicLink(accessToken));
 
         setDetail('회원 데이터를 불러오는 중이에요.');
-        await withTimeout(
-          '회원 데이터 동기화',
-          syncMemberSnapshot(db, login.accessToken, login.memberId),
-          15000,
-        );
+        await withTimeout('회원 데이터 동기화', syncMemberSnapshot(db, login.accessToken, login.memberId), 15000);
 
         setDetail('로그인 정보를 저장하는 중이에요.');
         await saveAppSession(db, { role: 'member', memberId: login.memberId });
@@ -106,7 +122,7 @@ export default function AuthCallbackScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.center}>
         {busy ? <ActivityIndicator color="#4058D6" /> : null}
-        <Text style={styles.title}>비케이짐 회원 로그인</Text>
+        <Text style={styles.title}>비케이짐 로그인</Text>
         <Text style={styles.message}>{message}</Text>
         <Text style={styles.detail}>{detail}</Text>
         {!busy ? (
