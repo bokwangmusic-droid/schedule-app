@@ -97,7 +97,11 @@ export default function AuthCallbackScreen() {
           setDetail('강사 인증 상태를 확인하는 중이에요.');
           const login = await withTimeout('강사 인증 확인', completeTrainerMagicLink(accessToken));
           if (login.verificationStatus === 'approved') {
-            await saveAppSession(db, { role: 'trainer', trainerId: login.trainerId });
+            await saveAppSession(db, {
+              role: 'trainer',
+              trainerId: login.trainerId,
+              accessToken: login.accessToken,
+            });
             authorizeCurrentLaunch();
             router.replace('/trainer');
             return;
