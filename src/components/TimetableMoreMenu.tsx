@@ -15,6 +15,7 @@ type Props = {
   onToggleOverlap: () => void;
   onDailySummary: () => void;
   onSaveImage: () => void;
+  onLogout: () => void;
 };
 
 export function TimetableMoreMenu({
@@ -31,6 +32,7 @@ export function TimetableMoreMenu({
   onToggleOverlap,
   onDailySummary,
   onSaveImage,
+  onLogout,
 }: Props) {
   const addWidget = async () => {
     if (onAddWidget) {
@@ -83,7 +85,8 @@ export function TimetableMoreMenu({
             value={overlapView ? 'ON' : 'OFF'}
             onPress={onToggleOverlap}
           />
-          <MenuItem icon="⇩" label="이미지로 저장" onPress={onSaveImage} last />
+          <MenuItem icon="⇩" label="이미지로 저장" onPress={onSaveImage} />
+          <MenuItem icon="↪" label="로그아웃" onPress={onLogout} last />
         </Pressable>
       </Pressable>
     </Modal>
