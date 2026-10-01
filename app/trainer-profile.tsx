@@ -22,7 +22,7 @@ import {
   uploadTrainerProfilePhoto,
 } from '../src/remote/trainerProfile';
 
-type Asset = MediaLibrary.Asset;
+type Asset = { id: string; uri: string };
 
 export default function TrainerProfileScreen() {
   const db = useSQLiteContext();
@@ -101,7 +101,7 @@ export default function TrainerProfileScreen() {
 
     const result = await MediaLibrary.getAssetsAsync({
       first: 60,
-      mediaType: ['photo'] as never,
+      mediaType: ['photo'] as any,
     });
     setAssets(result.assets);
     setGalleryOpen(true);
