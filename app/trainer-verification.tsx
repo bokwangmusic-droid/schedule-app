@@ -1,7 +1,8 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -14,17 +15,38 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  authorizeCurrentLaunch,
+  getAppSession,
+  saveAppSession,
+  type TrainerSession,
+} from '../src/auth/appSession';
+import { completeTrainerMagicLink, refreshAuthSession } from '../src/remote/supabaseAuth';
 import { SUPABASE_URL, supabaseHeaders } from '../src/remote/supabaseConfig';
 import { uploadTrainerVerificationDocument } from '../src/remote/trainerVerification';
 
 type Asset = { id: string; uri: string; filename?: string | null };
 
 export default function TrainerVerificationScreen() {
-  const params = useLocalSearchParams<{ accessToken?: string; userId?: string; email?: string; status?: string; rejectionReason?: string }>();
-  const accessToken = String(params.accessToken ?? '');
-  const userId = String(params.userId ?? '');
-  const email = String(params.email ?? '');
-  const status = String(params.status ?? 'pending');
+  const db = useSQLiteContext();
+  const params = useLocalSearchParams<{
+    accessToken?: string;
+    userId?: string;
+    email?: string;
+    status?: string;
+    submittedAt?: string;
+    rejectionReason?: string;
+  }>();
+
+  const [accessToken, setAccessToken] = useState(String(params.accessToken ?? ''));
+  const [refreshToken, setRefreshToken] = useState('');
+  const [userId, setUserId] = useState(String(params.userId ?? ''));
+  const [email, setEmail] = useState(String(params.email ?? ''));
+  const [status, setStatus] = useState(String(params.status ?? 'pending'));
+  const [submittedAt, setSubmittedAt] = useState(String(params.submittedAt ?? ''));
+  const [rejectionReason, setRejectionReason] = useState(String(params.rejectionReason ?? ''));
+  const [loadingSession, setLoadingSession] = useState(true);
+
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [gymName, setGymName] = useState('');
@@ -36,6 +58,110 @@ export default function TrainerVerificationScreen() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void getAppSession(db)
+      .then((session) => {
+        if (!active || !session || session.role !== 'trainer') return;
+        if (!accessToken && session.accessToken) setAccessToken(session.accessToken);
+        if (session.refreshToken) setRefreshToken(session.refreshToken);
+        if (!userId) setUserId(session.trainerId);
+        if (!email && session.email) setEmail(session.email);
+        if (!params.status && session.verificationStatus) setStatus(session.verificationStatus);
+        if (!params.submittedAt && session.verificationSubmittedAt) {
+          setSubmittedAt(session.verificationSubmittedAt);
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingSession(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [accessToken, db, email, params.status, params.submittedAt, userId]);
+
+  const persistTrainerSession = async (
+    nextAccessToken: string,
+    nextRefreshToken: string | undefined,
+    nextStatus: 'pending' | 'approved' | 'rejected',
+    nextSubmittedAt: string | null | undefined,
+    nextEmail: string,
+    trainerId: string,
+  ) => {
+    const session: TrainerSession = {
+      role: 'trainer',
+      trainerId,
+      accessToken: nextAccessToken,
+      refreshToken: nextRefreshToken,
+      verificationStatus: nextStatus,
+      verificationSubmittedAt: nextSubmittedAt ?? null,
+      email: nextEmail,
+    };
+    await saveAppSession(db, session);
+  };
+
+  const resolveCurrentLogin = async () => {
+    if (!accessToken) throw new Error('저장된 인증 세션이 없어요.');
+    try {
+      const login = await completeTrainerMagicLink(accessToken);
+      return { login, accessToken, refreshToken };
+    } catch (firstError) {
+      if (!refreshToken) throw firstError;
+      const refreshed = await refreshAuthSession(refreshToken);
+      setAccessToken(refreshed.accessToken);
+      setRefreshToken(refreshed.refreshToken);
+      const login = await completeTrainerMagicLink(refreshed.accessToken);
+      return {
+        login,
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+      };
+    }
+  };
+
+  const checkStatus = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const resolved = await resolveCurrentLogin();
+      const login = resolved.login;
+      await persistTrainerSession(
+        resolved.accessToken,
+        resolved.refreshToken || undefined,
+        login.verificationStatus,
+        login.verificationSubmittedAt,
+        login.email,
+        login.trainerId,
+      );
+
+      setStatus(login.verificationStatus);
+      setSubmittedAt(login.verificationSubmittedAt ?? '');
+      setRejectionReason(login.rejectionReason ?? '');
+      setEmail(login.email);
+      setUserId(login.trainerId);
+
+      if (login.verificationStatus === 'approved') {
+        authorizeCurrentLaunch();
+        router.replace('/trainer');
+        return;
+      }
+
+      if (login.verificationStatus === 'rejected') {
+        Alert.alert('인증이 반려됐어요', login.rejectionReason || '정보를 보완해 다시 신청해 주세요.');
+        return;
+      }
+
+      Alert.alert('아직 승인 대기 중이에요', '관리자 검토가 끝나면 이 버튼으로 다시 확인하면 돼요.');
+    } catch (error) {
+      Alert.alert(
+        '상태 확인 실패',
+        error instanceof Error ? error.message : '승인 상태를 확인하지 못했어요.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const openGallery = async () => {
     const permission = await MediaLibrary.requestPermissionsAsync();
@@ -86,19 +212,38 @@ export default function TrainerVerificationScreen() {
       Alert.alert('입력 확인', '이름, 연락처, 소속 센터와 증빙서류를 모두 입력해 주세요.');
       return;
     }
+    if (!accessToken || !userId) {
+      Alert.alert('인증 세션 없음', '저장된 로그인 인증 정보를 찾지 못했어요.');
+      return;
+    }
+
     setBusy(true);
     try {
+      let token = accessToken;
+      let nextRefreshToken = refreshToken;
+      try {
+        await completeTrainerMagicLink(token);
+      } catch (firstError) {
+        if (!refreshToken) throw firstError;
+        const refreshed = await refreshAuthSession(refreshToken);
+        token = refreshed.accessToken;
+        nextRefreshToken = refreshed.refreshToken;
+        setAccessToken(token);
+        setRefreshToken(nextRefreshToken);
+      }
+
       const uploaded = await uploadTrainerVerificationDocument(
-        accessToken,
+        token,
         userId,
         documentUri,
         documentName || 'verification.jpg',
       );
 
+      const submitted = new Date().toISOString();
       const response = await fetch(SUPABASE_URL + '/rest/v1/trainers?on_conflict=auth_user_id', {
         method: 'POST',
         headers: {
-          ...supabaseHeaders(accessToken),
+          ...supabaseHeaders(token),
           Prefer: 'resolution=merge-duplicates,return=minimal',
         },
         body: JSON.stringify({
@@ -110,23 +255,85 @@ export default function TrainerVerificationScreen() {
           verification_status: 'pending',
           verification_document_path: uploaded.path,
           verification_document_name: uploaded.name,
-          verification_submitted_at: new Date().toISOString(),
+          verification_submitted_at: submitted,
           verification_reviewed_at: null,
           verification_rejection_reason: null,
         }),
       });
+
       if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { message?: string; msg?: string; error?: string };
+        const body = await response.json().catch(() => ({})) as {
+          message?: string;
+          msg?: string;
+          error?: string;
+        };
         throw new Error(body.message || body.msg || body.error || '강사 인증 신청을 저장하지 못했어요.');
       }
-      Alert.alert('신청 완료', '강사 인증 신청이 접수됐어요. 관리자 승인 후 강사 기능을 이용할 수 있습니다.');
-      router.replace('/login');
+
+      setStatus('pending');
+      setSubmittedAt(submitted);
+      setRejectionReason('');
+      await persistTrainerSession(
+        token,
+        nextRefreshToken || undefined,
+        'pending',
+        submitted,
+        email,
+        userId,
+      );
+      Alert.alert('신청 완료', '이제 인증 메일을 다시 받을 필요 없어요. 관리자 승인 후 아래 버튼으로 확인하면 됩니다.');
     } catch (error) {
       Alert.alert('신청 실패', error instanceof Error ? error.message : '강사 인증 신청에 실패했어요.');
     } finally {
       setBusy(false);
     }
   };
+
+  const waiting = status === 'pending' && Boolean(submittedAt);
+
+  if (loadingSession) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingWrap}>
+          <Text style={styles.loadingText}>인증 정보를 확인하고 있어요...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (waiting) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.waitingWrap}>
+          <Text style={styles.eyebrow}>TRAINER VERIFICATION</Text>
+          <Text style={styles.waitingTitle}>강사 인증 승인 대기 중</Text>
+          <Text style={styles.waitingText}>
+            신청 자료가 정상적으로 접수됐어요.{'
+'}
+            이메일 인증을 다시 할 필요 없이 관리자 승인 후 아래 버튼만 눌러주세요.
+          </Text>
+          <View style={styles.waitingInfo}>
+            <Text style={styles.waitingInfoLabel}>로그인 이메일</Text>
+            <Text style={styles.waitingInfoValue}>{email || '-'}</Text>
+            <Text style={styles.waitingInfoLabel}>신청 시각</Text>
+            <Text style={styles.waitingInfoValue}>
+              {submittedAt ? new Date(submittedAt).toLocaleString('ko-KR') : '-'}
+            </Text>
+          </View>
+          <Pressable
+            style={[styles.submit, busy && styles.disabled]}
+            onPress={() => void checkStatus()}
+            disabled={busy}
+          >
+            <Text style={styles.submitText}>{busy ? '확인 중...' : '승인 상태 다시 확인'}</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={() => router.replace('/login')}>
+            <Text style={styles.secondaryButtonText}>로그인 화면으로</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -135,7 +342,12 @@ export default function TrainerVerificationScreen() {
         <Text style={styles.eyebrow}>TRAINER VERIFICATION</Text>
         <Text style={styles.title}>강사 인증 신청</Text>
         <Text style={styles.description}>강사 기능은 관리자 승인 후 사용할 수 있어요. 재직증명서 또는 명함 등 현재 근무를 확인할 수 있는 자료를 제출해 주세요.</Text>
-        {status === 'rejected' ? <View style={styles.notice}><Text style={styles.noticeTitle}>이전 신청이 반려됐어요.</Text><Text style={styles.noticeText}>{String(params.rejectionReason ?? '') || '정보를 보완해 다시 신청해 주세요.'}</Text></View> : null}
+        {status === 'rejected' ? (
+          <View style={styles.notice}>
+            <Text style={styles.noticeTitle}>이전 신청이 반려됐어요.</Text>
+            <Text style={styles.noticeText}>{rejectionReason || '정보를 보완해 다시 신청해 주세요.'}</Text>
+          </View>
+        ) : null}
 
         <Text style={styles.label}>이메일</Text>
         <View style={styles.readonly}><Text style={styles.readonlyText}>{email}</Text></View>
@@ -266,6 +478,16 @@ const styles = StyleSheet.create({
   submitText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   privacy: { marginTop: 12, textAlign: 'center', fontSize: 10, lineHeight: 16, color: '#989FA9' },
   disabled: { opacity: 0.5 },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { fontSize: 13, fontWeight: '700', color: '#7C8490' },
+  waitingWrap: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', justifyContent: 'center', padding: 28 },
+  waitingTitle: { marginTop: 8, fontSize: 27, fontWeight: '900', color: '#252A32' },
+  waitingText: { marginTop: 12, fontSize: 13, lineHeight: 21, color: '#747C88' },
+  waitingInfo: { marginTop: 24, padding: 16, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  waitingInfoLabel: { marginTop: 7, fontSize: 10, fontWeight: '900', color: '#9AA1AB' },
+  waitingInfoValue: { marginTop: 3, fontSize: 13, fontWeight: '800', color: '#3D444E' },
+  secondaryButton: { height: 48, marginTop: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E9ECF1' },
+  secondaryButtonText: { fontSize: 13, fontWeight: '900', color: '#656D79' },
   modalHeader: { height: 58, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E4E7EC' },
   modalBack: { width: 72, fontSize: 14, fontWeight: '800', color: '#4058D6' },
   modalTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '900', color: '#252A32' },
