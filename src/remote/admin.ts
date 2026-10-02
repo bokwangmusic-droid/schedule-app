@@ -36,7 +36,7 @@ export async function isCurrentUserAdmin(accessToken: string) {
 export async function listTrainerApplications(accessToken: string) {
   const response = await fetch(
     SUPABASE_URL +
-      '/rest/v1/trainers?select=auth_user_id,name,email,phone,gym_name,verification_status,verification_document_path,verification_document_name,verification_submitted_at,verification_reviewed_at,verification_rejection_reason&verification_status=neq.approved&order=verification_submitted_at.desc.nullslast',
+      '/rest/v1/trainers?select=auth_user_id,name,email,phone,gym_name,verification_status,verification_document_path,verification_document_name,verification_submitted_at,verification_reviewed_at,verification_rejection_reason&verification_status=eq.pending&order=verification_submitted_at.desc.nullslast',
     { headers: supabaseHeaders(accessToken) },
   );
   if (!response.ok) throw new Error(await readError(response));
