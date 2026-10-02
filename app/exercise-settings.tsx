@@ -12,7 +12,7 @@ export default function ExerciseSettingsScreen(){
  const add=async()=>{if(!name.trim())return;await addExerciseDefinition(db,category,name);setName('');await load()};
  const remove=(item:ExerciseDefinition)=>Alert.alert('운동 삭제',item.name+'을(를) 운동 목록에서 삭제할까요?',[{text:'취소',style:'cancel'},{text:'삭제',style:'destructive',onPress:()=>void(async()=>{await deleteExerciseDefinition(db,item.id);await load()})()}]);
  return <SafeAreaView style={s.safe}><View style={s.header}><Pressable onPress={()=>router.back()}><Text style={s.back}>‹</Text></Pressable><Text style={s.title}>운동 설정</Text><View style={{width:34}}/></View>
- <ScrollView contentContainerStyle={s.content}><Text style={s.desc}>자주 쓰는 운동을 부위별로 저장해두세요. 운동일지에서는 저장 운동 선택과 직접 입력을 모두 사용할 수 있어요.</Text>
+ <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled"><Text style={s.desc}>자주 쓰는 운동을 부위별로 저장해두세요. 운동일지에서는 저장 운동 선택과 직접 입력을 모두 사용할 수 있어요.</Text>
  <View style={s.tabs}>{EXERCISE_CATEGORIES.map(x=><Pressable key={x} style={[s.tab,category===x&&s.tabOn]} onPress={()=>setCategory(x)}><Text style={[s.tabText,category===x&&s.tabTextOn]}>{x}</Text></Pressable>)}</View>
  <View style={s.addRow}><TextInput value={name} onChangeText={setName} onSubmitEditing={()=>void add()} placeholder={category+' 운동명 입력'} style={s.input}/><Pressable style={s.add} onPress={()=>void add()}><Text style={s.addText}>추가</Text></Pressable></View>
  <View style={s.card}>{items.filter(x=>x.category===category).length===0?<Text style={s.empty}>아직 등록된 운동이 없어요.</Text>:items.filter(x=>x.category===category).map(x=><View key={x.id} style={s.row}><Text style={s.name}>{x.name}</Text><Pressable onPress={()=>remove(x)}><Text style={s.del}>삭제</Text></Pressable></View>)}</View>
