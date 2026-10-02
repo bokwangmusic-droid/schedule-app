@@ -80,9 +80,9 @@ export function SessionSignatureModal({
     const dx = x - last.x;
     const dy = y - last.y;
     const distance = Math.hypot(dx, dy);
-    if (distance < 0.6) return;
+    if (distance < 1.5) return;
 
-    const steps = Math.max(1, Math.min(14, Math.ceil(distance / 1.4)));
+    const steps = Math.max(1, Math.min(3, Math.ceil(distance / 4)));
     const interpolated = Array.from({ length: steps }, (_, index) => {
       const t = (index + 1) / steps;
       const ease = t * t * (3 - 2 * t);
