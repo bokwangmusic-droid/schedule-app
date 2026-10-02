@@ -6,6 +6,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   authorizeCurrentLaunch,
+  clearPendingAuthFlow,
+  getPendingAuthFlow,
   memberHomeRoute,
   saveAppSession,
 } from '../src/auth/appSession';
@@ -63,6 +65,7 @@ export default function AuthCallbackScreen() {
         let accessToken = getParam(url, 'access_token');
         const tokenHash = getParam(url, 'token_hash');
         const tokenType = getParam(url, 'type') ?? 'email';
+        const pendingFlow = await getPendingAuthFlow(db);
         if (!accessToken && tokenHash) {
           setDetail('이메일 인증 정보를 확인하는 중이에요.');
           const verifyResponse = await withTimeout(
@@ -85,15 +88,52 @@ export default function AuthCallbackScreen() {
         }
         if (!accessToken) {
           const code = getParam(url, 'code');
+          if (code && pendingFlow?.codeVerifier) {
+            setDetail('인증 코드를 로그인 세션으로 바꾸는 중이에요.');
+            const tokenResponse = await withTimeout(
+              '로그인 세션 교환',
+              fetch(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '') +
+                  '/auth/v1/token?grant_type=pkce',
+                {
+                  method: 'POST',
+                  headers: {
+                    apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    auth_code: code,
+                    code_verifier: pendingFlow.codeVerifier,
+                  }),
+                },
+              ),
+            );
+            if (!tokenResponse.ok) {
+              const body = await tokenResponse.json().catch(() => ({})) as {
+                msg?: string;
+                message?: string;
+                error_description?: string;
+              };
+              throw new Error(
+                body.msg ||
+                  body.message ||
+                  body.error_description ||
+                  '인증 코드를 로그인 세션으로 바꾸지 못했어요.',
+              );
+            }
+            const tokenBody = await tokenResponse.json() as { access_token?: string };
+            accessToken = tokenBody.access_token ?? null;
+          }
+        }
+
+        if (!accessToken) {
           setMessage('로그인 링크를 확인하지 못했어요.');
-          setDetail(code
-            ? '인증 코드는 도착했지만 현재 로그인 방식과 맞지 않아요. 로그인 화면에서 새 인증 메일을 받아 다시 시도해 주세요.'
-            : '앱에서 새 로그인 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
+          setDetail('새 인증 메일을 받은 뒤 가장 최신 링크를 다시 눌러 주세요.');
           setBusy(false);
           return;
         }
 
-        const role = getParam(url, 'role');
+        const role = getParam(url, 'role') ?? pendingFlow?.role ?? null;
         if (role === 'trainer') {
           setDetail('강사 인증 상태를 확인하는 중이에요.');
           const login = await withTimeout('강사 인증 확인', completeTrainerMagicLink(accessToken));
@@ -103,6 +143,7 @@ export default function AuthCallbackScreen() {
               trainerId: login.trainerId,
               accessToken: login.accessToken,
             });
+            await clearPendingAuthFlow(db);
             authorizeCurrentLaunch();
             router.replace('/trainer');
             return;
@@ -132,6 +173,7 @@ export default function AuthCallbackScreen() {
           memberId: login.memberId,
           accessToken: login.accessToken,
         });
+        await clearPendingAuthFlow(db);
         authorizeCurrentLaunch();
 
         setDetail('회원 화면으로 이동하고 있어요.');
