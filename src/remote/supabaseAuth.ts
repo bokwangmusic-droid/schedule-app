@@ -1,8 +1,10 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   isSupabaseConfigured,
   SUPABASE_URL,
   supabaseHeaders,
 } from './supabaseConfig';
+import { savePendingAuthFlow, type AppRole } from '../auth/appSession';
 
 type AuthUser = {
   id?: string;
@@ -27,6 +29,59 @@ async function readError(response: Response) {
   } catch {
     return '서버 요청에 실패했어요.';
   }
+}
+
+function createCodeVerifier(length = 64) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const bytes = new Uint8Array(length);
+  const cryptoObject = globalThis.crypto;
+  if (cryptoObject?.getRandomValues) {
+    cryptoObject.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
+}
+
+async function requestMagicLink(
+  db: SQLiteDatabase,
+  emailInput: string,
+  role: AppRole,
+) {
+  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
+  const email = emailInput.trim().toLowerCase();
+  if (!email || !email.includes('@')) throw new Error('이메일 주소를 확인해 주세요.');
+
+  const codeVerifier = createCodeVerifier();
+  const redirectTo =
+    role === 'trainer'
+      ? 'scheduleapp://auth-callback?role=trainer'
+      : 'scheduleapp://auth-callback?role=member';
+
+  await savePendingAuthFlow(db, {
+    role,
+    codeVerifier,
+    requestedAt: new Date().toISOString(),
+  });
+
+  const response = await fetch(
+    SUPABASE_URL + '/auth/v1/otp?redirect_to=' + encodeURIComponent(redirectTo),
+    {
+      method: 'POST',
+      headers: supabaseHeaders(),
+      body: JSON.stringify({
+        email,
+        create_user: true,
+        code_challenge: codeVerifier,
+        code_challenge_method: 'plain',
+      }),
+    },
+  );
+
+  if (!response.ok) throw new Error(await readError(response));
+  return email;
 }
 
 async function resolveMemberAccount(
@@ -85,24 +140,11 @@ async function resolveMemberAccount(
   };
 }
 
-export async function requestMemberMagicLink(emailInput: string) {
-  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
-
-  const email = emailInput.trim().toLowerCase();
-  if (!email || !email.includes('@')) throw new Error('이메일 주소를 확인해 주세요.');
-
-  const response = await fetch(SUPABASE_URL + '/auth/v1/otp', {
-    method: 'POST',
-    headers: supabaseHeaders(),
-    body: JSON.stringify({
-      email,
-      create_user: true,
-      email_redirect_to: 'scheduleapp://auth-callback',
-    }),
-  });
-
-  if (!response.ok) throw new Error(await readError(response));
-  return email;
+export async function requestMemberMagicLink(
+  db: SQLiteDatabase,
+  emailInput: string,
+) {
+  return requestMagicLink(db, emailInput, 'member');
 }
 
 export async function completeMemberMagicLink(accessToken: string) {
@@ -128,22 +170,11 @@ export type RemoteTrainerLogin = {
   rejectionReason?: string | null;
 };
 
-export async function requestTrainerMagicLink(emailInput: string) {
-  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
-  const email = emailInput.trim().toLowerCase();
-  if (!email || !email.includes('@')) throw new Error('이메일 주소를 확인해 주세요.');
-
-  const response = await fetch(SUPABASE_URL + '/auth/v1/otp', {
-    method: 'POST',
-    headers: supabaseHeaders(),
-    body: JSON.stringify({
-      email,
-      create_user: true,
-      email_redirect_to: 'scheduleapp://auth-callback?role=trainer',
-    }),
-  });
-  if (!response.ok) throw new Error(await readError(response));
-  return email;
+export async function requestTrainerMagicLink(
+  db: SQLiteDatabase,
+  emailInput: string,
+) {
+  return requestMagicLink(db, emailInput, 'trainer');
 }
 
 export async function completeTrainerMagicLink(accessToken: string): Promise<RemoteTrainerLogin> {
