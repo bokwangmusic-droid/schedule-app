@@ -35,6 +35,7 @@ const KEYS = {
   widgetFontSize: 'widget.fontSize',
   widgetFontStyle: 'widget.fontStyle',
   widgetTextColor: 'widget.textColor',
+  trainingPlanHelperEnabled: 'training.planHelperEnabled',
 } as const;
 
 const WIDGET_FONT_SIZES: WidgetFontSize[] = ['normal', 'large', 'xlarge'];
@@ -144,4 +145,14 @@ export async function saveWidgetFontStyle(db: SQLiteDatabase, value: WidgetFontS
 
 export async function saveWidgetTextColor(db: SQLiteDatabase, value: WidgetTextColor) {
   await writeValue(db, KEYS.widgetTextColor, value);
+}
+
+
+export async function getTrainingPlanHelperEnabled(db: SQLiteDatabase) {
+  const value = await readValue(db, KEYS.trainingPlanHelperEnabled);
+  return value === null ? true : value === '1';
+}
+
+export async function saveTrainingPlanHelperEnabled(db: SQLiteDatabase, value: boolean) {
+  await writeValue(db, KEYS.trainingPlanHelperEnabled, value ? '1' : '0');
 }
