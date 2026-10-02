@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SimpleDatePickerModal } from './SimpleDatePickerModal';
 import { EXERCISE_CATEGORIES, listExerciseDefinitions, type ExerciseDefinition } from '../data/exerciseRepository';
+import { getTrainingPlanHelperEnabled, saveTrainingPlanHelperEnabled } from '../data/appSettingsRepository';
 import {
   loadTrainingLogDraft,
   saveTrainingLogDraft,
@@ -197,6 +198,7 @@ export function TrainingLogModal({
   const [exerciseLibrary, setExerciseLibrary] = useState<ExerciseDefinition[]>([]);
   const [exercisePickerIndex, setExercisePickerIndex] = useState<number | null>(null);
   const [exercisePickerCategory, setExercisePickerCategory] = useState('가슴');
+  const [planHelperEnabled, setPlanHelperEnabled] = useState(true);
   const historyLogs = recentLogs.filter((log) => log.id !== initialLog?.id);
   const latestHistoryLog = historyLogs[0] ?? null;
   const routineParts = ['전체', '가슴', '등', '하체', '어깨', '팔'];
@@ -326,6 +328,13 @@ export function TrainingLogModal({
 
   useEffect(() => {
     if(visible) void listExerciseDefinitions(db).then(setExerciseLibrary).catch(console.error);
+  }, [db, visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    void getTrainingPlanHelperEnabled(db)
+      .then(setPlanHelperEnabled)
+      .catch(console.error);
   }, [db, visible]);
 
   useEffect(() => {
@@ -706,23 +715,38 @@ export function TrainingLogModal({
               <View style={styles.planHeaderRow}>
                 <View style={styles.planHeaderText}>
                   <Text style={styles.sectionTitle}>수업 계획 도우미</Text>
-                  <Text style={styles.planSubText}>최근 운동기록과 컨디션을 바탕으로 참고용 제안을 보여줘요.</Text>
-                </View>
-                {latestHistoryLog ? (
-                  <Pressable style={styles.loadRoutineButton} onPress={() => setRoutinePickerOpen(true)}>
-                    <Text style={styles.loadRoutineButtonText}>최근 루틴 불러오기</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              <View style={styles.planCard}>
-                <Text style={styles.planLabel}>오늘 볼륨 제안</Text>
-                <Text style={styles.planText}>{planText}</Text>
-                {latestHistoryLog ? (
-                  <Text style={styles.planHistory}>
-                    최근 {latestHistoryLog.date.replaceAll('-', '.')} · {latestHistoryLog.bodyPart || '부위 미입력'} · 총 {formatVolume(trainingLogVolume(latestHistoryLog))}kg
+                  <Text style={styles.planSubText}>
+                    {planHelperEnabled
+                      ? '최근 운동기록과 컨디션을 바탕으로 참고용 제안을 보여줘요.'
+                      : '꺼짐 · 필요할 때 다시 켤 수 있어요.'}
                   </Text>
-                ) : null}
+                </View>
+                <Switch
+                  value={planHelperEnabled}
+                  onValueChange={(value) => {
+                    setPlanHelperEnabled(value);
+                    void saveTrainingPlanHelperEnabled(db, value).catch(console.error);
+                  }}
+                />
               </View>
+              {planHelperEnabled ? (
+                <>
+                  {latestHistoryLog ? (
+                    <Pressable style={styles.loadRoutineButtonStandalone} onPress={() => setRoutinePickerOpen(true)}>
+                      <Text style={styles.loadRoutineButtonText}>최근 루틴 불러오기</Text>
+                    </Pressable>
+                  ) : null}
+                  <View style={styles.planCard}>
+                    <Text style={styles.planLabel}>오늘 볼륨 제안</Text>
+                    <Text style={styles.planText}>{planText}</Text>
+                    {latestHistoryLog ? (
+                      <Text style={styles.planHistory}>
+                        최근 {latestHistoryLog.date.replaceAll('-', '.')} · {latestHistoryLog.bodyPart || '부위 미입력'} · 총 {formatVolume(trainingLogVolume(latestHistoryLog))}kg
+                      </Text>
+                    ) : null}
+                  </View>
+                </>
+              ) : null}
             </View>
 
             <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
@@ -943,14 +967,6 @@ export function TrainingLogModal({
                     식단관리 {dietControl ? '✓' : '미체크'}
                   </Text>
                 </Pressable>
-                <Pressable
-                  style={[styles.dietStatusButton, hydration && styles.dietStatusButtonActive]}
-                  onPress={() => setHydration((current) => !current)}
-                >
-                  <Text style={[styles.dietStatusText, hydration && styles.dietStatusTextActive]}>
-                    수분섭취 {hydration ? '✓' : '미체크'}
-                  </Text>
-                </Pressable>
               </View>
 
               <View style={[styles.mealGrid, isTablet && styles.mealGridTablet]}>
@@ -1157,6 +1173,16 @@ const styles = StyleSheet.create({
   },
   planHeaderText: { flex: 1, minWidth: 0 },
   planSubText: { marginTop: 4, fontSize: 10, lineHeight: 14, color: '#8A919C' },
+  loadRoutineButtonStandalone: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    minHeight: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF1FF',
+  },
   loadRoutineButton: {
     minHeight: 38,
     paddingHorizontal: 11,
