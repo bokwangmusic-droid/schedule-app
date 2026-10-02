@@ -63,7 +63,7 @@ export default function LoginScreen() {
     Keyboard.dismiss();
     setBusy(true);
     try {
-      await requestTrainerMagicLink(email);
+      await requestTrainerMagicLink(db, email);
       Alert.alert('인증 메일을 보냈어요', '메일의 링크를 눌러 강사 가입/로그인을 계속해 주세요.');
     } catch (error) {
       console.error(error);
@@ -78,7 +78,7 @@ export default function LoginScreen() {
     Keyboard.dismiss();
     setBusy(true);
     try {
-      await requestMemberMagicLink(email);
+      await requestMemberMagicLink(db, email);
       Alert.alert(
         '로그인 메일을 보냈어요',
         '메일에서 로그인 링크를 누르면 핏모두 앱으로 돌아와 로그인됩니다.',
