@@ -333,7 +333,7 @@ export default function MembersScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={styles.backText}>‹ 시간표</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>회원 관리</Text>
+        <Text style={styles.headerTitle}>회원 목록</Text>
         <Pressable style={styles.headerAddButton} onPress={() => { resetForm(); setFormVisible(true); }}>
           <Text style={styles.headerAddText}>+ 회원 추가</Text>
         </Pressable>
