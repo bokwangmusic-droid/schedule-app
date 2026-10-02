@@ -678,7 +678,7 @@ export default function MemberDetailScreen() {
                 </View>
 
                 <Text style={styles.logDiagnosis}>
-                  숙면 {log.sleepQuality ?? '-'} · 활동 {log.activityLevel ?? '-'} · 식단 {log.dietControl ? '✓' : '-'} · 수분 {log.hydration ? '✓' : '-'}
+                  숙면 {log.sleepQuality ?? '-'} · 활동 {log.activityLevel ?? '-'} · 식단 {log.dietControl ? '✓' : '-'}
                 </Text>
 
                 {log.exercises.length > 0 ? (
