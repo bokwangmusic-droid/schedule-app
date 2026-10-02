@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Modal,
   PanResponder,
   Pressable,
@@ -145,7 +146,8 @@ export function SessionSignatureModal({
     reset();
     onClose();
   };
-  const swipeDownHandlers = useSwipeDownToClose(close, visible && !submitting);
+  const { panHandlers: swipeDownHandlers, animatedStyle: swipeDownStyle } =
+    useSwipeDownToClose(close, visible && !submitting, visible);
 
   const submit = () => {
     if (points.length < 8) return;
@@ -172,7 +174,7 @@ export function SessionSignatureModal({
       onRequestClose={close}
     >
       <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+        <Animated.View style={[styles.sheet, swipeDownStyle]}>
           <View style={styles.handleTouchArea} {...swipeDownHandlers}>
             <View style={styles.handle} />
           </View>
@@ -279,7 +281,7 @@ export function SessionSignatureModal({
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
