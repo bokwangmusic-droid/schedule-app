@@ -17,6 +17,13 @@ export type MemberSession = {
 export type AppSession = TrainerSession | MemberSession;
 
 const APP_SESSION_KEY = 'app_session';
+const AUTH_FLOW_KEY = 'pending_auth_flow';
+
+export type PendingAuthFlow = {
+  role: AppRole;
+  codeVerifier: string;
+  requestedAt: string;
+};
 
 export const APP_ROLE_LABELS: Record<AppRole, string> = {
   trainer: '강사',
@@ -89,4 +96,46 @@ export function authorizeCurrentLaunch() {
 
 export function isCurrentLaunchAuthorized() {
   return launchAuthenticated;
+}
+
+
+export async function savePendingAuthFlow(
+  db: SQLiteDatabase,
+  flow: PendingAuthFlow,
+) {
+  await db.runAsync(
+    `INSERT INTO app_settings (key, value)
+     VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [AUTH_FLOW_KEY, JSON.stringify(flow)],
+  );
+}
+
+export async function getPendingAuthFlow(
+  db: SQLiteDatabase,
+): Promise<PendingAuthFlow | null> {
+  const row = await db.getFirstAsync<{ value: string }>(
+    'SELECT value FROM app_settings WHERE key = ? LIMIT 1',
+    [AUTH_FLOW_KEY],
+  );
+  if (!row?.value) return null;
+  try {
+    const parsed = JSON.parse(row.value) as Partial<PendingAuthFlow>;
+    if (
+      (parsed.role === 'trainer' || parsed.role === 'member') &&
+      typeof parsed.codeVerifier === 'string' &&
+      parsed.codeVerifier.length >= 43
+    ) {
+      return {
+        role: parsed.role,
+        codeVerifier: parsed.codeVerifier,
+        requestedAt: typeof parsed.requestedAt === 'string' ? parsed.requestedAt : '',
+      };
+    }
+  } catch {}
+  return null;
+}
+
+export async function clearPendingAuthFlow(db: SQLiteDatabase) {
+  await db.runAsync('DELETE FROM app_settings WHERE key = ?', [AUTH_FLOW_KEY]);
 }
