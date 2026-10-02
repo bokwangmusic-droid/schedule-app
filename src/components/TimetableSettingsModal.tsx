@@ -12,6 +12,7 @@ import {
   type WidgetTextColor,
 } from '../data/appSettingsRepository';
 import { refreshWeeklyTimetableWidget } from '../widgets/widgetController';
+import { useSwipeDownToClose } from './useSwipeDownToClose';
 
 type Props = {
   visible: boolean;
@@ -59,6 +60,7 @@ export function TimetableSettingsModal({
   onWidgetPrivacyModeChange,
 }: Props) {
   const db = useSQLiteContext();
+  const swipeDownHandlers = useSwipeDownToClose(onClose, visible);
   const [widgetFontSize, setWidgetFontSize] = useState<WidgetFontSize>(
     DEFAULT_TIMETABLE_SETTINGS.widgetFontSize,
   );
@@ -119,7 +121,9 @@ export function TimetableSettingsModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => undefined}>
-          <View style={styles.handle} />
+          <View style={styles.handleTouchArea} {...swipeDownHandlers}>
+            <View style={styles.handle} />
+          </View>
           <Text style={styles.title}>시간표 디자인/설정</Text>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -274,11 +278,18 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     backgroundColor: '#FFFFFF',
   },
+  handleTouchArea: {
+    height: 30,
+    marginTop: -6,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   handle: {
     alignSelf: 'center',
     width: 42,
     height: 5,
-    marginBottom: 14,
+    marginBottom: 0,
     borderRadius: 3,
     backgroundColor: '#D8DBE1',
   },
