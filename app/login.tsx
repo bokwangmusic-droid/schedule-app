@@ -99,6 +99,7 @@ export default function LoginScreen() {
         verificationStatus: login.verificationStatus,
         verificationSubmittedAt: login.verificationSubmittedAt ?? null,
         email: login.email,
+        passwordReady: saved.passwordReady,
       };
       await saveAppSession(db, nextSession);
       setSavedTrainerSession(nextSession);
