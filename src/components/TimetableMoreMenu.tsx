@@ -1,5 +1,6 @@
 import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { requestPinWidget } from 'react-native-android-widget';
+import { useSwipeDownToClose } from './useSwipeDownToClose';
 
 type Props = {
   visible: boolean;
@@ -36,6 +37,8 @@ export function TimetableMoreMenu({
   onSaveImage,
   onLogout,
 }: Props) {
+  const swipeDownHandlers = useSwipeDownToClose(onClose, visible);
+
   const addWidget = async () => {
     if (onAddWidget) {
       onAddWidget();
@@ -70,7 +73,9 @@ export function TimetableMoreMenu({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => undefined}>
-          <View style={styles.handle} />
+          <View style={styles.handleTouchArea} {...swipeDownHandlers}>
+            <View style={styles.handle} />
+          </View>
           <Text style={styles.title}>시간표 메뉴</Text>
 
           <MenuItem icon="▤" label="홈 화면 위젯 추가" value="NEW" onPress={() => void addWidget()} />
@@ -128,11 +133,18 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     backgroundColor: '#FFFFFF',
   },
+  handleTouchArea: {
+    height: 30,
+    marginTop: -6,
+    marginBottom: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   handle: {
     alignSelf: 'center',
     width: 42,
     height: 5,
-    marginBottom: 12,
+    marginBottom: 0,
     borderRadius: 3,
     backgroundColor: '#D8DBE1',
   },
