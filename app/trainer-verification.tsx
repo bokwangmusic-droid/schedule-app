@@ -308,8 +308,7 @@ export default function TrainerVerificationScreen() {
           <Text style={styles.eyebrow}>TRAINER VERIFICATION</Text>
           <Text style={styles.waitingTitle}>강사 인증 승인 대기 중</Text>
           <Text style={styles.waitingText}>
-            신청 자료가 정상적으로 접수됐어요.{'
-'}
+            신청 자료가 정상적으로 접수됐어요.{"\n"}
             이메일 인증을 다시 할 필요 없이 관리자 승인 후 아래 버튼만 눌러주세요.
           </Text>
           <View style={styles.waitingInfo}>
