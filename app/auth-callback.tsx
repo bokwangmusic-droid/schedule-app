@@ -127,7 +127,11 @@ export default function AuthCallbackScreen() {
         await withTimeout('회원 데이터 동기화', syncMemberSnapshot(db, login.accessToken, login.memberId), 15000);
 
         setDetail('로그인 정보를 저장하는 중이에요.');
-        await saveAppSession(db, { role: 'member', memberId: login.memberId });
+        await saveAppSession(db, {
+          role: 'member',
+          memberId: login.memberId,
+          accessToken: login.accessToken,
+        });
         authorizeCurrentLaunch();
 
         setDetail('회원 화면으로 이동하고 있어요.');
