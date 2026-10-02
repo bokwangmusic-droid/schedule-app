@@ -528,10 +528,10 @@ export default function MembersScreen() {
               </Pressable>
               <View style={styles.memberActions}>
                 <Pressable style={styles.manageButton} onPress={() => router.push({ pathname: '/member/[id]', params: { id: member.id } } as never)}>
-                  <Text style={styles.manageButtonText}>관리</Text>
+                  <Text style={styles.manageButtonText}>회원 상세</Text>
                 </Pressable>
                 <Pressable style={styles.editButtonLarge} onPress={() => beginEdit(member)}>
-                  <Text style={styles.editButtonLargeText}>수정</Text>
+                  <Text style={styles.editButtonLargeText}>정보 수정</Text>
                 </Pressable>
                 <Pressable style={styles.moreMemberButton} onPress={() => confirmDelete(member)}>
                   <Text style={styles.moreMemberButtonText}>삭제</Text>
@@ -955,9 +955,9 @@ const styles = StyleSheet.create({
   programChoiceSelected: { backgroundColor: '#E8EDFF', borderWidth: 1, borderColor: '#8092F7' },
   programChoiceText: { fontSize: 12, fontWeight: '800', color: '#68707C' },
   programChoiceTextSelected: { color: '#4B68FF' },
-  manageButton: { minWidth: 72, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4B68FF' },
+  manageButton: { minWidth: 86, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4B68FF' },
   manageButtonText: { fontSize: 13, fontWeight: '900', color: '#FFF' },
-  editButtonLarge: { minWidth: 62, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1FF' },
+  editButtonLarge: { minWidth: 78, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1FF' },
   editButtonLargeText: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
   moreMemberButton: { minWidth: 52, minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0F1' },
   moreMemberButtonText: { fontSize: 12, fontWeight: '900', color: '#D64B5B' },
