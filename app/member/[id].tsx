@@ -158,6 +158,16 @@ export default function MemberDetailScreen() {
     if (didAutoOpen || params.newLog !== '1' || !member) return;
     setDidAutoOpen(true);
     void (async () => {
+      const existingLog = scheduleId
+        ? trainingLogs.find((log) => log.scheduleId === scheduleId) ?? null
+        : trainingLogs.find((log) => log.date === routeDate) ?? null;
+
+      if (existingLog) {
+        setEditingLog(existingLog);
+        setLogModalOpen(true);
+        return;
+      }
+
       const newDraftKey = trainingLogDraftKey(member.id, scheduleId, null);
       await deleteTrainingLogDraft(db, newDraftKey).catch((error) => {
         console.error('새 운동일지 임시저장 초기화 실패', error);
@@ -408,6 +418,12 @@ export default function MemberDetailScreen() {
               style={[styles.primaryAction, isTablet && styles.primaryActionTablet]}
               onPress={() => {
                 void (async () => {
+                  if (currentTrainingLog) {
+                    setEditingLog(currentTrainingLog);
+                    setLogModalOpen(true);
+                    return;
+                  }
+
                   const newDraftKey = trainingLogDraftKey(member.id, scheduleId, null);
                   await deleteTrainingLogDraft(db, newDraftKey).catch((error) => {
                     console.error('새 운동일지 임시저장 초기화 실패', error);
@@ -417,8 +433,12 @@ export default function MemberDetailScreen() {
                 })();
               }}
             >
-              <Text style={styles.primaryActionTitle}>+ 운동일지</Text>
-              <Text style={styles.primaryActionSub}>새 수업 기록 작성</Text>
+              <Text style={styles.primaryActionTitle}>
+                {currentTrainingLog ? '운동일지 수정' : '+ 운동일지'}
+              </Text>
+              <Text style={styles.primaryActionSub}>
+                {currentTrainingLog ? '오늘 수업 기록 이어서 수정' : '새 수업 기록 작성'}
+              </Text>
             </Pressable>
             <Pressable style={[styles.quickAction, isTablet && styles.quickActionTablet]} onPress={() => setBodyModalOpen(true)}>
               <Text style={styles.quickActionTitle}>인바디</Text>
