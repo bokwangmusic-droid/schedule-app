@@ -217,6 +217,57 @@ export async function completeTrainerMagicLink(accessToken: string): Promise<Rem
 }
 
 
+
+export type PasswordSession = {
+  accessToken: string;
+  refreshToken?: string;
+};
+
+export async function signInWithPassword(
+  emailInput: string,
+  password: string,
+): Promise<PasswordSession> {
+  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
+  const email = emailInput.trim().toLowerCase();
+  if (!email || !email.includes('@')) throw new Error('이메일 주소를 확인해 주세요.');
+  if (!password) throw new Error('비밀번호를 입력해 주세요.');
+
+  const response = await fetch(
+    SUPABASE_URL + '/auth/v1/token?grant_type=password',
+    {
+      method: 'POST',
+      headers: supabaseHeaders(),
+      body: JSON.stringify({ email, password }),
+    },
+  );
+
+  if (!response.ok) throw new Error(await readError(response));
+  const body = (await response.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+  };
+
+  if (!body.access_token) throw new Error('로그인 세션을 만들지 못했어요.');
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token,
+  };
+}
+
+export async function setAuthPassword(accessToken: string, password: string) {
+  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
+  if (!accessToken) throw new Error('로그인 세션이 없어요. 다시 인증해 주세요.');
+  if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 설정해 주세요.');
+
+  const response = await fetch(SUPABASE_URL + '/auth/v1/user', {
+    method: 'PUT',
+    headers: supabaseHeaders(accessToken),
+    body: JSON.stringify({ password }),
+  });
+
+  if (!response.ok) throw new Error(await readError(response));
+}
+
 export async function refreshAuthSession(refreshToken: string) {
   if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
   if (!refreshToken) throw new Error('REFRESH_TOKEN_MISSING');
