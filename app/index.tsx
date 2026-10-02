@@ -61,6 +61,7 @@ export default function IndexScreen() {
             verificationStatus: login.verificationStatus,
             verificationSubmittedAt: login.verificationSubmittedAt ?? null,
             email: login.email,
+            passwordReady: saved.passwordReady,
           });
 
           if (login.verificationStatus === 'approved') {
@@ -94,6 +95,7 @@ export default function IndexScreen() {
           memberId: login.memberId,
           accessToken: login.accessToken,
           refreshToken,
+          passwordReady: saved.passwordReady,
         });
 
         authorizeCurrentLaunch();
