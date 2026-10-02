@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import type { SignedMemberSession } from '../data/scheduleRepository';
 import { SignaturePreview } from './SignaturePreview';
+import { useSwipeDownToClose } from './useSwipeDownToClose';
 
 type Props = {
   visible: boolean;
@@ -44,6 +45,7 @@ export function MemberSignatureHistoryModal({
     setSelected(null);
     onClose();
   };
+  const swipeDownHandlers = useSwipeDownToClose(close, visible);
 
   return (
     <>
@@ -55,7 +57,9 @@ export function MemberSignatureHistoryModal({
       >
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
-            <View style={styles.handle} />
+            <View style={styles.handleTouchArea} {...swipeDownHandlers}>
+              <View style={styles.handle} />
+            </View>
             <View style={styles.header}>
               <View style={styles.headerText}>
                 <Text style={styles.title}>{memberName} · PT 서명 기록</Text>
@@ -190,6 +194,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     backgroundColor: '#F7F8FA',
+  },
+  handleTouchArea: {
+    height: 30,
+    marginTop: -6,
+    marginBottom: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   handle: {
     width: 40,
