@@ -1,25 +1,70 @@
-import { useMemo } from 'react';
-import { PanResponder } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { Animated, PanResponder } from 'react-native';
 
-export function useSwipeDownToClose(onClose: () => void, enabled = true) {
+export function useSwipeDownToClose(
+  onClose: () => void,
+  enabled = true,
+  visible = true,
+) {
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      translateY.setValue(0);
+    }
+  }, [translateY, visible]);
+
   const responder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => enabled,
         onMoveShouldSetPanResponder: (_, gesture) =>
           enabled &&
-          gesture.dy > 4 &&
+          gesture.dy > 2 &&
           Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onPanResponderTerminationRequest: () => true,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderMove: (_, gesture) => {
+          if (!enabled) return;
+          translateY.setValue(Math.max(0, gesture.dy));
+        },
         onPanResponderRelease: (_, gesture) => {
           if (!enabled) return;
-          if (gesture.dy > 55 || gesture.vy > 0.65) {
-            onClose();
+
+          const shouldClose = gesture.dy > 110 || (gesture.dy > 45 && gesture.vy > 1.15);
+          if (shouldClose) {
+            Animated.timing(translateY, {
+              toValue: 700,
+              duration: 180,
+              useNativeDriver: true,
+            }).start(({ finished }) => {
+              if (finished) onClose();
+            });
+            return;
           }
+
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 22,
+            stiffness: 260,
+            mass: 0.8,
+            useNativeDriver: true,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 22,
+            stiffness: 260,
+            mass: 0.8,
+            useNativeDriver: true,
+          }).start();
         },
       }),
-    [enabled, onClose],
+    [enabled, onClose, translateY],
   );
 
-  return responder.panHandlers;
+  return {
+    panHandlers: responder.panHandlers,
+    animatedStyle: { transform: [{ translateY }] },
+  };
 }
