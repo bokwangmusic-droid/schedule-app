@@ -138,6 +138,8 @@ create index if not exists idx_remote_schedules_member_date on public.schedules(
 create index if not exists idx_remote_logs_member_date on public.member_training_logs(member_id, date);
 create index if not exists idx_remote_body_member_date on public.member_body_records(member_id, measured_date);
 
+grant select, insert, update on table public.trainers to authenticated;
+
 alter table public.trainers enable row level security;
 alter table public.members enable row level security;
 alter table public.member_accounts enable row level security;
