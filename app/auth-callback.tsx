@@ -148,24 +148,10 @@ export default function AuthCallbackScreen() {
             verificationStatus: login.verificationStatus,
             verificationSubmittedAt: login.verificationSubmittedAt ?? null,
             email: login.email,
+            passwordReady: false,
           });
           await clearPendingAuthFlow(db);
-          if (login.verificationStatus === 'approved') {
-            authorizeCurrentLaunch();
-            router.replace('/trainer');
-            return;
-          }
-          router.replace({
-            pathname: '/trainer-verification' as never,
-            params: {
-              accessToken: login.accessToken,
-              userId: login.userId,
-              email: login.email,
-              status: login.verificationStatus,
-              submittedAt: login.verificationSubmittedAt ?? '',
-              rejectionReason: login.rejectionReason ?? '',
-            },
-          } as never);
+          router.replace('/set-password');
           return;
         }
 
@@ -181,12 +167,12 @@ export default function AuthCallbackScreen() {
           memberId: login.memberId,
           accessToken: login.accessToken,
           refreshToken: refreshToken ?? undefined,
+          passwordReady: false,
         });
         await clearPendingAuthFlow(db);
-        authorizeCurrentLaunch();
 
-        setDetail('회원 화면으로 이동하고 있어요.');
-        router.replace(memberHomeRoute(login.memberId) as never);
+        setDetail('비밀번호 설정 화면으로 이동하고 있어요.');
+        router.replace('/set-password');
       } catch (error) {
         console.error(error);
         if (active) {
