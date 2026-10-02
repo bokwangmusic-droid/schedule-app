@@ -258,6 +258,41 @@ export default function MemberViewScreen() {
     appSession?.role === 'member' && appSession.memberId === member.id;
 
   const logoutMember = async () => {
+    const session = await getAppSession(db);
+    if (
+      session?.role === 'member' &&
+      session.accessToken &&
+      !session.passwordReady
+    ) {
+      Alert.alert(
+        '비밀번호를 먼저 만들어 주세요',
+        '이 계정은 아직 이메일 인증 방식만 사용할 수 있어요. 지금 비밀번호를 만들면 다음부터는 이메일 인증 없이 로그인할 수 있어요.',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '그냥 로그아웃',
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                await clearAppSession(db);
+                router.replace('/login');
+              })();
+            },
+          },
+          {
+            text: '비밀번호 만들기',
+            onPress: () => {
+              router.push({
+                pathname: '/set-password' as never,
+                params: { afterLogout: '1' },
+              } as never);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     await clearAppSession(db);
     router.replace('/login');
   };
