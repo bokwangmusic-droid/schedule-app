@@ -8,6 +8,7 @@ export type TrainerSession = {
   accessToken?: string;
   refreshToken?: string;
   verificationStatus?: 'pending' | 'approved' | 'rejected';
+  verificationSubmittedAt?: string | null;
   email?: string;
 };
 
