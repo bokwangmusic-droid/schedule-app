@@ -36,6 +36,7 @@ import { addDays, startOfWeekMonday, toLocalDateString } from '../src/lib/date';
 import type { ScheduleItem } from '../src/types/schedule';
 import { refreshWeeklyTimetableWidget } from '../src/widgets/widgetController';
 import { isCurrentUserAdmin } from '../src/remote/admin';
+import { syncTrainerCloud } from '../src/remote/trainerCloudSync';
 
 const START_HOUR = 6;
 const END_HOUR = 24;
@@ -197,6 +198,7 @@ export default function HomeScreen() {
   const [savingImage, setSavingImage] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [trainerCloudSession, setTrainerCloudSession] = useState<{ trainerId: string; accessToken: string } | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -217,12 +219,17 @@ export default function HomeScreen() {
           return;
         }
         if (session.accessToken) {
+          setTrainerCloudSession({
+            trainerId: session.trainerId,
+            accessToken: session.accessToken,
+          });
           void isCurrentUserAdmin(session.accessToken)
             .then((admin) => {
               if (active) setIsAdmin(admin);
             })
             .catch(console.error);
         } else {
+          setTrainerCloudSession(null);
           setIsAdmin(false);
         }
         setAuthChecking(false);
@@ -279,9 +286,39 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      let active = true;
       setLoading(true);
-      void loadSchedules();
-    }, [loadSchedules]),
+
+      void (async () => {
+        if (trainerCloudSession) {
+          try {
+            await syncTrainerCloud(
+              db,
+              trainerCloudSession.accessToken,
+              trainerCloudSession.trainerId,
+            );
+            if (!active) return;
+
+            const settings = await getTimetableSettings(db);
+            if (!active) return;
+            setHourHeight(settings.hourHeight);
+            setShowPtRemaining(settings.showPtRemaining);
+            setOverlapView(settings.overlapView);
+            setWidgetPrivacyMode(settings.widgetPrivacyMode);
+          } catch (error) {
+            console.error('trainer cloud sync failed', error);
+          }
+        }
+
+        if (active) {
+          await loadSchedules();
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [db, loadSchedules, trainerCloudSession]),
   );
 
   const timedSchedules = schedules.filter(
