@@ -3,9 +3,11 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   Pressable,
   Image,
@@ -29,6 +31,12 @@ import type { BodyRecordItem, TrainingLogItem } from '../../src/types/memberFitn
 import type { MemberItem } from '../../src/types/member';
 import type { ScheduleItem } from '../../src/types/schedule';
 import { BodyTrendChart } from '../../src/components/BodyTrendChart';
+import {
+  getLocalMemberSelfCheck,
+  saveLocalMemberSelfCheck,
+  saveRemoteMemberSelfCheck,
+} from '../../src/remote/memberSelfCheck';
+import type { WellnessLevel } from '../../src/types/memberFitness';
 
 function parseDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -111,6 +119,11 @@ export default function MemberViewScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [appSession, setAppSession] = useState<AppSession | null>(null);
+  const [selfActivity, setSelfActivity] = useState<WellnessLevel>('중');
+  const [selfTreadmill, setSelfTreadmill] = useState('');
+  const [selfBike, setSelfBike] = useState('');
+  const [selfStepmill, setSelfStepmill] = useState('');
+  const [selfSaving, setSelfSaving] = useState(false);
   const [trainerProfile, setTrainerProfile] = useState<{
     trainer_id: string;
     name: string;
@@ -148,7 +161,7 @@ export default function MemberViewScreen() {
     const today = toLocalDateString(new Date());
     try {
       setLoadError(false);
-      const [memberRow, logs, body, schedules, profile] = await Promise.all([
+      const [memberRow, logs, body, schedules, profile, selfCheck] = await Promise.all([
         getMemberById(db, id),
         listTrainingLogs(db, id, 12),
         listBodyRecords(db, id, 8),
@@ -165,6 +178,7 @@ export default function MemberViewScreen() {
           instagram: string | null;
           profile_photo_url: string | null;
         }>('SELECT * FROM trainer_profile_cache ORDER BY updated_at DESC LIMIT 1'),
+        getLocalMemberSelfCheck(db, id, today),
       ]);
       const now = new Date();
       const currentTime =
@@ -173,6 +187,10 @@ export default function MemberViewScreen() {
         String(now.getMinutes()).padStart(2, '0');
       setMember(memberRow);
       setTrainerProfile(profile);
+      setSelfActivity(selfCheck?.activityLevel ?? '중');
+      setSelfTreadmill(selfCheck?.cardioTreadmill ?? '');
+      setSelfBike(selfCheck?.cardioBike ?? '');
+      setSelfStepmill(selfCheck?.cardioStepmill ?? '');
       setTrainingLogs(logs);
       setBodyRecords(body);
       setUpcomingSchedules(
@@ -244,6 +262,35 @@ export default function MemberViewScreen() {
     router.replace('/login');
   };
 
+  const saveSelfCheck = async () => {
+    const today = toLocalDateString(new Date());
+    const input = {
+      memberId: member.id,
+      date: today,
+      activityLevel: selfActivity,
+      cardioTreadmill: selfTreadmill,
+      cardioBike: selfBike,
+      cardioStepmill: selfStepmill,
+    };
+
+    setSelfSaving(true);
+    try {
+      await saveLocalMemberSelfCheck(db, input);
+      if (appSession?.role === 'member' && appSession.accessToken) {
+        await saveRemoteMemberSelfCheck(appSession.accessToken, input);
+      }
+      Alert.alert('저장 완료', '오늘 활동강도와 유산소 기록을 저장했어요.');
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        '저장 실패',
+        error instanceof Error ? error.message : '회원 입력을 저장하지 못했어요.',
+      );
+    } finally {
+      setSelfSaving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -300,6 +347,75 @@ export default function MemberViewScreen() {
               </View>
             </View>
           </View>
+        </View>
+
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>오늘 내 입력</Text>
+          <Text style={styles.sectionHint}>활동강도 · 유산소</Text>
+        </View>
+        <View style={styles.selfCheckCard}>
+          <Text style={styles.selfCheckLabel}>오늘 활동강도</Text>
+          <View style={styles.selfLevelRow}>
+            {(['상', '중', '하'] as WellnessLevel[]).map((level) => (
+              <Pressable
+                key={level}
+                disabled={!isMemberMode}
+                style={[
+                  styles.selfLevelButton,
+                  selfActivity === level && styles.selfLevelButtonActive,
+                  !isMemberMode && styles.selfDisabled,
+                ]}
+                onPress={() => setSelfActivity(level)}
+              >
+                <Text
+                  style={[
+                    styles.selfLevelText,
+                    selfActivity === level && styles.selfLevelTextActive,
+                  ]}
+                >
+                  {level}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.selfCheckLabel}>유산소</Text>
+          <View style={styles.selfCardioRow}>
+            <TextInput
+              value={selfTreadmill}
+              onChangeText={setSelfTreadmill}
+              editable={isMemberMode}
+              placeholder="트레드밀"
+              placeholderTextColor="#A1A7B0"
+              style={styles.selfInput}
+            />
+            <TextInput
+              value={selfBike}
+              onChangeText={setSelfBike}
+              editable={isMemberMode}
+              placeholder="싸이클"
+              placeholderTextColor="#A1A7B0"
+              style={styles.selfInput}
+            />
+            <TextInput
+              value={selfStepmill}
+              onChangeText={setSelfStepmill}
+              editable={isMemberMode}
+              placeholder="스텝밀"
+              placeholderTextColor="#A1A7B0"
+              style={styles.selfInput}
+            />
+          </View>
+          {isMemberMode ? (
+            <Pressable
+              style={[styles.selfSaveButton, selfSaving && styles.selfDisabled]}
+              disabled={selfSaving}
+              onPress={() => void saveSelfCheck()}
+            >
+              <Text style={styles.selfSaveText}>{selfSaving ? '저장 중...' : '오늘 기록 저장'}</Text>
+            </Pressable>
+          ) : (
+            <Text style={styles.selfPreviewHint}>회원이 직접 입력하는 항목이에요.</Text>
+          )}
         </View>
 
         {trainerProfile ? (
@@ -597,6 +713,19 @@ const styles = StyleSheet.create({
   hello: { fontSize: 11, fontWeight: '700', color: '#CFD6FF' },
   heroName: { marginTop: 1, fontSize: 22, fontWeight: '900', color: '#FFFFFF' },
   heroMembership: { marginTop: 5, fontSize: 10, fontWeight: '800', color: '#DCE1FF' },
+  selfCheckCard: { padding: 17, borderRadius: 20, backgroundColor: '#FFFFFF' },
+  selfCheckLabel: { marginBottom: 8, fontSize: 11, fontWeight: '900', color: '#59616C' },
+  selfLevelRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  selfLevelButton: { flex: 1, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F1F3F6' },
+  selfLevelButtonActive: { backgroundColor: '#177B78' },
+  selfLevelText: { fontSize: 12, fontWeight: '900', color: '#707782' },
+  selfLevelTextActive: { color: '#FFFFFF' },
+  selfCardioRow: { flexDirection: 'row', gap: 8 },
+  selfInput: { flex: 1, minWidth: 0, height: 44, paddingHorizontal: 10, borderWidth: 1, borderColor: '#DDE1E7', borderRadius: 12, backgroundColor: '#FAFBFC', fontSize: 11, color: '#303640' },
+  selfSaveButton: { height: 46, marginTop: 14, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#177B78' },
+  selfSaveText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
+  selfPreviewHint: { marginTop: 12, fontSize: 10, color: '#8A919B' },
+  selfDisabled: { opacity: 0.55 },
   trainerCard: { padding: 17, borderRadius: 20, backgroundColor: '#FFFFFF' },
   trainerTop: { flexDirection: 'row', alignItems: 'center' },
   trainerPhoto: { width: 68, height: 68, borderRadius: 22, backgroundColor: '#EEF1F5' },
