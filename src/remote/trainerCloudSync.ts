@@ -179,7 +179,6 @@ async function buildLocalSnapshot(db: SQLiteDatabase): Promise<SnapshotPayload> 
      )
        AND key NOT LIKE 'trainer_cloud_synced_at:%'
        AND key NOT LIKE 'trainer_cloud_payload_hash:%'
-     )
      ORDER BY key`,
   );
 
@@ -340,7 +339,6 @@ function mergeSnapshots(local: SnapshotPayload, remote: SnapshotPayload): Snapsh
 async function syncTrainerSelfChecks(
   db: SQLiteDatabase,
   accessToken: string,
-  trainerId: string,
 ) {
   const response = await fetch(
     SUPABASE_URL +
@@ -429,7 +427,7 @@ export async function syncTrainerCloud(
     await writeMeta(db, metaHash(trainerId), localHash);
     await writeMeta(db, metaUpdatedAt(trainerId), saved.updated_at);
     await writeMeta(db, META_OWNER, trainerId);
-    await syncTrainerSelfChecks(db, accessToken, trainerId);
+    await syncTrainerSelfChecks(db, accessToken);
     return { changed: true, direction: 'upload' as const };
   }
 
@@ -443,7 +441,7 @@ export async function syncTrainerCloud(
     await writeMeta(db, metaHash(trainerId), remoteHash);
     await writeMeta(db, metaUpdatedAt(trainerId), remote.updated_at);
     await writeMeta(db, META_OWNER, trainerId);
-    await syncTrainerSelfChecks(db, accessToken, trainerId);
+    await syncTrainerSelfChecks(db, accessToken);
     return { changed: true, direction: 'download' as const };
   }
 
@@ -454,7 +452,7 @@ export async function syncTrainerCloud(
     const saved = await saveRemoteSnapshot(accessToken, trainerId, local);
     await writeMeta(db, metaHash(trainerId), localHash);
     await writeMeta(db, metaUpdatedAt(trainerId), saved.updated_at);
-    await syncTrainerSelfChecks(db, accessToken, trainerId);
+    await syncTrainerSelfChecks(db, accessToken);
     return { changed: true, direction: 'upload' as const };
   }
 
@@ -462,7 +460,7 @@ export async function syncTrainerCloud(
     await restoreLocalSnapshot(db, remotePayload);
     await writeMeta(db, metaHash(trainerId), remoteHash);
     await writeMeta(db, metaUpdatedAt(trainerId), remote.updated_at);
-    await syncTrainerSelfChecks(db, accessToken, trainerId);
+    await syncTrainerSelfChecks(db, accessToken);
     return { changed: true, direction: 'download' as const };
   }
 
@@ -474,11 +472,11 @@ export async function syncTrainerCloud(
     await writeMeta(db, metaHash(trainerId), mergedHash);
     await writeMeta(db, metaUpdatedAt(trainerId), saved.updated_at);
     await writeMeta(db, META_OWNER, trainerId);
-    await syncTrainerSelfChecks(db, accessToken, trainerId);
+    await syncTrainerSelfChecks(db, accessToken);
     return { changed: true, direction: 'merge' as const };
   }
 
   await writeMeta(db, META_OWNER, trainerId);
-  await syncTrainerSelfChecks(db, accessToken, trainerId);
+  await syncTrainerSelfChecks(db, accessToken);
   return { changed: false, direction: 'none' as const };
 }
