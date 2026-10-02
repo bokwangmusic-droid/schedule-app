@@ -96,6 +96,16 @@ type RemoteSet = {
   created_at: string;
 };
 
+type RemoteSelfCheck = {
+  member_id: string;
+  date: string;
+  activity_level: '상' | '중' | '하' | null;
+  cardio_treadmill: string | null;
+  cardio_bike: string | null;
+  cardio_stepmill: string | null;
+  updated_at: string;
+};
+
 type RemoteBody = {
   id: string;
   member_id: string;
@@ -140,7 +150,7 @@ export async function syncMemberSnapshot(
   memberId: string,
 ) {
   const encodedMemberId = encodeURIComponent(memberId);
-  const [members, schedules, logs, bodyRecords] = await Promise.all([
+  const [members, schedules, logs, bodyRecords, selfChecks] = await Promise.all([
     fetchRows<RemoteMember>(
       'members?id=eq.' + encodedMemberId + '&select=*',
       accessToken,
@@ -155,6 +165,10 @@ export async function syncMemberSnapshot(
     ),
     fetchRows<RemoteBody>(
       'member_body_records?member_id=eq.' + encodedMemberId + '&select=*&order=measured_date.desc',
+      accessToken,
+    ),
+    fetchRows<RemoteSelfCheck>(
+      'member_self_checks?member_id=eq.' + encodedMemberId + '&select=*&order=date.desc',
       accessToken,
     ),
   ]);
@@ -212,6 +226,7 @@ export async function syncMemberSnapshot(
     );
     await db.runAsync('DELETE FROM member_training_logs WHERE member_id = ?', [memberId]);
     await db.runAsync('DELETE FROM member_body_records WHERE member_id = ?', [memberId]);
+    await db.runAsync('DELETE FROM member_self_checks WHERE member_id = ?', [memberId]);
     await db.runAsync('DELETE FROM schedules WHERE member_id = ?', [memberId]);
 
     if (trainerProfile) {
@@ -372,6 +387,23 @@ export async function syncMemberSnapshot(
           row.bmi,
           row.visceral_fat_level,
           row.created_at,
+          row.updated_at,
+        ],
+      );
+    }
+
+    for (const row of selfChecks) {
+      await db.runAsync(
+        `INSERT INTO member_self_checks (
+          member_id, date, activity_level, cardio_treadmill, cardio_bike, cardio_stepmill, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          row.member_id,
+          row.date,
+          row.activity_level,
+          row.cardio_treadmill,
+          row.cardio_bike,
+          row.cardio_stepmill,
           row.updated_at,
         ],
       );
