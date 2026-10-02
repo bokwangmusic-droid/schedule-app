@@ -6,12 +6,16 @@ export type TrainerSession = {
   role: 'trainer';
   trainerId: string;
   accessToken?: string;
+  refreshToken?: string;
+  verificationStatus?: 'pending' | 'approved' | 'rejected';
+  email?: string;
 };
 
 export type MemberSession = {
   role: 'member';
   memberId: string;
   accessToken?: string;
+  refreshToken?: string;
 };
 
 export type AppSession = TrainerSession | MemberSession;
