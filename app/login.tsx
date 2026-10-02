@@ -16,9 +16,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { authorizeCurrentLaunch, saveAppSession } from '../src/auth/appSession';
+import { authorizeCurrentLaunch, getAppSession, saveAppSession, type TrainerSession } from '../src/auth/appSession';
 import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
-import { requestMemberMagicLink, requestTrainerMagicLink } from '../src/remote/supabaseAuth';
+import { completeTrainerMagicLink, refreshAuthSession, requestMemberMagicLink, requestTrainerMagicLink } from '../src/remote/supabaseAuth';
 
 type LoginMode = 'select' | 'trainer' | 'member';
 
@@ -27,8 +27,20 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<LoginMode>('select');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
+  const [savedTrainerSession, setSavedTrainerSession] = useState<TrainerSession | null>(null);
   const remoteConfigured = isSupabaseConfigured();
   const qaTrainerEnabled = true;
+
+  useEffect(() => {
+    let active = true;
+    void getAppSession(db).then((session) => {
+      if (!active) return;
+      if (session?.role === 'trainer' && session.accessToken) {
+        setSavedTrainerSession(session);
+      }
+    }).catch(console.error);
+    return () => { active = false; };
+  }, [db]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -53,6 +65,64 @@ export default function LoginScreen() {
     } catch (error) {
       console.error(error);
       Alert.alert('테스트 입장 실패', '강사 화면을 열지 못했어요.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resumeTrainerVerification = async () => {
+    const saved = savedTrainerSession;
+    if (!saved?.accessToken || busy) return;
+    setBusy(true);
+    try {
+      let token = saved.accessToken;
+      let nextRefreshToken = saved.refreshToken;
+
+      let login;
+      try {
+        login = await completeTrainerMagicLink(token);
+      } catch (firstError) {
+        if (!saved.refreshToken) throw firstError;
+        const refreshed = await refreshAuthSession(saved.refreshToken);
+        token = refreshed.accessToken;
+        nextRefreshToken = refreshed.refreshToken;
+        login = await completeTrainerMagicLink(token);
+      }
+
+      const nextSession: TrainerSession = {
+        role: 'trainer',
+        trainerId: login.trainerId,
+        accessToken: token,
+        refreshToken: nextRefreshToken,
+        verificationStatus: login.verificationStatus,
+        verificationSubmittedAt: login.verificationSubmittedAt ?? null,
+        email: login.email,
+      };
+      await saveAppSession(db, nextSession);
+      setSavedTrainerSession(nextSession);
+
+      if (login.verificationStatus === 'approved') {
+        authorizeCurrentLaunch();
+        router.replace('/trainer');
+        return;
+      }
+
+      router.replace({
+        pathname: '/trainer-verification' as never,
+        params: {
+          status: login.verificationStatus,
+          submittedAt: login.verificationSubmittedAt ?? '',
+          rejectionReason: login.rejectionReason ?? '',
+        },
+      } as never);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        '이전 인증 확인 실패',
+        error instanceof Error
+          ? error.message
+          : '저장된 인증 세션을 확인하지 못했어요.',
+      );
     } finally {
       setBusy(false);
     }
@@ -144,6 +214,23 @@ export default function LoginScreen() {
               {mode === 'trainer' ? (
                 <>
                   <Text style={styles.formText}>이메일 인증 후 강사 인증을 신청할 수 있어요.</Text>
+                  {savedTrainerSession?.accessToken ? (
+                    <View style={styles.resumeCard}>
+                      <Text style={styles.resumeTitle}>이전에 인증한 강사 계정이 있어요.</Text>
+                      <Text style={styles.resumeText}>
+                        이메일을 다시 받지 않고 승인 상태를 확인하거나 신청을 이어갈 수 있어요.
+                      </Text>
+                      <Pressable
+                        style={[styles.resumeButton, busy && styles.disabled]}
+                        disabled={busy}
+                        onPress={() => void resumeTrainerVerification()}
+                      >
+                        <Text style={styles.resumeButtonText}>
+                          {busy ? '확인 중...' : '이전 인증 계속하기'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
@@ -290,6 +377,11 @@ const styles = StyleSheet.create({
   primaryButtonText: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   errorText: { marginTop: 10, fontSize: 11, lineHeight: 16, color: '#B65C5C' },
   helperText: { marginTop: 12, fontSize: 11, lineHeight: 17, color: '#858C97' },
+  resumeCard: { marginTop: 16, padding: 14, borderRadius: 15, backgroundColor: '#EEF7F6' },
+  resumeTitle: { fontSize: 12, fontWeight: '900', color: '#176B68' },
+  resumeText: { marginTop: 5, fontSize: 11, lineHeight: 17, color: '#5F7775' },
+  resumeButton: { height: 44, marginTop: 11, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#177B78' },
+  resumeButtonText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
   qaDivider: { height: 1, marginTop: 20, backgroundColor: '#ECEFF3' },
   qaLabel: { marginTop: 14, fontSize: 10, fontWeight: '900', color: '#9A6B28' },
   qaButton: {
