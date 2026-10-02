@@ -146,6 +146,7 @@ export default function AuthCallbackScreen() {
             accessToken: login.accessToken,
             refreshToken: refreshToken ?? undefined,
             verificationStatus: login.verificationStatus,
+            verificationSubmittedAt: login.verificationSubmittedAt ?? null,
             email: login.email,
           });
           await clearPendingAuthFlow(db);
@@ -161,6 +162,7 @@ export default function AuthCallbackScreen() {
               userId: login.userId,
               email: login.email,
               status: login.verificationStatus,
+              submittedAt: login.verificationSubmittedAt ?? '',
               rejectionReason: login.rejectionReason ?? '',
             },
           } as never);
