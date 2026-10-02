@@ -33,6 +33,7 @@ export function SessionSignatureModal({
   onSubmit,
 }: Props) {
   const [points, setPoints] = useState<SignaturePoint[]>([]);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [sessionNote, setSessionNote] = useState('');
   const strokeRef = useRef(0);
   const lastPointRef = useRef<SignaturePoint | null>(null);
@@ -126,8 +127,10 @@ export function SessionSignatureModal({
     if (points.length < 8) return;
     onSubmit(
       JSON.stringify({
-        version: 1,
+        version: 2,
         signedBy: memberName,
+        canvasWidth: canvasSize.width,
+        canvasHeight: canvasSize.height,
         points,
       }),
       sessionNote,
@@ -180,7 +183,16 @@ export function SessionSignatureModal({
             </Pressable>
           </View>
 
-          <View style={styles.signatureBox} {...panResponder.panHandlers}>
+          <View
+            style={styles.signatureBox}
+            onLayout={(event) =>
+              setCanvasSize({
+                width: event.nativeEvent.layout.width,
+                height: event.nativeEvent.layout.height,
+              })
+            }
+            {...panResponder.panHandlers}
+          >
             {points.length === 0 ? (
               <Text style={styles.signatureHint}>이곳에 손가락으로 서명해주세요</Text>
             ) : null}
