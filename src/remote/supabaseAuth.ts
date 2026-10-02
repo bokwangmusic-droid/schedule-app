@@ -167,6 +167,7 @@ export type RemoteTrainerLogin = {
   email: string;
   accessToken: string;
   verificationStatus: 'pending' | 'approved' | 'rejected';
+  verificationSubmittedAt?: string | null;
   rejectionReason?: string | null;
 };
 
@@ -190,13 +191,14 @@ export async function completeTrainerMagicLink(accessToken: string): Promise<Rem
 
   const response = await fetch(
     SUPABASE_URL + '/rest/v1/trainers?auth_user_id=eq.' + encodeURIComponent(userId) +
-      '&select=auth_user_id,verification_status,verification_rejection_reason&limit=1',
+      '&select=auth_user_id,verification_status,verification_submitted_at,verification_rejection_reason&limit=1',
     { headers: supabaseHeaders(accessToken) },
   );
   if (!response.ok) throw new Error(await readError(response));
   const rows = (await response.json()) as Array<{
     auth_user_id: string;
     verification_status?: 'pending' | 'approved' | 'rejected';
+    verification_submitted_at?: string | null;
     verification_rejection_reason?: string | null;
   }>;
   const trainer = rows[0];
@@ -209,6 +211,7 @@ export async function completeTrainerMagicLink(accessToken: string): Promise<Rem
     email,
     accessToken,
     verificationStatus: trainer.verification_status ?? 'pending',
+    verificationSubmittedAt: trainer.verification_submitted_at ?? null,
     rejectionReason: trainer.verification_rejection_reason,
   };
 }
