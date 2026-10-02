@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSwipeDownToClose } from './useSwipeDownToClose';
 
 type SignaturePoint = {
   x: number;
@@ -144,6 +145,7 @@ export function SessionSignatureModal({
     reset();
     onClose();
   };
+  const swipeDownHandlers = useSwipeDownToClose(close, visible && !submitting);
 
   const submit = () => {
     if (points.length < 8) return;
@@ -171,7 +173,9 @@ export function SessionSignatureModal({
     >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <View style={styles.handle} />
+          <View style={styles.handleTouchArea} {...swipeDownHandlers}>
+            <View style={styles.handle} />
+          </View>
 
           <Text style={styles.title}>PT 수업 확인 서명</Text>
           <Text style={styles.description}>
@@ -294,6 +298,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     backgroundColor: '#FFFFFF',
+  },
+  handleTouchArea: {
+    height: 30,
+    marginTop: -6,
+    marginBottom: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   handle: {
     width: 40,
