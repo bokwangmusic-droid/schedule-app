@@ -63,6 +63,7 @@ export default function AuthCallbackScreen() {
         if (errorDescription) throw new Error(decodeURIComponent(errorDescription));
 
         let accessToken = getParam(url, 'access_token');
+        let refreshToken = getParam(url, 'refresh_token');
         const tokenHash = getParam(url, 'token_hash');
         const tokenType = getParam(url, 'type') ?? 'email';
         const pendingFlow = await getPendingAuthFlow(db);
@@ -83,8 +84,9 @@ export default function AuthCallbackScreen() {
             const body = await verifyResponse.json().catch(() => ({})) as { msg?: string; message?: string; error_description?: string };
             throw new Error(body.msg || body.message || body.error_description || '이메일 인증에 실패했어요.');
           }
-          const verified = await verifyResponse.json() as { access_token?: string };
+          const verified = await verifyResponse.json() as { access_token?: string; refresh_token?: string };
           accessToken = verified.access_token ?? null;
+          refreshToken = verified.refresh_token ?? refreshToken;
         }
         if (!accessToken) {
           const code = getParam(url, 'code');
@@ -121,8 +123,9 @@ export default function AuthCallbackScreen() {
                   '인증 코드를 로그인 세션으로 바꾸지 못했어요.',
               );
             }
-            const tokenBody = await tokenResponse.json() as { access_token?: string };
+            const tokenBody = await tokenResponse.json() as { access_token?: string; refresh_token?: string };
             accessToken = tokenBody.access_token ?? null;
+            refreshToken = tokenBody.refresh_token ?? refreshToken;
           }
         }
 
@@ -137,13 +140,16 @@ export default function AuthCallbackScreen() {
         if (role === 'trainer') {
           setDetail('강사 인증 상태를 확인하는 중이에요.');
           const login = await withTimeout('강사 인증 확인', completeTrainerMagicLink(accessToken));
+          await saveAppSession(db, {
+            role: 'trainer',
+            trainerId: login.trainerId,
+            accessToken: login.accessToken,
+            refreshToken: refreshToken ?? undefined,
+            verificationStatus: login.verificationStatus,
+            email: login.email,
+          });
+          await clearPendingAuthFlow(db);
           if (login.verificationStatus === 'approved') {
-            await saveAppSession(db, {
-              role: 'trainer',
-              trainerId: login.trainerId,
-              accessToken: login.accessToken,
-            });
-            await clearPendingAuthFlow(db);
             authorizeCurrentLaunch();
             router.replace('/trainer');
             return;
@@ -172,6 +178,7 @@ export default function AuthCallbackScreen() {
           role: 'member',
           memberId: login.memberId,
           accessToken: login.accessToken,
+          refreshToken: refreshToken ?? undefined,
         });
         await clearPendingAuthFlow(db);
         authorizeCurrentLaunch();
