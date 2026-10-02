@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import {
   DEFAULT_TIMETABLE_SETTINGS,
@@ -60,7 +60,8 @@ export function TimetableSettingsModal({
   onWidgetPrivacyModeChange,
 }: Props) {
   const db = useSQLiteContext();
-  const swipeDownHandlers = useSwipeDownToClose(onClose, visible);
+  const { panHandlers: swipeDownHandlers, animatedStyle: swipeDownStyle } =
+    useSwipeDownToClose(onClose, visible, visible);
   const [widgetFontSize, setWidgetFontSize] = useState<WidgetFontSize>(
     DEFAULT_TIMETABLE_SETTINGS.widgetFontSize,
   );
@@ -120,10 +121,11 @@ export function TimetableSettingsModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => undefined}>
-          <View style={styles.handleTouchArea} {...swipeDownHandlers}>
-            <View style={styles.handle} />
-          </View>
+        <Animated.View style={[styles.sheet, swipeDownStyle]}>
+          <Pressable onPress={() => undefined}>
+            <View style={styles.handleTouchArea} {...swipeDownHandlers}>
+              <View style={styles.handle} />
+            </View>
           <Text style={styles.title}>시간표 디자인/설정</Text>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -254,10 +256,11 @@ export function TimetableSettingsModal({
             </View>
           </ScrollView>
 
-          <Pressable style={styles.doneButton} onPress={onClose}>
-            <Text style={styles.doneButtonText}>완료</Text>
+            <Pressable style={styles.doneButton} onPress={onClose}>
+              <Text style={styles.doneButtonText}>완료</Text>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
