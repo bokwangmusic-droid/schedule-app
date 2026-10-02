@@ -10,6 +10,7 @@ export type TrainerSession = {
   verificationStatus?: 'pending' | 'approved' | 'rejected';
   verificationSubmittedAt?: string | null;
   email?: string;
+  passwordReady?: boolean;
 };
 
 export type MemberSession = {
@@ -17,6 +18,7 @@ export type MemberSession = {
   memberId: string;
   accessToken?: string;
   refreshToken?: string;
+  passwordReady?: boolean;
 };
 
 export type AppSession = TrainerSession | MemberSession;
