@@ -21,6 +21,7 @@ import {
   saveTrainingLogDraft,
   trainingLogDraftKey,
 } from '../data/trainingLogDraftRepository';
+import { getLocalMemberSelfCheck } from '../remote/memberSelfCheck';
 import type {
   CreateTrainingLogInput,
   TrainingLogItem,
@@ -326,6 +327,23 @@ export function TrainingLogModal({
   useEffect(() => {
     if(visible) void listExerciseDefinitions(db).then(setExerciseLibrary).catch(console.error);
   }, [db, visible]);
+
+  useEffect(() => {
+    if (!visible || !memberId || !logDate) return;
+    let active = true;
+    void getLocalMemberSelfCheck(db, memberId, logDate)
+      .then((check) => {
+        if (!active || !check) return;
+        setActivityLevel(check.activityLevel ?? '중');
+        setCardioTreadmill(check.cardioTreadmill ?? '');
+        setCardioBike(check.cardioBike ?? '');
+        setCardioStepmill(check.cardioStepmill ?? '');
+      })
+      .catch(console.error);
+    return () => {
+      active = false;
+    };
+  }, [db, visible, memberId, logDate]);
 
   useEffect(() => {
     if (!visible) {
@@ -677,47 +695,10 @@ export function TrainingLogModal({
               <LevelPicker value={sleepQuality} onChange={setSleepQuality} />
               <Text style={styles.label}>컨디션</Text>
               <LevelPicker value={conditionLevel} onChange={setConditionLevel} />
-              <Text style={styles.label}>활동강도</Text>
-              <LevelPicker value={activityLevel} onChange={setActivityLevel} />
-
-            </View>
-
-            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
-              <Text style={styles.sectionTitle}>유산소</Text>
-              <View style={styles.threeColumn}>
-                <TextInput
-                  value={cardioTreadmill}
-                  onChangeText={setCardioTreadmill}
-                  placeholder="트레드밀"
-                  placeholderTextColor="#A2A8B2"
-                  style={[
-                    styles.input,
-                    styles.flexInput,
-                    isTablet && styles.inputTablet,
-                  ]}
-                />
-                <TextInput
-                  value={cardioBike}
-                  onChangeText={setCardioBike}
-                  placeholder="싸이클"
-                  placeholderTextColor="#A2A8B2"
-                  style={[
-                    styles.input,
-                    styles.flexInput,
-                    isTablet && styles.inputTablet,
-                  ]}
-                />
-                <TextInput
-                  value={cardioStepmill}
-                  onChangeText={setCardioStepmill}
-                  placeholder="스텝밀"
-                  placeholderTextColor="#A2A8B2"
-                  style={[
-                    styles.input,
-                    styles.flexInput,
-                    isTablet && styles.inputTablet,
-                  ]}
-                />
+              <View style={styles.memberInputBox}>
+                <Text style={styles.memberInputTitle}>회원 입력 항목</Text>
+                <Text style={styles.memberInputText}>활동강도 {activityLevel} · 트레드밀 {cardioTreadmill || '-'} · 싸이클 {cardioBike || '-'} · 스텝밀 {cardioStepmill || '-'}</Text>
+                <Text style={styles.memberInputHint}>활동강도와 유산소는 회원 화면에서 직접 입력한 값을 불러와요.</Text>
               </View>
             </View>
 
@@ -1131,6 +1112,10 @@ const styles = StyleSheet.create({
   planLabel: { fontSize: 10, fontWeight: '900', color: '#5968B5' },
   planText: { marginTop: 5, fontSize: 12, lineHeight: 18, color: '#3E4652' },
   planHistory: { marginTop: 7, fontSize: 10, fontWeight: '700', color: '#858C98' },
+  memberInputBox: { marginTop: 16, padding: 13, borderRadius: 14, backgroundColor: '#F1F7F6' },
+  memberInputTitle: { fontSize: 11, fontWeight: '900', color: '#177B78' },
+  memberInputText: { marginTop: 6, fontSize: 12, lineHeight: 18, fontWeight: '800', color: '#39434D' },
+  memberInputHint: { marginTop: 5, fontSize: 10, lineHeight: 15, color: '#7C858F' },
   label: { marginTop: 12, marginBottom: 6, fontSize: 11, fontWeight: '800', color: '#737B87' },
   input: {
     minHeight: 44,
