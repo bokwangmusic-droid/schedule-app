@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Modal,
   Pressable,
   StyleSheet,
@@ -45,7 +46,8 @@ export function MemberSignatureHistoryModal({
     setSelected(null);
     onClose();
   };
-  const swipeDownHandlers = useSwipeDownToClose(close, visible);
+  const { panHandlers: swipeDownHandlers, animatedStyle: swipeDownStyle } =
+    useSwipeDownToClose(close, visible, visible);
 
   return (
     <>
@@ -56,7 +58,7 @@ export function MemberSignatureHistoryModal({
         onRequestClose={close}
       >
         <View style={styles.backdrop}>
-          <View style={styles.sheet}>
+          <Animated.View style={[styles.sheet, swipeDownStyle]}>
             <View style={styles.handleTouchArea} {...swipeDownHandlers}>
               <View style={styles.handle} />
             </View>
@@ -114,7 +116,7 @@ export function MemberSignatureHistoryModal({
                 ) : null}
               </View>
             )}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
