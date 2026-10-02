@@ -18,7 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authorizeCurrentLaunch, getAppSession, saveAppSession, type TrainerSession } from '../src/auth/appSession';
 import { isSupabaseConfigured } from '../src/remote/supabaseConfig';
-import { completeTrainerMagicLink, refreshAuthSession, requestMemberMagicLink, requestTrainerMagicLink } from '../src/remote/supabaseAuth';
+import { completeMemberMagicLink, completeTrainerMagicLink, refreshAuthSession, requestMemberMagicLink, requestTrainerMagicLink, signInWithPassword } from '../src/remote/supabaseAuth';
+import { syncMemberSnapshot } from '../src/remote/memberSync';
 
 type LoginMode = 'select' | 'trainer' | 'member';
 
@@ -26,6 +27,7 @@ export default function LoginScreen() {
   const db = useSQLiteContext();
   const [mode, setMode] = useState<LoginMode>('select');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [savedTrainerSession, setSavedTrainerSession] = useState<TrainerSession | null>(null);
   const remoteConfigured = isSupabaseConfigured();
@@ -128,6 +130,67 @@ export default function LoginScreen() {
     }
   };
 
+  const loginWithPassword = async () => {
+    if (!remoteConfigured || busy) return;
+    Keyboard.dismiss();
+    setBusy(true);
+    try {
+      const auth = await signInWithPassword(email, password);
+
+      if (mode === 'trainer') {
+        const login = await completeTrainerMagicLink(auth.accessToken);
+        await saveAppSession(db, {
+          role: 'trainer',
+          trainerId: login.trainerId,
+          accessToken: auth.accessToken,
+          refreshToken: auth.refreshToken,
+          verificationStatus: login.verificationStatus,
+          verificationSubmittedAt: login.verificationSubmittedAt ?? null,
+          email: login.email,
+          passwordReady: true,
+        });
+
+        if (login.verificationStatus === 'approved') {
+          authorizeCurrentLaunch();
+          router.replace('/trainer');
+          return;
+        }
+
+        router.replace({
+          pathname: '/trainer-verification' as never,
+          params: {
+            status: login.verificationStatus,
+            submittedAt: login.verificationSubmittedAt ?? '',
+            rejectionReason: login.rejectionReason ?? '',
+          },
+        } as never);
+        return;
+      }
+
+      const login = await completeMemberMagicLink(auth.accessToken);
+      await syncMemberSnapshot(db, login.accessToken, login.memberId);
+      await saveAppSession(db, {
+        role: 'member',
+        memberId: login.memberId,
+        accessToken: login.accessToken,
+        refreshToken: auth.refreshToken,
+        passwordReady: true,
+      });
+      authorizeCurrentLaunch();
+      router.replace({ pathname: '/member-view/[id]' as never, params: { id: login.memberId } } as never);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        '로그인 실패',
+        error instanceof Error
+          ? error.message
+          : '이메일 또는 비밀번호를 확인해 주세요.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const sendTrainerMagicLink = async () => {
     if (!remoteConfigured || busy) return;
     Keyboard.dismiss();
@@ -213,7 +276,7 @@ export default function LoginScreen() {
 
               {mode === 'trainer' ? (
                 <>
-                  <Text style={styles.formText}>이메일 인증 후 강사 인증을 신청할 수 있어요.</Text>
+                  <Text style={styles.formText}>가입을 마친 강사는 이메일과 비밀번호로 바로 로그인하세요.</Text>
                   {savedTrainerSession?.accessToken ? (
                     <View style={styles.resumeCard}>
                       <Text style={styles.resumeTitle}>이전에 인증한 강사 계정이 있어요.</Text>
@@ -240,18 +303,36 @@ export default function LoginScreen() {
                     placeholder="이메일 주소"
                     placeholderTextColor="#A7ADB6"
                     editable={!busy}
-                    returnKeyType="send"
-                    onSubmitEditing={() => void sendTrainerMagicLink()}
                     style={styles.input}
+                  />
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="비밀번호"
+                    placeholderTextColor="#A7ADB6"
+                    editable={!busy}
+                    returnKeyType="go"
+                    onSubmitEditing={() => void loginWithPassword()}
+                    style={[styles.input, styles.passwordInput]}
                   />
                   <Pressable
                     style={[styles.primaryButton, (!remoteConfigured || busy) && styles.disabled]}
+                    onPress={() => void loginWithPassword()}
+                    disabled={!remoteConfigured || busy}
+                  >
+                    <Text style={styles.primaryButtonText}>{busy ? '로그인 중...' : '로그인'}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.linkButton, (!remoteConfigured || busy) && styles.disabled]}
                     onPress={() => void sendTrainerMagicLink()}
                     disabled={!remoteConfigured || busy}
                   >
-                    <Text style={styles.primaryButtonText}>{busy ? '전송 중...' : '이메일 인증하기'}</Text>
+                    <Text style={styles.linkButtonText}>처음 가입 / 비밀번호 만들기 · 이메일 인증</Text>
                   </Pressable>
-                  <Text style={styles.helperText}>처음 가입하는 강사는 인증 후 재직증명서 또는 명함을 제출하고 승인을 받아야 해요.</Text>
+                  <Text style={styles.helperText}>처음 한 번 이메일 인증 후 비밀번호를 만들면 이후에는 인증 메일 없이 로그인할 수 있어요.</Text>
                   {qaTrainerEnabled ? (
                     <>
                       <View style={styles.qaDivider} />
@@ -269,7 +350,7 @@ export default function LoginScreen() {
                 </>
               ) : (
                 <>
-                  <Text style={styles.formText}>등록된 이메일로 로그인 링크를 받아주세요.</Text>
+                  <Text style={styles.formText}>가입을 마친 회원은 이메일과 비밀번호로 바로 로그인하세요.</Text>
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
@@ -279,16 +360,34 @@ export default function LoginScreen() {
                     placeholder="이메일 주소"
                     placeholderTextColor="#A7ADB6"
                     editable={!busy}
-                    returnKeyType="send"
-                    onSubmitEditing={() => void sendMemberMagicLink()}
                     style={styles.input}
+                  />
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="비밀번호"
+                    placeholderTextColor="#A7ADB6"
+                    editable={!busy}
+                    returnKeyType="go"
+                    onSubmitEditing={() => void loginWithPassword()}
+                    style={[styles.input, styles.passwordInput]}
                   />
                   <Pressable
                     style={[styles.memberButton, (!remoteConfigured || busy) && styles.disabled]}
+                    onPress={() => void loginWithPassword()}
+                    disabled={!remoteConfigured || busy}
+                  >
+                    <Text style={styles.primaryButtonText}>{busy ? '로그인 중...' : '로그인'}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.linkButton, (!remoteConfigured || busy) && styles.disabled]}
                     onPress={() => void sendMemberMagicLink()}
                     disabled={!remoteConfigured || busy}
                   >
-                    <Text style={styles.primaryButtonText}>{busy ? '전송 중...' : '로그인 링크 받기'}</Text>
+                    <Text style={[styles.linkButtonText, styles.memberLinkText]}>처음 가입 / 비밀번호 만들기 · 이메일 인증</Text>
                   </Pressable>
                   {!remoteConfigured ? (
                     <Text style={styles.errorText}>회원 로그인 서버 연결을 확인해 주세요.</Text>
@@ -358,6 +457,10 @@ const styles = StyleSheet.create({
     color: '#2C3139',
     backgroundColor: '#FAFBFC',
   },
+  passwordInput: { marginTop: 10 },
+  linkButton: { marginTop: 12, minHeight: 38, alignItems: 'center', justifyContent: 'center' },
+  linkButtonText: { fontSize: 11, fontWeight: '900', color: '#177B78' },
+  memberLinkText: { color: '#E46E58' },
   primaryButton: {
     height: 52,
     marginTop: 22,
