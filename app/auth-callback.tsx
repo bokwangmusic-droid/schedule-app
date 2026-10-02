@@ -170,7 +170,7 @@ export default function AuthCallbackScreen() {
         await clearPendingAuthFlow(db);
 
         setDetail('비밀번호 설정 화면으로 이동하고 있어요.');
-        router.replace('/set-password');
+        router.replace('/set-password' as never);
       } catch (error) {
         console.error(error);
         if (active) {
