@@ -8,6 +8,8 @@ type Props = {
   onClose: () => void;
   onMembers: () => void;
   onProfile: () => void;
+  showAdmin?: boolean;
+  onAdmin?: () => void;
   onPrograms: () => void;
   onExercises: () => void;
   onCalendar: () => void;
@@ -26,6 +28,8 @@ export function TimetableMoreMenu({
   onClose,
   onMembers,
   onProfile,
+  showAdmin = false,
+  onAdmin,
   onPrograms,
   onExercises,
   onCalendar,
@@ -83,6 +87,9 @@ export function TimetableMoreMenu({
           <MenuItem icon="▤" label="홈 화면 위젯 추가" value="NEW" onPress={() => void addWidget()} />
           <MenuItem icon="👤" label="회원 관리" onPress={onMembers} />
           <MenuItem icon="★" label="내 강사 프로필" value="NEW" onPress={onProfile} />
+          {showAdmin && onAdmin ? (
+            <MenuItem icon="◆" label="관리자 센터" value="ADMIN" onPress={onAdmin} />
+          ) : null}
           <MenuItem icon="▦" label="프로그램 설정" value="NEW" onPress={onPrograms} />
           <MenuItem icon="🏋" label="운동 설정" value="NEW" onPress={onExercises} />
           <MenuItem icon="▦" label="달력 보기" onPress={onCalendar} />
