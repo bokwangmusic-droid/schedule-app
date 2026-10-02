@@ -598,7 +598,7 @@ export default function MembersScreen() {
                     <View style={styles.historyChipSignature}>
                       <SignaturePreview
                         signatureJson={session.signatureJson}
-                        height={18}
+                        height={42}
                         compact
                       />
                     </View>
@@ -645,7 +645,7 @@ export default function MembersScreen() {
               <>
                 <SignaturePreview
                   signatureJson={selectedSignedSession.signatureJson}
-                  height={180}
+                  height={220}
                 />
                 {selectedSignedSession.sessionNote ? (
                   <View style={styles.historyNote}>
@@ -859,13 +859,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignContent: 'flex-start',
     columnGap: 6,
-    rowGap: 2,
+    rowGap: 8,
   },
   historyChip: {
-    width: '49%',
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 7,
+    width: '100%',
+    height: 58,
+    paddingHorizontal: 10,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -874,15 +874,15 @@ const styles = StyleSheet.create({
     borderColor: '#E1E4EA',
   },
   historyChipDate: {
-    width: 68,
-    fontSize: 9,
+    width: 92,
+    fontSize: 11,
     fontWeight: '900',
     color: '#303640',
   },
   historyChipSignature: {
     flex: 1,
-    height: 18,
-    marginLeft: 4,
+    height: 42,
+    marginLeft: 8,
   },
   historyMoreText: {
     width: '100%',
