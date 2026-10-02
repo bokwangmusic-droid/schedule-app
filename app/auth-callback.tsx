@@ -9,6 +9,7 @@ import {
   memberHomeRoute,
   saveAppSession,
 } from '../src/auth/appSession';
+import { captureAuthUrl, consumeCapturedAuthUrl } from '../src/auth/deepLinkInbox';
 import { syncMemberSnapshot } from '../src/remote/memberSync';
 import { completeMemberMagicLink, completeTrainerMagicLink } from '../src/remote/supabaseAuth';
 
@@ -142,16 +143,32 @@ export default function AuthCallbackScreen() {
     };
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
+      captureAuthUrl(url);
       void finish(url);
     });
 
+    const capturedUrl = consumeCapturedAuthUrl();
+    if (capturedUrl) {
+      void finish(capturedUrl);
+    }
+
     void Linking.getInitialURL().then((url) => {
-      if (url) void finish(url);
+      if (url) {
+        captureAuthUrl(url);
+        void finish(url);
+      }
       setTimeout(() => {
         if (!active || lastUrlRef.current) return;
+        const queuedUrl = consumeCapturedAuthUrl();
+        if (queuedUrl) {
+          void finish(queuedUrl);
+          return;
+        }
         void Linking.getInitialURL().then((retryUrl) => {
-          if (retryUrl) void finish(retryUrl);
-          else if (active) {
+          if (retryUrl) {
+            captureAuthUrl(retryUrl);
+            void finish(retryUrl);
+          } else if (active) {
             setMessage('로그인 링크를 확인하지 못했어요.');
             setDetail('앱에서 새 인증 메일을 받은 뒤 최신 링크를 다시 눌러 주세요.');
             setBusy(false);
