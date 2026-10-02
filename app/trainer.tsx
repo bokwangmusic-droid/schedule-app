@@ -683,13 +683,10 @@ export default function HomeScreen() {
 
         <View style={styles.headerActions}>
           <Pressable style={styles.smallHeaderButton} onPress={() => router.push('./members')}>
-            <Text style={styles.smallHeaderButtonText}>회원</Text>
+            <Text style={styles.smallHeaderButtonText}>회원 목록</Text>
           </Pressable>
           <Pressable style={styles.smallHeaderButton} onPress={() => router.push('./calendar')}>
             <Text style={styles.smallHeaderButtonText}>달력</Text>
-          </Pressable>
-          <Pressable style={styles.addButton} onPress={() => openNewSchedule(todayString)}>
-            <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable
             accessibilityLabel="더보기"
