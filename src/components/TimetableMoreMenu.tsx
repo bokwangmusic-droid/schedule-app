@@ -1,4 +1,4 @@
-import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { requestPinWidget } from 'react-native-android-widget';
 import { useSwipeDownToClose } from './useSwipeDownToClose';
 
@@ -37,7 +37,8 @@ export function TimetableMoreMenu({
   onSaveImage,
   onLogout,
 }: Props) {
-  const swipeDownHandlers = useSwipeDownToClose(onClose, visible);
+  const { panHandlers: swipeDownHandlers, animatedStyle: swipeDownStyle } =
+    useSwipeDownToClose(onClose, visible, visible);
 
   const addWidget = async () => {
     if (onAddWidget) {
@@ -72,10 +73,11 @@ export function TimetableMoreMenu({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => undefined}>
-          <View style={styles.handleTouchArea} {...swipeDownHandlers}>
-            <View style={styles.handle} />
-          </View>
+        <Animated.View style={[styles.sheet, swipeDownStyle]}>
+          <Pressable onPress={() => undefined}>
+            <View style={styles.handleTouchArea} {...swipeDownHandlers}>
+              <View style={styles.handle} />
+            </View>
           <Text style={styles.title}>시간표 메뉴</Text>
 
           <MenuItem icon="▤" label="홈 화면 위젯 추가" value="NEW" onPress={() => void addWidget()} />
@@ -94,8 +96,9 @@ export function TimetableMoreMenu({
             onPress={onToggleOverlap}
           />
           <MenuItem icon="⇩" label="이미지로 저장" onPress={onSaveImage} />
-          <MenuItem icon="↪" label="로그아웃" onPress={onLogout} last />
-        </Pressable>
+            <MenuItem icon="↪" label="로그아웃" onPress={onLogout} last />
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
