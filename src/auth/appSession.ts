@@ -11,6 +11,7 @@ export type TrainerSession = {
 export type MemberSession = {
   role: 'member';
   memberId: string;
+  accessToken?: string;
 };
 
 export type AppSession = TrainerSession | MemberSession;
