@@ -35,6 +35,7 @@ import {
 import { addDays, startOfWeekMonday, toLocalDateString } from '../src/lib/date';
 import type { ScheduleItem } from '../src/types/schedule';
 import { refreshWeeklyTimetableWidget } from '../src/widgets/widgetController';
+import { isCurrentUserAdmin } from '../src/remote/admin';
 
 const START_HOUR = 6;
 const END_HOUR = 24;
@@ -195,6 +196,7 @@ export default function HomeScreen() {
   const [widgetPrivacyMode, setWidgetPrivacyMode] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -213,6 +215,15 @@ export default function HomeScreen() {
         if (session.role === 'member') {
           router.replace(memberHomeRoute(session.memberId) as never);
           return;
+        }
+        if (session.accessToken) {
+          void isCurrentUserAdmin(session.accessToken)
+            .then((admin) => {
+              if (active) setIsAdmin(admin);
+            })
+            .catch(console.error);
+        } else {
+          setIsAdmin(false);
         }
         setAuthChecking(false);
       })
@@ -944,6 +955,11 @@ export default function HomeScreen() {
         onProfile={() => {
           setMoreMenuOpen(false);
           router.push('./trainer-profile');
+        }}
+        showAdmin={isAdmin}
+        onAdmin={() => {
+          setMoreMenuOpen(false);
+          router.push('./admin');
         }}
         onPrograms={() => {
           setMoreMenuOpen(false);
