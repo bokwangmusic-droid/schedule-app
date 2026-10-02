@@ -5,10 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  authorizeCurrentLaunch,
   clearPendingAuthFlow,
   getPendingAuthFlow,
-  memberHomeRoute,
   saveAppSession,
 } from '../src/auth/appSession';
 import { captureAuthUrl, consumeCapturedAuthUrl } from '../src/auth/deepLinkInbox';
