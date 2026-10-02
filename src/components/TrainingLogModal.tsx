@@ -931,6 +931,71 @@ export function TrainingLogModal({
             </View>
 
             <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
+              <Text style={styles.sectionTitle}>식단 기록</Text>
+              <Text style={styles.planSubText}>아침 · 점심 · 저녁의 탄수화물, 단백질, 지방과 간식을 기록해요.</Text>
+
+              <View style={styles.dietStatusRow}>
+                <Pressable
+                  style={[styles.dietStatusButton, dietControl && styles.dietStatusButtonActive]}
+                  onPress={() => setDietControl((current) => !current)}
+                >
+                  <Text style={[styles.dietStatusText, dietControl && styles.dietStatusTextActive]}>
+                    식단관리 {dietControl ? '✓' : '미체크'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.dietStatusButton, hydration && styles.dietStatusButtonActive]}
+                  onPress={() => setHydration((current) => !current)}
+                >
+                  <Text style={[styles.dietStatusText, hydration && styles.dietStatusTextActive]}>
+                    수분섭취 {hydration ? '✓' : '미체크'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={[styles.mealGrid, isTablet && styles.mealGridTablet]}>
+                <MealRow
+                  title="아침"
+                  carbs={breakfastCarbs}
+                  onCarbs={setBreakfastCarbs}
+                  protein={breakfastProtein}
+                  onProtein={setBreakfastProtein}
+                  fat={breakfastFat}
+                  onFat={setBreakfastFat}
+                  isTablet={isTablet}
+                />
+                <MealRow
+                  title="점심"
+                  carbs={lunchCarbs}
+                  onCarbs={setLunchCarbs}
+                  protein={lunchProtein}
+                  onProtein={setLunchProtein}
+                  fat={lunchFat}
+                  onFat={setLunchFat}
+                  isTablet={isTablet}
+                />
+                <MealRow
+                  title="저녁"
+                  carbs={dinnerCarbs}
+                  onCarbs={setDinnerCarbs}
+                  protein={dinnerProtein}
+                  onProtein={setDinnerProtein}
+                  fat={dinnerFat}
+                  onFat={setDinnerFat}
+                  isTablet={isTablet}
+                />
+              </View>
+
+              <TextInput
+                value={snack}
+                onChangeText={setSnack}
+                placeholder="간식 / 보충제 / 기타 식단 메모"
+                placeholderTextColor="#A2A8B2"
+                style={[styles.input, isTablet && styles.inputTablet, styles.snackInput]}
+              />
+            </View>
+
+            <View style={[styles.card, isTablet && styles.cardTablet, isTabletLandscape && styles.cardTabletLandscape]}>
               <Text style={styles.sectionTitle}>트레이너 기록</Text>
               <TextInput
                 value={summary}
@@ -1254,7 +1319,43 @@ const styles = StyleSheet.create({
   },
   addSetButton: { marginTop: 8, alignSelf: 'flex-start' },
   addSetText: { fontSize: 11, fontWeight: '800', color: '#5968B5' },
+  dietStatusRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dietStatusButton: {
+    flex: 1,
+    minHeight: 42,
+    paddingHorizontal: 10,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F3F6',
+  },
+  dietStatusButtonActive: {
+    backgroundColor: '#E9F5EF',
+  },
+  dietStatusText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#737B87',
+  },
+  dietStatusTextActive: {
+    color: '#2D7A57',
+  },
+  mealGrid: {
+    marginTop: 4,
+  },
+  mealGridTablet: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  snackInput: {
+    marginTop: 10,
+  },
   mealCard: {
+    flex: 1,
     marginTop: 9,
     padding: 9,
     borderRadius: 12,
