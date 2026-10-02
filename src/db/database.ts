@@ -144,6 +144,17 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS member_self_checks (
+      member_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      activity_level TEXT,
+      cardio_treadmill TEXT,
+      cardio_bike TEXT,
+      cardio_stepmill TEXT,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (member_id, date)
+    );
+
     CREATE TABLE IF NOT EXISTS program_definitions (
       id TEXT PRIMARY KEY NOT NULL,
       category TEXT NOT NULL,
