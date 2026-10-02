@@ -212,3 +212,32 @@ export async function completeTrainerMagicLink(accessToken: string): Promise<Rem
     rejectionReason: trainer.verification_rejection_reason,
   };
 }
+
+
+export async function refreshAuthSession(refreshToken: string) {
+  if (!isSupabaseConfigured()) throw new Error('SUPABASE_NOT_CONFIGURED');
+  if (!refreshToken) throw new Error('REFRESH_TOKEN_MISSING');
+
+  const response = await fetch(
+    SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token',
+    {
+      method: 'POST',
+      headers: supabaseHeaders(),
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    },
+  );
+
+  if (!response.ok) throw new Error(await readError(response));
+
+  const body = (await response.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+  };
+
+  if (!body.access_token) throw new Error('새 로그인 세션을 만들지 못했어요.');
+
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token ?? refreshToken,
+  };
+}
