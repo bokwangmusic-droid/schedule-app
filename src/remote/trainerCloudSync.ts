@@ -1,8 +1,13 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { SUPABASE_URL, supabaseHeaders } from './supabaseConfig';
 
-const META_UPDATED_AT = 'trainer_cloud_synced_at';
-const META_HASH = 'trainer_cloud_payload_hash';
+const META_OWNER = 'trainer_cloud_owner_id';
+function metaUpdatedAt(trainerId: string) {
+  return 'trainer_cloud_synced_at:' + trainerId;
+}
+function metaHash(trainerId: string) {
+  return 'trainer_cloud_payload_hash:' + trainerId;
+}
 
 type SnapshotPayload = {
   version: 1;
@@ -170,8 +175,10 @@ async function buildLocalSnapshot(db: SQLiteDatabase): Promise<SnapshotPayload> 
      WHERE key NOT IN (
        'app_session',
        'pending_auth_flow',
-       'trainer_cloud_synced_at',
-       'trainer_cloud_payload_hash'
+       'trainer_cloud_owner_id'
+     )
+       AND key NOT LIKE 'trainer_cloud_synced_at:%'
+       AND key NOT LIKE 'trainer_cloud_payload_hash:%'
      )
      ORDER BY key`,
   );
@@ -389,16 +396,39 @@ export async function syncTrainerCloud(
 ) {
   if (!accessToken || !trainerId) return { changed: false, direction: 'none' as const };
 
-  const local = await buildLocalSnapshot(db);
-  const localHash = stableHash(local);
-  const lastHash = await readMeta(db, META_HASH);
-  const lastRemoteUpdatedAt = await readMeta(db, META_UPDATED_AT);
+  let local = await buildLocalSnapshot(db);
+  let localHash = stableHash(local);
+  const lastHash = await readMeta(db, metaHash(trainerId));
+  const lastRemoteUpdatedAt = await readMeta(db, metaUpdatedAt(trainerId));
+  const currentOwner = await readMeta(db, META_OWNER);
   const remote = await fetchRemoteSnapshot(accessToken, trainerId);
+
+  if (currentOwner && currentOwner !== trainerId && !remote) {
+    const empty: SnapshotPayload = {
+      version: 1,
+      members: [],
+      schedules: [],
+      trainingLogs: [],
+      trainingExercises: [],
+      trainingSets: [],
+      bodyRecords: [],
+      manualSignatures: [],
+      programDefinitions: [],
+      memberPrograms: [],
+      postureAssessments: [],
+      exerciseDefinitions: [],
+      appSettings: [],
+    };
+    await restoreLocalSnapshot(db, empty);
+    local = await buildLocalSnapshot(db);
+    localHash = stableHash(local);
+  }
 
   if (!remote) {
     const saved = await saveRemoteSnapshot(accessToken, trainerId, local);
-    await writeMeta(db, META_HASH, localHash);
-    await writeMeta(db, META_UPDATED_AT, saved.updated_at);
+    await writeMeta(db, metaHash(trainerId), localHash);
+    await writeMeta(db, metaUpdatedAt(trainerId), saved.updated_at);
+    await writeMeta(db, META_OWNER, trainerId);
     await syncTrainerSelfChecks(db, accessToken, trainerId);
     return { changed: true, direction: 'upload' as const };
   }
@@ -410,8 +440,9 @@ export async function syncTrainerCloud(
 
   if (!lastHash && !lastRemoteUpdatedAt) {
     await restoreLocalSnapshot(db, remotePayload);
-    await writeMeta(db, META_HASH, remoteHash);
-    await writeMeta(db, META_UPDATED_AT, remote.updated_at);
+    await writeMeta(db, metaHash(trainerId), remoteHash);
+    await writeMeta(db, metaUpdatedAt(trainerId), remote.updated_at);
+    await writeMeta(db, META_OWNER, trainerId);
     await syncTrainerSelfChecks(db, accessToken, trainerId);
     return { changed: true, direction: 'download' as const };
   }
@@ -421,16 +452,16 @@ export async function syncTrainerCloud(
 
   if (localChanged && !remoteChanged) {
     const saved = await saveRemoteSnapshot(accessToken, trainerId, local);
-    await writeMeta(db, META_HASH, localHash);
-    await writeMeta(db, META_UPDATED_AT, saved.updated_at);
+    await writeMeta(db, metaHash(trainerId), localHash);
+    await writeMeta(db, metaUpdatedAt(trainerId), saved.updated_at);
     await syncTrainerSelfChecks(db, accessToken, trainerId);
     return { changed: true, direction: 'upload' as const };
   }
 
   if (!localChanged && remoteChanged) {
     await restoreLocalSnapshot(db, remotePayload);
-    await writeMeta(db, META_HASH, remoteHash);
-    await writeMeta(db, META_UPDATED_AT, remote.updated_at);
+    await writeMeta(db, metaHash(trainerId), remoteHash);
+    await writeMeta(db, metaUpdatedAt(trainerId), remote.updated_at);
     await syncTrainerSelfChecks(db, accessToken, trainerId);
     return { changed: true, direction: 'download' as const };
   }
@@ -440,12 +471,14 @@ export async function syncTrainerCloud(
     await restoreLocalSnapshot(db, merged);
     const saved = await saveRemoteSnapshot(accessToken, trainerId, merged);
     const mergedHash = stableHash(merged);
-    await writeMeta(db, META_HASH, mergedHash);
-    await writeMeta(db, META_UPDATED_AT, saved.updated_at);
+    await writeMeta(db, metaHash(trainerId), mergedHash);
+    await writeMeta(db, metaUpdatedAt(trainerId), saved.updated_at);
+    await writeMeta(db, META_OWNER, trainerId);
     await syncTrainerSelfChecks(db, accessToken, trainerId);
     return { changed: true, direction: 'merge' as const };
   }
 
+  await writeMeta(db, META_OWNER, trainerId);
   await syncTrainerSelfChecks(db, accessToken, trainerId);
   return { changed: false, direction: 'none' as const };
 }
