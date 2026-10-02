@@ -306,21 +306,35 @@ export default function MembersScreen() {
   const historyTranslateY = useRef(new Animated.Value(0)).current;
   const historyPanResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        gesture.dy > 3 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gesture) => {
         historyTranslateY.setValue(Math.max(0, gesture.dy));
       },
       onPanResponderRelease: (_, gesture) => {
-        if (gesture.dy > 80 || gesture.vy > 0.8) {
-          Animated.timing(historyTranslateY, { toValue: 500, duration: 160, useNativeDriver: true }).start(() => {
+        if (gesture.dy > 50 || gesture.vy > 0.5) {
+          Animated.timing(historyTranslateY, {
+            toValue: 700,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
             historyTranslateY.setValue(0);
             closeSignatureHistory();
           });
         } else {
-          Animated.spring(historyTranslateY, { toValue: 0, useNativeDriver: true }).start();
+          Animated.spring(historyTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
         }
       },
-      onPanResponderTerminate: () => Animated.spring(historyTranslateY, { toValue: 0, useNativeDriver: true }).start(),
+      onPanResponderTerminate: () =>
+        Animated.spring(historyTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start(),
     }),
   ).current;
 
@@ -549,8 +563,11 @@ export default function MembersScreen() {
         onRequestClose={closeSignatureHistory}
       >
         <View style={styles.historyBackdrop}>
-          <Animated.View style={[styles.historySheet, { transform: [{ translateY: historyTranslateY }] }]} {...historyPanResponder.panHandlers}>
-            <View style={styles.historyHandle} />
+          <Animated.View style={[styles.historySheet, { transform: [{ translateY: historyTranslateY }] }]}>
+            <View style={styles.historyDragArea} {...historyPanResponder.panHandlers}>
+              <View style={styles.historyHandle} />
+              <Text style={styles.historyDragHint}>아래로 내려 닫기</Text>
+            </View>
             <View style={styles.historyHeader}>
               <View>
                 <Text style={styles.historyTitle}>
@@ -562,15 +579,20 @@ export default function MembersScreen() {
               </View>
               <View style={styles.historyHeaderActions}>
                 <Pressable
+                  style={styles.historyActionButton}
                   onPress={() => {
                     setSelectedSignedSession(null);
                     setManualSignatureOpen(true);
                   }}
-                  hitSlop={10}
+                  hitSlop={12}
                 >
                   <Text style={styles.historyAdd}>+ 서명 추가</Text>
                 </Pressable>
-                <Pressable onPress={closeSignatureHistory} hitSlop={10}>
+                <Pressable
+                  style={styles.historyCloseButton}
+                  onPress={closeSignatureHistory}
+                  hitSlop={12}
+                >
                   <Text style={styles.historyClose}>닫기</Text>
                 </Pressable>
               </View>
@@ -637,7 +659,11 @@ export default function MembersScreen() {
                   </Text>
                 ) : null}
               </View>
-              <Pressable onPress={() => setSelectedSignedSession(null)} hitSlop={10}>
+              <Pressable
+                style={styles.historyCloseButton}
+                onPress={() => setSelectedSignedSession(null)}
+                hitSlop={12}
+              >
                 <Text style={styles.historyClose}>닫기</Text>
               </Pressable>
             </View>
@@ -814,13 +840,25 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 26,
     backgroundColor: '#F7F8FA',
   },
+  historyDragArea: {
+    minHeight: 48,
+    marginHorizontal: -4,
+    marginTop: -4,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   historyHandle: {
-    width: 40,
-    height: 4,
-    marginBottom: 14,
-    alignSelf: 'center',
-    borderRadius: 2,
-    backgroundColor: '#D7DAE1',
+    width: 58,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#C8CDD6',
+  },
+  historyDragHint: {
+    marginTop: 5,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#A0A6B0',
   },
   historyHeader: {
     flexDirection: 'row',
@@ -835,9 +873,27 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#858C98',
   },
-  historyHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  historyAdd: { fontSize: 13, fontWeight: '900', color: '#4B68FF' },
-  historyClose: { fontSize: 13, fontWeight: '900', color: '#5968B5' },
+  historyHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  historyActionButton: {
+    minHeight: 46,
+    minWidth: 112,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF1FF',
+  },
+  historyCloseButton: {
+    minHeight: 46,
+    minWidth: 68,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F2F5',
+  },
+  historyAdd: { fontSize: 16, fontWeight: '900', color: '#4B68FF' },
+  historyClose: { fontSize: 16, fontWeight: '900', color: '#4E5663' },
   historyLoading: {
     height: 180,
     alignItems: 'center',
