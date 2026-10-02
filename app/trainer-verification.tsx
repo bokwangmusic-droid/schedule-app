@@ -89,6 +89,7 @@ export default function TrainerVerificationScreen() {
     nextEmail: string,
     trainerId: string,
   ) => {
+    const previous = await getAppSession(db);
     const session: TrainerSession = {
       role: 'trainer',
       trainerId,
@@ -97,6 +98,7 @@ export default function TrainerVerificationScreen() {
       verificationStatus: nextStatus,
       verificationSubmittedAt: nextSubmittedAt ?? null,
       email: nextEmail,
+      passwordReady: previous?.role === 'trainer' ? previous.passwordReady : undefined,
     };
     await saveAppSession(db, session);
   };
