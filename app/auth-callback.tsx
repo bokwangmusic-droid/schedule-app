@@ -149,7 +149,7 @@ export default function AuthCallbackScreen() {
             passwordReady: false,
           });
           await clearPendingAuthFlow(db);
-          router.replace('/set-password');
+          router.replace('/set-password' as never);
           return;
         }
 
