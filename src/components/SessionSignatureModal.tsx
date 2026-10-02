@@ -47,15 +47,19 @@ export function SessionSignatureModal({
 
         const dx = point.x - previous.x;
         const dy = point.y - previous.y;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        if (length < 0.5) return [];
+        const length = Math.hypot(dx, dy);
+        if (length < 0.15) return [];
 
+        const thickness = 5.2;
+        const overlap = thickness * 0.58;
         return [
           {
             key: `${point.stroke}-${index}`,
-            left: (previous.x + point.x) / 2 - length / 2,
-            top: (previous.y + point.y) / 2 - 2.25,
-            width: length,
+            left: (previous.x + point.x) / 2 - (length + overlap * 2) / 2,
+            top: (previous.y + point.y) / 2 - thickness / 2,
+            width: length + overlap * 2,
+            height: thickness,
+            radius: thickness / 2,
             angle: Math.atan2(dy, dx),
           },
         ];
@@ -65,15 +69,33 @@ export function SessionSignatureModal({
 
   const addPoint = (x: number, y: number, stroke: number) => {
     const last = lastPointRef.current;
-    if (last && last.stroke === stroke) {
-      const dx = x - last.x;
-      const dy = y - last.y;
-      if (dx * dx + dy * dy < 7) return;
+
+    if (!last || last.stroke !== stroke) {
+      const point = { x, y, stroke };
+      lastPointRef.current = point;
+      setPoints((current) => [...current, point]);
+      return;
     }
 
-    const point = { x, y, stroke };
+    const dx = x - last.x;
+    const dy = y - last.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 0.6) return;
+
+    const steps = Math.max(1, Math.min(14, Math.ceil(distance / 1.4)));
+    const interpolated = Array.from({ length: steps }, (_, index) => {
+      const t = (index + 1) / steps;
+      const ease = t * t * (3 - 2 * t);
+      return {
+        x: last.x + dx * ease,
+        y: last.y + dy * ease,
+        stroke,
+      };
+    });
+
+    const point = interpolated[interpolated.length - 1];
     lastPointRef.current = point;
-    setPoints((current) => [...current, point]);
+    setPoints((current) => [...current, ...interpolated]);
   };
 
   const panResponder = useMemo(
@@ -206,6 +228,8 @@ export function SessionSignatureModal({
                     left: segment.left,
                     top: segment.top,
                     width: segment.width,
+                    height: segment.height,
+                    borderRadius: segment.radius,
                     transform: [{ rotate: `${segment.angle}rad` }],
                   },
                 ]}
@@ -218,8 +242,8 @@ export function SessionSignatureModal({
                 style={[
                   styles.signatureDot,
                   {
-                    left: point.x - 2.25,
-                    top: point.y - 2.25,
+                    left: point.x - 2.6,
+                    top: point.y - 2.6,
                   },
                 ]}
               />
@@ -343,15 +367,15 @@ const styles = StyleSheet.create({
   },
   signatureSegment: {
     position: 'absolute',
-    height: 4.5,
-    borderRadius: 2.25,
+    height: 5.2,
+    borderRadius: 2.6,
     backgroundColor: '#222831',
   },
   signatureDot: {
     position: 'absolute',
-    width: 4.5,
-    height: 4.5,
-    borderRadius: 2.25,
+    width: 5.2,
+    height: 5.2,
+    borderRadius: 2.6,
     backgroundColor: '#222831',
   },
   legalHint: {
