@@ -122,6 +122,17 @@ create table if not exists public.member_body_records (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.member_self_checks (
+  member_id text not null references public.members(id) on delete cascade,
+  date date not null,
+  activity_level text,
+  cardio_treadmill text,
+  cardio_bike text,
+  cardio_stepmill text,
+  updated_at timestamptz not null default now(),
+  primary key (member_id, date)
+);
+
 create index if not exists idx_remote_members_trainer on public.members(trainer_user_id);
 create index if not exists idx_remote_schedules_member_date on public.schedules(member_id, date);
 create index if not exists idx_remote_logs_member_date on public.member_training_logs(member_id, date);
@@ -135,6 +146,7 @@ alter table public.member_training_logs enable row level security;
 alter table public.member_training_exercises enable row level security;
 alter table public.member_training_sets enable row level security;
 alter table public.member_body_records enable row level security;
+alter table public.member_self_checks enable row level security;
 
 drop policy if exists trainers_self_select on public.trainers;
 create policy trainers_self_select on public.trainers for select using (auth.uid() = auth_user_id);
@@ -294,4 +306,32 @@ using (
 with check (
   bucket_id = 'trainer-profiles'
   and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+
+drop policy if exists self_checks_member_all on public.member_self_checks;
+create policy self_checks_member_all on public.member_self_checks for all
+using (
+  exists (
+    select 1 from public.member_accounts a
+    where a.auth_user_id = auth.uid()
+      and a.member_id = member_self_checks.member_id
+  )
+)
+with check (
+  exists (
+    select 1 from public.member_accounts a
+    where a.auth_user_id = auth.uid()
+      and a.member_id = member_self_checks.member_id
+  )
+);
+
+drop policy if exists self_checks_trainer_select on public.member_self_checks;
+create policy self_checks_trainer_select on public.member_self_checks for select
+using (
+  exists (
+    select 1 from public.members m
+    where m.id = member_self_checks.member_id
+      and m.trainer_user_id = auth.uid()
+  )
 );
